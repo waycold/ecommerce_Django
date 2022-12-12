@@ -5,6 +5,7 @@
     border-radius: 2%;
     background-color: aliceblue;
     height: 60%;
+    position: relative;
 }
 
 .content{
@@ -21,6 +22,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    margin: 0 30%;
 }
 
 
@@ -52,47 +54,3 @@
     width: 35%;
     margin: auto;
 }
-    
-    
-    
-    
-    
-    
-    
-    /* 
-    .content{
-        margin-top: 5%;
-        padding-bottom: 10vh;
-        padding-top: 5vh;
-        display: flex;
-        text-align: center;
-    }
-    
-    
-    .content-form{
-        height: 400px;
-        position: relative;
-    }
-    
-    .form{
-        margin: auto;
-        align-items: center;
-        text-align: center;
-        width: 45%;
-        height: 55%;
-    justify-content: center;
-    box-sizing: border-box;
-}
-
-
-
-
-#id_category{
-    margin-bottom: 10px;
-    display: flex;
-    justify-self: center;
-    margin-left: 30px;
-}
- */
-
-
