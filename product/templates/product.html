@@ -12,7 +12,7 @@
         <div class="col-md-6 mb-4" style="display: flex; justify-content: center; justify-items: center;">
 
           {% for object in items %}
-          <img src="/uploads/{{ object.img }}" class="img-fluid" alt="image not found"  style="height: 250px;">
+          <img src="{% if object.img %}{{ object.img.url }}{% endif %}" class="img-fluid" alt="image not found"  style="height: 250px;">
 
         </div>
         <!--Grid column-->
@@ -24,7 +24,7 @@
           <div class="p-4">
             <div class="mb-3">
               <h1>
-                {{ object.tittle }}
+                {{ object.title }}
               </h1>
               <a href="">
                 <span class="badge purple mr-1">{{ object.get_category_display }}</span>
@@ -82,13 +82,6 @@
 
         <!--Grid column-->
         <div class="col-md-6 text-center">
-        <div style="margin-bottom: 100px;">
-          <img src="/uploads/star.png" alt="" style="height: 30px;">
-          <img src="/uploads/star.png" alt="" style="height: 30px;">
-          <img src="/uploads/star.png" alt="" style="height: 30px;">
-          <img src="/uploads/star.png" alt="" style="height: 30px;">
-          <img src="/uploads/star.png" alt="" style="height: 30px;">
-        </div>
 
 
           <h4 class="my-4 h4">Additional information</h4>
@@ -138,16 +131,18 @@
         </h1>
       </div>
       <div class="col-xl-12" style="align-items: center; text-align: center; margin-top: 100px; width: 70%;">
-        <form action="" method="post">
-          <img class="rounded-circle shadow-1-strong me-3"
-          src="{{ url }}" alt="not found" width="65"
-          height="65" style="float: left; "/>
-          {% csrf_token %}
-          {{ form.as_p }}
-          <button name="submit">
-            submit
-          </button>
-        </form>
+          {% if user.is_authenticated %}
+            <form action="" method="post">
+              <img class="rounded-circle shadow-1-strong me-3"
+              src="{{ profile_image_url }}" alt="not found" width="65"
+              height="65" style="float: left; "/>
+              {% csrf_token %}
+              {{ form.as_p }}
+              <button name="submit">
+                submit
+              </button>
+            </form>
+          {% endif %}
       </div>
     </div>
     <div style="background-color: #FFFAFA;">
@@ -159,13 +154,13 @@
               {% for objects in comments %}
               <div class="d-flex flex-start mb-4">
                 <img class="rounded-circle shadow-1-strong me-3"
-                  src="{{ objects.image_perfil }}" alt="avatar" width="65"
+                  src="{% if objects.image_perfil %}{{ objects.image_perfil.url }}{% else %}{{ profile_image_url }}{% endif %}" alt="avatar" width="65"
                   height="65" />
                 <div class="card w-100">
                   <div class="card-body p-4">
                     <div class="">
                       <h5>{{ objects.user }}</h5>
-                      <p class="small">{{ objects.date_adedd }}</p>
+                      <p class="small">{{ objects.date_added }}</p>
                       <p>
                         {{ objects.body }}
                       </p>
@@ -201,7 +196,11 @@
 
   <!--Footer-->
   <footer class="page-footer text-center font-small mt-4 wow fadeIn">
-
+    <div class="pt-2">
+      <div style="display: flex; align-items: center; justify-content: center; flex-direction: row; margin: 8px;">
+        <strong style="padding: 8px; font-size: 30px; border-right: 2px solid white;">Store</strong>
+        <a style="padding: 10px" class="nav-link waves-effect" href="/about">About</a>
+      </div>
     <!--Copyright-->
     <div class="footer-copyright py-3">
       © 2019 Copyright:

@@ -78,7 +78,7 @@
           <div class="row wow  fadeIn">
 
             {% for item in items %}
-            {% comment %} {% if search == item.tittle %} {% endcomment %}
+            {% comment %} {% if search == item.title %} {% endcomment %}
             <!--Grid column-->
               <a class="col-lg-3 col-md-6 mb-4" href="{{ item.get_absolute_url }}">
                 <!--Card-->
@@ -98,7 +98,7 @@
                         <h5>
                           <strong>
                             <h5 href="{{ item.get_absolute_url }}" class="dark-grey-text"
-                            >{{ item.tittle }}
+                            >{{ item.title }}
                             <span class="badge badge-pill {{ item.get_label_display }}-color"></span>
                           </h5>
                         </strong>

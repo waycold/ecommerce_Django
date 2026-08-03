@@ -1,20 +1,42 @@
-{% extends 'base.html' %} {% block content %}
+{% extends 'base.html' %}
+{% block content %}
 
+<div class="auth-wrapper">
+  <div class="auth-card">
+    <div class="auth-header">
+      <div class="logo-badge">
+        <i class="fas fa-shopping-bag"></i>
+      </div>
+      <h2>Bienvenido de nuevo</h2>
+      <p>Ingresa a tu cuenta para continuar</p>
+    </div>
 
-<div class="general-content" id="general-content-signup">
-  <div class="logo">
-    <h1 class="logo-title">Store</h1>
-  </div>
-  
-  <div class="content">
-    <h2 class="content-title">
-      Log in
-    </h2>
-    <form action="/login/" method="POST" class="form">
-      {% csrf_token %} {{form.as_p}}
-  
-      <button class="button-save" id="form-button">log in</button>
+    {% if error %}
+    <div class="alert alert-danger text-center font-weight-bold" role="alert" style="border-radius: 10px;">
+      <i class="fas fa-exclamation-circle mr-2"></i>{{ error }}
+    </div>
+    {% endif %}
+
+    <form action="/login/" method="POST" class="custom-form">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="username"><i class="fas fa-user mr-2"></i>Usuario</label>
+        <input type="text" name="username" id="username" class="form-control" placeholder="Tu usuario" required autofocus>
+      </div>
+
+      <div class="form-group">
+        <label for="password"><i class="fas fa-lock mr-2"></i>Contraseña</label>
+        <input type="password" name="password" id="password" class="form-control" placeholder="••••••••" required>
+      </div>
+
+      <button type="submit" class="btn-custom-primary mt-3">
+        <i class="fas fa-sign-in-alt mr-2"></i>Iniciar Sesión
+      </button>
     </form>
+
+    <div class="auth-footer">
+      ¿No tienes una cuenta aún? <a href="/signup/">Regístrate aquí</a>
+    </div>
   </div>
 </div>
 

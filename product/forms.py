@@ -32,9 +32,9 @@ class product_form(forms.ModelForm):
     category = forms.ChoiceField(choices= CATEGORY_CHOICES)
     class Meta:
         model = Item
-        fields = ['tittle', 'description', 'price', 'category', 'img']
+        fields = ['title', 'description', 'price', 'category', 'img']
         widgets = {
-        'tittle': forms.TextInput(
+        'title': forms.TextInput(
             attrs={
                 'placeholder': 'title',
                 'rows': 1,
@@ -74,9 +74,9 @@ class edit_product_form(forms.ModelForm):
     category = forms.ChoiceField(choices= CATEGORY_CHOICES)
     class Meta:
         model = Item
-        fields = ['tittle', 'description', 'price', 'category', 'img']
+        fields = ['title', 'description', 'price', 'category', 'img']
         widgets = {
-        'tittle': forms.TextInput(
+        'title': forms.TextInput(
             attrs={
                 'placeholder': 'title',
                 'rows': 1,

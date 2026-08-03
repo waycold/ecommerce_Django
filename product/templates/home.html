@@ -105,7 +105,7 @@
                         <h5>
                           <strong>
                             <h5 href="{{ item.get_absolute_url }}" class="dark-grey-text"
-                            >{{ item.tittle }}
+                            >{{ item.title }}
                             <span class="badge badge-pill {{ item.get_label_display }}-color"></span>
                           </h5>
                         </strong>
@@ -179,9 +179,11 @@
     </main>
     <!--Main layout-->
     <footer class="page-footer text-center font-small mt-2" style="margin-top: auto;">
-              <!--Call to action-->
-              <div class="pt-2">
-        
+            <div class="pt-2">
+              <div style="display: flex; align-items: center; justify-content: center; flex-direction: row; margin: 8px;">
+                <strong style="padding: 8px; font-size: 30px; border-right: 2px solid white;">Store</strong>
+                <a style="padding: 10px" class="nav-link waves-effect" href="/about">About</a>
+              </div>
               <!--Copyright-->
               <div class="footer-copyright py-3">
                 © 2019 Copyright:

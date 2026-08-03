@@ -1,12 +1,12 @@
-from itertools import product
 from django.contrib import admin
 from django.urls import path, include
-from product import views
 from django.conf import settings
 from django.conf.urls.static import static
+from product.views import log_in
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('accounts/login/', log_in, name='login'),
     path('', include('product.urls', namespace='product'))
 ]
 

@@ -1,179 +1,71 @@
 {% extends 'base.html' %}
 {% block content %}
 
+<div class="container mt-4 mb-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="profile-card">
+        <div class="row align-items-center">
+          <div class="col-md-4 text-center">
+            <div class="profile-avatar-wrapper">
+              {% if user_profile.image %}
+              <img src="/uploads/{{ user_profile.image }}" alt="{{ user_profile.user|default:user.username }}" class="profile-avatar">
+              {% else %}
+              <img src="/uploads/profile_image/default.jpg" alt="{{ user.username }}" class="profile-avatar">
+              {% endif %}
+            </div>
 
-<link href="/product/static/css/profile.css" rel="stylesheet" id="bootstrap-css">
-<script src="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.min.js"></script>
-<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
-<!------ Include the above in your HEAD tag ---------->
+            <!-- Modal Trigger / Avatar upload -->
+            <form action="/agregar_imagen" method="post" enctype="multipart/form-data" class="mt-2">
+              {% csrf_token %}
+              <div class="form-group mb-2">
+                <label for="id_image" class="btn btn-sm btn-outline-secondary rounded-pill custom-file-upload">
+                  <i class="fas fa-camera mr-1"></i> Cambiar Foto
+                </label>
+                <input type="file" name="image" id="id_image" class="d-none" onchange="this.form.submit()">
+              </div>
+            </form>
+          </div>
 
-<div class="container emp-profile">
-    <div>
-        <form action="/agregar_imagen" method="post" enctype="multipart/form-data"> 
-            {% csrf_token %}
-    
-            {{ image_form.as_p }}
-        
-            <button>
-                submit
-            </button>
-            
-        </form>
-    </div>
-            <form method="post">
-                {% csrf_token %}
-                <div class="row">
-                    <div class="col-md-4">
-                        {% for items in profile %}
-                        {% if items.username == user %}
-                        <img style="width: 300px; height: 300px;" src="/uploads/{{ items.image }}" alt="not user image found"/>
-                        <!-- <img src="/uploads/{{ items.image }}" alt="" id="image"/>
-                            <p>{{ profile.image.url }}</p> -->
-                    </div>
-                    <div class="col-md-6">
-                        <div class="profile-head">
-                                    <h5>
-                                        {{ items.user }}
-                                    </h5>
-                            <ul class="nav nav-tabs" id="myTab" role="tablist">
-                                <li class="nav-item">
-                                    <a class="nav-link active" id="home-tab" data-toggle="tab" href="#home" role="tab" aria-controls="home" aria-selected="true">About</a>
-                                </li>
-                            </ul>
-                        </div>
-                        {% endif %}
-                        {% endfor %}
-                    </div>
-                    <div class="col-md-2">
-                        {% for items in profile %}
-                        {% if items.username == user %}                        
-                        <a href="{{ items.get_profile_url }}">
-                            <p class="profile-edit-btn" style="background-color: rgb(223, 223, 223); text-align: center; ">edit profile</p>
-                        </a>
-                        {% endif %}
-                        {% endfor %}
-                    </div>
+          <div class="col-md-8">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <div>
+                <h3 class="profile-header-title">{{ user_profile.user|default:user.username }}</h3>
+                <span class="badge badge-pill badge-primary"><i class="fas fa-user-shield mr-1"></i> {{ user.username }}</span>
+              </div>
+              <a href="{{ user_profile.get_profile_url }}" class="btn-custom-outline btn-sm">
+                <i class="fas fa-user-edit mr-1"></i> Editar Perfil
+              </a>
+            </div>
+
+            <div class="row mt-4">
+              <div class="col-sm-6">
+                <div class="profile-info-block">
+                  <div class="profile-info-label"><i class="fas fa-envelope mr-1"></i> Email</div>
+                  <p class="profile-info-value">{{ user_profile.email|default:user.email|default:"No especificado" }}</p>
                 </div>
-                <div class="row">
-                    <div class="col-md-4">
-                    </div>
-                    <div class="col-md-8"  style="margin-bottom: 100px;">
-                        <div class="tab-content profile-tab" id="myTabContent">
-                            <div class="tab-pane fade show active" id="home" role="tabpanel" aria-labelledby="home-tab">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <label>User Id</label>
-                                            </div>
-                                            {% for items in profile %}
-                                            {% if items.username == user %}
-                                            <div class="col-md-6">
-                                                <p>{{ items.username }}</p>
-                                            </div>
-                                            {% endif %}
-                                            {% endfor %}
-                                        </div>
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <label>Name</label>
-                                            </div>
-                                            {% for items in profile %}
-                                            {% if items.username == user %}
-                                            <div class="col-md-6">
-                                                <p>{{ items.user }}</p>
-                                            </div>
-                                            {% endif %}
-                                            {% endfor %}
-                                        </div>
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <label>Email</label>
-                                            </div>
-                                            {% for items in profile %}
-                                            {% if items.username == user %}
-                                            <div class="col-md-6">
-                                                <p>{{ items.email }}</p>
-                                            </div>
-                                            {% endif %}
-                                            {% endfor %}
-                                        </div>
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <label>Phone</label>
-                                            </div>
-                                            {% for items in profile %}
-                                            {% if items.username == user %}
-                                            <div class="col-md-6">
-                                                <p>{{ items.phone }}</p>
-                                            </div>
-                                            {% endif %}
-                                            {% endfor %}
-                                        </div>
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <label>Descrition</label>
-                                            </div>
-                                            {% for items in profile %}
-                                            {% if items.username == user %}
-                                            <div class="col-md-6">
-                                                <p>{{ items.description }}</p>
-                                            </div>
-                                            {% endif %}
-                                            {% endfor %}
-                                        </div>
-                            </div>
-                            <div class="tab-pane fade" id="profile" role="tabpanel" aria-labelledby="profile-tab">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <label>Experience</label>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <p>Expert</p>
-                                            </div>
-                                        </div>
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <label>Hourly Rate</label>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <p>10$/hr</p>
-                                            </div>
-                                        </div>
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <label>Total Projects</label>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <p>230</p>
-                                            </div>
-                                        </div>
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <label>English Level</label>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <p>Expert</p>
-                                            </div>
-                                        </div>
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <label>Availability</label>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <p>6 months</p>
-                                            </div>
-                                        </div>
-                                <div class="row">
-                                    <div class="col-md-12">
-                                        <label>Your Bio</label><br/>
-                                        <p>Your detail description</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+              </div>
+              <div class="col-sm-6">
+                <div class="profile-info-block">
+                  <div class="profile-info-label"><i class="fas fa-phone mr-1"></i> Teléfono</div>
+                  <p class="profile-info-value">{{ user_profile.phone|default:"No especificado" }}</p>
                 </div>
-            </form>           
+              </div>
+              <div class="col-12">
+                <div class="profile-info-block">
+                  <div class="profile-info-label"><i class="fas fa-info-circle mr-1"></i> Descripción / Bio</div>
+                  <p class="profile-info-value" style="font-weight: 400; font-size: 14px;">
+                    {{ user_profile.description|default:"Sin descripción ingresada aún." }}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+          </div>
         </div>
-
+      </div>
+    </div>
+  </div>
+</div>
 
 {% endblock %}

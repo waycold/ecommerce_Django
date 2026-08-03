@@ -1,4 +1,4 @@
-from product.models import Order, Profile
+from product.models import Order, Profile, OrderItem
 from django import template
 
 
@@ -13,7 +13,3 @@ def cart_item_count(user):
             return qs[0].items.count()
     return 0
 
-
-@register.simple_tag()
-def image_user_tag(user):
-    pass

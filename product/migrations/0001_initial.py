@@ -18,7 +18,7 @@ class Migration(migrations.Migration):
             name='Item',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('tittle', models.CharField(max_length=100)),
+                ('title', models.CharField(max_length=100)),
                 ('price', models.DecimalField(decimal_places=0, max_digits=10)),
                 ('category', models.CharField(choices=[('CPU', 'CPU'), ('RAM', 'RAM'), ('GPU', 'GPU')], max_length=5)),
                 ('label', models.CharField(choices=[('P', 'primary'), ('S', 'secondary'), ('D', 'danger')], max_length=5, null=True)),

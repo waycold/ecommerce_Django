@@ -1,0 +1,309 @@
+/* Custom Design System for Store */
+:root {
+  --primary-dark: #1C2331;
+  --primary-blue: #1E88E5;
+  --accent-color: #3F51B5;
+  --bg-light: #F4F6F9;
+  --card-bg: #FFFFFF;
+  --text-main: #2C3E50;
+  --text-muted: #7F8C8D;
+  --border-color: #E2E8F0;
+  --radius-lg: 16px;
+  --radius-md: 10px;
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.08);
+}
+
+body {
+  background-color: var(--bg-light) !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: var(--text-main);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1 0 auto;
+}
+
+/* Page wrapper for centering auth cards */
+.auth-wrapper {
+  min-height: calc(100vh - 180px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 15px;
+}
+
+.auth-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  padding: 40px;
+  width: 100%;
+  max-width: 480px;
+  transition: transform 0.3s ease;
+}
+
+.auth-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.auth-header .logo-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  background: linear-gradient(135deg, var(--primary-dark), var(--accent-color));
+  color: white;
+  border-radius: 50%;
+  font-size: 26px;
+  margin-bottom: 15px;
+  box-shadow: 0 8px 18px rgba(31, 35, 49, 0.25);
+}
+
+.auth-header h2 {
+  font-weight: 700;
+  font-size: 26px;
+  color: var(--primary-dark);
+  margin-bottom: 8px;
+}
+
+.auth-header p {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin: 0;
+}
+
+.custom-form .form-group {
+  margin-bottom: 20px;
+}
+
+.custom-form label {
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-main);
+  margin-bottom: 8px;
+  display: block;
+}
+
+.custom-form input[type="text"],
+.custom-form input[type="password"],
+.custom-form input[type="email"],
+.custom-form input[type="number"],
+.custom-form textarea,
+.custom-form select {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background-color: #FAFAFA;
+  font-size: 14px;
+  transition: all 0.2s ease-in-out;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.custom-form input:focus,
+.custom-form textarea:focus,
+.custom-form select:focus {
+  background-color: #FFFFFF;
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 4px rgba(30, 136, 229, 0.15);
+}
+
+.btn-custom-primary {
+  background: linear-gradient(135deg, #1C2331 0%, #263238 100%);
+  color: white !important;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 14px 20px;
+  width: 100%;
+  font-size: 15px;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(28, 35, 49, 0.25);
+  display: inline-block;
+  text-align: center;
+}
+
+.btn-custom-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(28, 35, 49, 0.35);
+  background: linear-gradient(135deg, #263238 0%, #1C2331 100%);
+  text-decoration: none;
+}
+
+.btn-custom-outline {
+  background: transparent;
+  color: var(--primary-dark) !important;
+  font-weight: 600;
+  border: 2px solid var(--primary-dark);
+  border-radius: var(--radius-md);
+  padding: 10px 20px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  display: inline-block;
+  text-align: center;
+}
+
+.btn-custom-outline:hover {
+  background: var(--primary-dark);
+  color: white !important;
+  text-decoration: none;
+}
+
+.auth-footer {
+  text-align: center;
+  margin-top: 25px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.auth-footer a {
+  color: var(--primary-blue);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.auth-footer a:hover {
+  text-decoration: underline;
+}
+
+/* Profile Styling */
+.profile-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 40px;
+  margin-top: 40px;
+  margin-bottom: 60px;
+  border: 1px solid var(--border-color);
+}
+
+.profile-avatar-wrapper {
+  text-align: center;
+  position: relative;
+  margin-bottom: 25px;
+}
+
+.profile-avatar {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid #FFFFFF;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.profile-header-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--primary-dark);
+  margin-bottom: 5px;
+}
+
+.profile-header-subtitle {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.profile-info-block {
+  background: #FAFAFA;
+  border-radius: var(--radius-md);
+  padding: 20px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 20px;
+}
+
+.profile-info-label {
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 5px;
+}
+
+.profile-info-value {
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--text-main);
+  margin: 0;
+}
+
+/* Cart / Checkout Styling */
+.cart-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-color);
+  padding: 35px;
+  margin-top: 30px;
+  margin-bottom: 60px;
+}
+
+.cart-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.cart-item-row:last-child {
+  border-bottom: none;
+}
+
+.cart-item-img {
+  width: 75px;
+  height: 75px;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  background: #F8F9FA;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.cart-qty-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cart-qty-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-dark);
+  font-weight: bold;
+  text-decoration: none !important;
+  transition: all 0.2s ease;
+  font-size: 16px;
+}
+
+.cart-qty-btn:hover {
+  background: var(--primary-dark);
+  color: white !important;
+  border-color: var(--primary-dark);
+}
+
+.cart-summary-box {
+  background: #FAFAFA;
+  border-radius: var(--radius-md);
+  padding: 25px;
+  border: 1px solid var(--border-color);
+}
