@@ -6,133 +6,137 @@
 <div class="container mt-4 mb-5" style="min-height: calc(100vh - 200px);">
   <div class="d-flex align-items-center justify-content-between my-4">
     <h2 class="h3 font-weight-bold mb-0" style="color: var(--primary-dark);">
-      <i class="fas fa-shopping-cart mr-2 text-primary"></i> Tu Carrito de Compras
+      <i class="fas fa-credit-card mr-2 text-primary"></i> Finalizar Compra (Checkout)
     </h2>
-    {% if object and object.items.exists %}
-    <span class="badge badge-pill badge-primary px-3 py-2" style="font-size: 14px;">
-      {{ object.get_total_item_count }} producto(s)
-    </span>
-    {% endif %}
+    <a href="{% url 'product:order_summary' %}" class="btn btn-outline-secondary btn-sm rounded-pill">
+      <i class="fas fa-arrow-left mr-1"></i> Volver al Carrito
+    </a>
   </div>
 
-  {% if object and object.items.exists %}
-  <div class="row">
-    <!-- Lista de Productos -->
-    <div class="col-lg-8 mb-4">
-      <div class="cart-card p-0">
-        <div class="p-4 border-bottom bg-light d-none d-md-block" style="border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
-          <div class="row font-weight-bold text-muted" style="font-size: 13px; text-transform: uppercase;">
-            <div class="col-md-6">Producto</div>
-            <div class="col-md-3 text-center">Cantidad</div>
-            <div class="col-md-3 text-right">Precio</div>
+  <form method="POST" action="">
+    {% csrf_token %}
+    <div class="row">
+      <!-- Columna Izquierda: Envío y Pago -->
+      <div class="col-lg-7 mb-4">
+        <!-- 1. Sistema de Shipping / Envío (Tarifa Plana) -->
+        <div class="cart-card mb-4 p-4">
+          <h5 class="font-weight-bold mb-3" style="color: var(--primary-dark);">
+            <i class="fas fa-truck text-primary mr-2"></i> 1. Método de Envío
+          </h5>
+
+          <div class="p-3 border rounded-lg bg-light mb-3 d-flex align-items-center justify-content-between">
+            <div class="custom-control custom-radio">
+              <input type="radio" id="shipping_flat" name="shipping_method" class="custom-control-input" checked disabled>
+              <label class="custom-control-label font-weight-bold" for="shipping_flat">
+                Envío Estándar a Domicilio (Tarifa Plana)
+              </label>
+              <small class="d-block text-muted">Entrega estimada de 2 a 5 días hábiles</small>
+            </div>
+            <span class="font-weight-bold text-dark" style="font-size: 16px;">$500.00</span>
+          </div>
+
+          <div class="border-top pt-3 mt-3">
+            <h6 class="font-weight-bold text-muted mb-2"><i class="fas fa-map-marker-alt mr-1"></i> Datos de Entrega</h6>
+            <div class="row">
+              <div class="col-md-6 mb-2">
+                <small class="text-muted d-block">Ciudad:</small>
+                <strong>{{ user_profile.city|default:"No especificada" }}</strong>
+              </div>
+              <div class="col-md-6 mb-2">
+                <small class="text-muted d-block">Provincia:</small>
+                <strong>{{ user_profile.province|default:"No especificada" }}</strong>
+              </div>
+              <div class="col-12 mt-2">
+                <a href="{{ user_profile.get_profile_url }}" class="small text-primary font-weight-bold">
+                  <i class="fas fa-edit mr-1"></i> Actualizar dirección en mi perfil
+                </a>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="px-4">
-          {% for order_item in object.items.all %}
-          <div class="cart-item-row">
-            <div class="d-flex align-items-center col-md-6 pl-0">
-              {% if order_item.item.img %}
-              <img src="/uploads/{{ order_item.item.img }}" alt="{{ order_item.item.title }}" class="cart-item-img mr-3">
-              {% else %}
-              <div class="cart-item-img mr-3 d-flex align-items-center justify-content-center bg-light">
-                <i class="fas fa-box text-muted"></i>
-              </div>
-              {% endif %}
-              <div>
-                <h6 class="font-weight-bold mb-1" style="color: var(--primary-dark);">
-                  <a href="{{ order_item.item.get_absolute_url }}" class="text-dark">{{ order_item.item.title }}</a>
-                </h6>
-                <span class="badge badge-light border text-muted">{{ order_item.item.get_category_display }}</span>
-                <div class="mt-1">
-                  <a href="{% url 'product:remove-from-cart' order_item.item.slug %}" class="text-danger small font-weight-bold" title="Eliminar del carrito">
-                    <i class="fas fa-trash-alt mr-1"></i> Quitar
-                  </a>
+        <!-- 2. Método de Pago -->
+        <div class="cart-card p-4">
+          <h5 class="font-weight-bold mb-3" style="color: var(--primary-dark);">
+            <i class="fas fa-wallet text-primary mr-2"></i> 2. Método de Pago
+          </h5>
+
+          <div class="payment-options">
+            {% for code, label in payment_methods %}
+            <div class="custom-control custom-radio p-3 border rounded-lg mb-2 bg-white hover-shadow" style="transition: all 0.2s;">
+              <input type="radio" id="pm_{{ code }}" name="payment_method" value="{{ code }}" class="custom-control-input" {% if forloop.first %}checked{% endif %}>
+              <label class="custom-control-label font-weight-bold d-flex align-items-center justify-content-between w-100 cursor-pointer" for="pm_{{ code }}">
+                <span>
+                  {% if code == 'CREDIT_CARD' %}<i class="fas fa-credit-card text-primary mr-2"></i>
+                  {% elif code == 'DEBIT_CARD' %}<i class="far fa-credit-card text-info mr-2"></i>
+                  {% elif code == 'TRANSFER' %}<i class="fas fa-university text-success mr-2"></i>
+                  {% else %}<i class="fas fa-money-bill-wave text-warning mr-2"></i>{% endif %}
+                  {{ label }}
+                </span>
+              </label>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Columna Derecha: Div Resumen de Compra en Checkout -->
+      <div class="col-lg-5">
+        <div class="cart-card position-sticky" style="top: 90px;">
+          <h5 class="font-weight-bold mb-4" style="color: var(--primary-dark);">
+            <i class="fas fa-clipboard-list text-primary mr-2"></i> Resumen de Compra
+          </h5>
+
+          <!-- Lista de Items resumida -->
+          <div class="mb-4 pr-1" style="max-height: 220px; overflow-y: auto;">
+            {% for order_item in object.items.all %}
+            <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
+              <div class="d-flex align-items-center">
+                {% if order_item.item.img %}
+                <img src="/uploads/{{ order_item.item.img }}" alt="{{ order_item.item.title }}" class="mr-2 rounded border" width="40" height="40" style="object-fit: contain;">
+                {% endif %}
+                <div>
+                  <h6 class="mb-0 small font-weight-bold text-dark">{{ order_item.item.title }}</h6>
+                  <small class="text-muted">{{ order_item.quantity }} x ${{ order_item.item.price }}</small>
                 </div>
               </div>
+              <span class="font-weight-bold small">${{ order_item.get_total_item_price }}</span>
             </div>
-
-            <div class="col-md-3 text-center my-3 my-md-0">
-              <div class="cart-qty-control justify-content-center">
-                <a href="{% url 'product:remove_single_from_cart' order_item.item.slug %}" class="cart-qty-btn">
-                  <i class="fas fa-minus small"></i>
-                </a>
-                <span class="font-weight-bold px-2" style="font-size: 16px;">{{ order_item.quantity }}</span>
-                <a href="{% url 'product:add_to_cart' order_item.item.slug %}" class="cart-qty-btn">
-                  <i class="fas fa-plus small"></i>
-                </a>
-              </div>
-            </div>
-
-            <div class="col-md-3 text-right pr-0">
-              <div class="font-weight-bold text-dark" style="font-size: 18px;">
-                ${{ order_item.get_total_item_price }}
-              </div>
-              {% if order_item.quantity > 1 %}
-              <small class="text-muted">(${{ order_item.item.price }} c/u)</small>
-              {% endif %}
-            </div>
+            {% endfor %}
           </div>
-          {% endfor %}
-        </div>
-      </div>
-    </div>
 
-    <!-- Resumen de Compra -->
-    <div class="col-lg-4">
-      <div class="cart-card">
-        <h5 class="font-weight-bold mb-4" style="color: var(--primary-dark);">Resumen del Pedido</h5>
+          <!-- Desglose de Totales -->
+          <div class="d-flex justify-content-between mb-2" style="font-size: 14px;">
+            <span class="text-muted">Subtotal Productos</span>
+            <span class="font-weight-bold">${{ object.get_items_subtotal }}</span>
+          </div>
 
-        <div class="d-flex justify-content-between mb-3" style="font-size: 15px;">
-          <span class="text-muted">Subtotal</span>
-          <span class="font-weight-bold">${{ object.get_total_price }}</span>
-        </div>
+          <div class="d-flex justify-content-between mb-2" style="font-size: 14px;">
+            <span class="text-muted">Envío (Tarifa Plana)</span>
+            <span class="font-weight-bold text-dark">$500.00</span>
+          </div>
 
-        <div class="d-flex justify-content-between mb-3" style="font-size: 15px;">
-          <span class="text-muted">Envío</span>
-          <span class="text-success font-weight-bold"><i class="fas fa-truck mr-1"></i> Gratis</span>
-        </div>
+          {% if object.discount > 0 %}
+          <div class="d-flex justify-content-between mb-2 text-success" style="font-size: 14px;">
+            <span>Descuento aplicado</span>
+            <span class="font-weight-bold">-${{ object.discount }}</span>
+          </div>
+          {% endif %}
 
-        <hr class="my-4">
+          <hr class="my-3">
 
-        <div class="d-flex justify-content-between mb-4" style="font-size: 20px;">
-          <span class="font-weight-bold" style="color: var(--primary-dark);">Total</span>
-          <span class="font-weight-bold text-primary">${{ object.get_total_price }}</span>
-        </div>
+          <div class="d-flex justify-content-between mb-4" style="font-size: 20px;">
+            <span class="font-weight-bold" style="color: var(--primary-dark);">TOTAL</span>
+            <span class="font-weight-bold text-primary">${{ object.total }}</span>
+          </div>
 
-        <form method="POST" action="">
-          {% csrf_token %}
-          <button type="submit" name="buy" class="btn-custom-primary mb-3">
-            <i class="fas fa-lock mr-2"></i> Finalizar Compra
+          <button type="submit" name="buy" class="btn-custom-primary">
+            <i class="fas fa-lock mr-2"></i> Confirmar y Pagar
           </button>
-          
-          <button type="submit" name="delete" class="btn btn-outline-danger btn-block btn-sm rounded-lg" onclick="return confirm('¿Seguro que deseas vaciar el carrito?');">
-            <i class="fas fa-trash mr-1"></i> Vaciar Carrito
-          </button>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  {% else %}
-  <!-- Carrito Vacío -->
-  <div class="row justify-content-center my-5">
-    <div class="col-md-8 text-center">
-      <div class="cart-card py-5 px-4">
-        <div class="mb-4">
-          <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-light text-muted" style="width: 100px; height: 100px; font-size: 40px;">
-            <i class="fas fa-shopping-bag text-primary"></i>
-          </span>
         </div>
-        <h3 class="font-weight-bold text-dark mb-2">Tu carrito está vacío</h3>
-        <p class="text-muted mb-4">Parece que aún no has añadido ningún componente a tu carrito de compras.</p>
-        <a href="/" class="btn-custom-primary px-4 py-3" style="width: auto;">
-          <i class="fas fa-store mr-2"></i> Explorar Catálogo de Productos
-        </a>
       </div>
     </div>
-  </div>
-  {% endif %}
+  </form>
 </div>
 
 <!--Footer-->

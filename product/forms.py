@@ -1,24 +1,36 @@
 from django import forms
-from product.models import Profile, Comments, Item, CATEGORY_CHOICES
+from product.models import Profile, Comments, Item, Category, Brand, Supplier
+
 
 class profile_edit_form(forms.ModelForm):
-    user = forms.CharField()
-    email = forms.EmailField()
-    phone = forms.DecimalField()
-    description = forms.CharField()
+    birth_date = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
+    )
+
     class Meta:
         model = Profile
-        fields= ['user', 'email', 'phone', 'description'] 
+        fields = ['phone', 'description', 'address_line', 'city', 'province', 'zip_code', 'country', 'birth_date']
+        widgets = {
+            'phone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Teléfono'}),
+            'address_line': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Calle y número, piso, dpto'}),
+            'city': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ciudad'}),
+            'province': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Provincia / Estado / Región'}),
+            'zip_code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Código Postal'}),
+            'country': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'País'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descripción'}),
+        }
+
 
 class comments_form(forms.ModelForm):
-    body = forms.CharField(label = '', widget = forms.Textarea(attrs={'placeholder': 'text here...', 'rows': 3, 'cols': 70}))
-    requered_css_class = 'required-field'
+    body = forms.CharField(
+        label='',
+        widget=forms.Textarea(attrs={'placeholder': 'Escribe tu comentario aquí...', 'rows': 3, 'class': 'form-control'})
+    )
+
     class Meta:
         model = Comments
-        fields= ['body']
-        labels = {
-            'body': (''),
-        }
+        fields = ['body']
 
 
 class image_form(forms.ModelForm):
@@ -28,84 +40,25 @@ class image_form(forms.ModelForm):
 
 
 class product_form(forms.ModelForm):
-    requered_css_class = 'required-field'
-    category = forms.ChoiceField(choices= CATEGORY_CHOICES)
+    category = forms.ModelChoiceField(queryset=Category.objects.all(), required=False, widget=forms.Select(attrs={'class': 'form-control'}))
+    brand = forms.ModelChoiceField(queryset=Brand.objects.all(), required=False, widget=forms.Select(attrs={'class': 'form-control'}))
+    supplier = forms.ModelChoiceField(queryset=Supplier.objects.all(), required=False, widget=forms.Select(attrs={'class': 'form-control'}))
+
     class Meta:
         model = Item
-        fields = ['title', 'description', 'price', 'category', 'img']
+        fields = ['title', 'description', 'price', 'cost', 'stock', 'minimum_stock', 'category', 'brand', 'supplier', 'label', 'img', 'is_active']
         widgets = {
-        'title': forms.TextInput(
-            attrs={
-                'placeholder': 'title',
-                'rows': 1,
-                'cols': 30,
-                'class': 'item-form',
-                'style': ''
-                }),
-        'description': forms.TextInput(
-            attrs={
-                'placeholder': 'description',
-                'rows': 1,
-                'cols': 20,
-                'class': 'item-form',
-                'style': ''
-                }),
-        'price': forms.TextInput(
-            attrs={
-                'placeholder': 'price',
-                'rows': 1,
-                'cols': 20,
-                'class': 'item-form',
-                'style': ''
-                }),
-        'category': forms.ChoiceField(
-            label='',
-            widget=forms.Select(attrs={'class':'category-form'})),
-        'img': forms.FileInput(
-            attrs={
-                'style': '',
-                'class': 'item-form'
-                }),
+            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Título del producto'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descripción'}),
+            'price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Precio de venta'}),
+            'cost': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Costo'}),
+            'stock': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Stock actual'}),
+            'minimum_stock': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Stock mínimo'}),
+            'label': forms.Select(attrs={'class': 'form-control'}),
+            'img': forms.FileInput(attrs={'class': 'form-control-file'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
 
-class edit_product_form(forms.ModelForm):
-    requered_css_class = 'required-field'
-    category = forms.ChoiceField(choices= CATEGORY_CHOICES)
-    class Meta:
-        model = Item
-        fields = ['title', 'description', 'price', 'category', 'img']
-        widgets = {
-        'title': forms.TextInput(
-            attrs={
-                'placeholder': 'title',
-                'rows': 1,
-                'cols': 20,
-                'class': 'item-form',
-                'style': ''
-                }),
-        'description': forms.TextInput(
-            attrs={
-                'placeholder': 'description',
-                'rows': 1,
-                'cols': 20,
-                'class': 'item-form',
-                'style': ''
-                }),
-        'price': forms.TextInput(
-            attrs={
-                'placeholder': 'price',
-                'rows': 1,
-                'cols': 20,
-                'class': 'item-form',
-                'style': ''
-                }),
-        'category': forms.ChoiceField(
-            label='',
-            widget=forms.Select(attrs={'class':'category-form'})),
-        'img': forms.FileInput(
-            attrs={
-                'style': '',
-                'class': 'item-form'
-                }),
-        }
+class edit_product_form(product_form):
+    pass

@@ -307,3 +307,90 @@ main {
   padding: 25px;
   border: 1px solid var(--border-color);
 }
+
+/* Modern Sober Profile & Edit Profile Design */
+:root {
+  --radius-sober: 6px;
+}
+
+.sober-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-sober) !important;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+  padding: 35px;
+}
+
+.sober-header {
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 20px;
+  margin-bottom: 25px;
+}
+
+.sober-header h3 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--primary-dark);
+  margin-bottom: 4px;
+}
+
+.sober-header p {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin: 0;
+}
+
+.form-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--accent-color);
+  margin-top: 15px;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+}
+
+.sober-input {
+  border-radius: var(--radius-sober) !important;
+  border: 1px solid var(--border-color);
+  padding: 10px 14px;
+  font-size: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.sober-input:focus {
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgba(30, 136, 229, 0.15);
+}
+
+.sober-btn-primary {
+  background: var(--primary-dark);
+  color: #fff !important;
+  border-radius: var(--radius-sober) !important;
+  font-weight: 600;
+  padding: 10px 24px;
+  border: none;
+  transition: background-color 0.2s ease;
+}
+
+.sober-btn-primary:hover {
+  background: #2C3E50;
+}
+
+.sober-btn-outline {
+  background: transparent;
+  color: var(--text-main) !important;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sober) !important;
+  font-weight: 600;
+  padding: 10px 20px;
+  transition: all 0.2s ease;
+}
+
+.sober-btn-outline:hover {
+  background: #F8F9FA;
+  border-color: var(--text-muted);
+}
+

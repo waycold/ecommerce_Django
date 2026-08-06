@@ -2,34 +2,149 @@ from django.test import TestCase
 import random
 import string
 from django.contrib.auth.models import User
-from product.models import Profile, Comments, Item
+from product.models import Profile, Comments, Item, Category, Brand, Supplier, Order, OrderItem, OrderStatus
 
 
-
-class test_profiles(TestCase):
+class ProfileTestCase(TestCase):
     def setUp(self):
-        length = random.randint(1,20)
-        random_sequence = ''.join(random.choice(string.printable) for i in range(length))
+        length = random.randint(5, 12)
+        self.username = ''.join(random.choice(string.ascii_letters) for _ in range(length))
+        self.password = 'pass12345'
         self.test_user = User.objects.create_user(
-            username=random_sequence,
-            password=random_sequence,
+            username=self.username,
+            password=self.password,
         )
 
     def test_users(self):
-        self.assertEqual(self.test_user.is_active, True)
-        self.assertEqual(self.test_user.is_anonymous, False)
-        self.assertEqual(self.test_user.is_staff, False)
-        self.assertEqual(self.test_user.is_superuser, False)
+        self.assertTrue(self.test_user.is_active)
+        self.assertFalse(self.test_user.is_anonymous)
+        self.assertFalse(self.test_user.is_staff)
+        self.assertFalse(self.test_user.is_superuser)
 
     def test_login(self):
-        length = random.randint(1,20)
-        random_sequence = ''.join(random.choice(string.printable) for i in range(length))
-        self.test_user = User.objects.create_user(
-            username=random_sequence,
-            password=random_sequence,
+        login_success = self.client.login(username=self.username, password=self.password)
+        self.assertTrue(login_success)
+
+
+class ModelsRefactorTestCase(TestCase):
+    def setUp(self):
+        self.brand = Brand.objects.create(name="Intel")
+        self.category = Category.objects.create(name="CPU")
+        self.supplier = Supplier.objects.create(name="TechCorp", country="USA")
+        self.item = Item.objects.create(
+            title="Core i7 13700K",
+            price=450.00,
+            cost=350.00,
+            stock=10,
+            minimum_stock=2,
+            category=self.category,
+            brand=self.brand,
+            supplier=self.supplier
         )
-        self.test_user.set_password(random_sequence)
-        self.test_user.save()
-        response = self.client.login(username = random_sequence, password = random_sequence)
-        self.assertEqual(response, True)
+        self.user = User.objects.create_user(username="testbuyer", password="password123")
+        self.profile = Profile.objects.create(user=self.user, phone="11223344", city="Buenos Aires")
+
+    def test_item_creation(self):
+        self.assertEqual(self.item.category.name, "CPU")
+        self.assertEqual(self.item.brand.name, "Intel")
+        self.assertEqual(self.item.supplier.name, "TechCorp")
+        self.assertEqual(self.item.slug, "core-i7-13700k")
+
+    def test_order_creation_and_total(self):
+        order = Order.objects.create(user=self.user, status=OrderStatus.PENDING)
+        order_item = OrderItem.objects.create(order=order, item=self.item, quantity=2)
+        self.assertEqual(order_item.subtotal, 900.00)
+        self.assertEqual(order.calculate_total(), 1400.00) # 900 subtotal + 500 domestic shipping
+        self.assertEqual(order.get_total_item_count(), 2)
+
+    def test_discount_recalculation(self):
+        order = Order.objects.create(user=self.user, status=OrderStatus.PENDING, shipping_cost=500.00)
+        order_item = OrderItem.objects.create(order=order, item=self.item, quantity=2)
+        order.discount_code = 'DESC10'
+        # 10% of 900 = 90, total = 900 + 500 - 90 = 1310
+        self.assertEqual(order.calculate_total(), 1310.00)
+        self.assertEqual(order.discount, 90.00)
+
+        # Add 1 more item (subtotal 1350)
+        order_item.quantity = 3
+        order_item.save()
+        # 10% of 1350 = 135, total = 1350 + 500 - 135 = 1715
+        self.assertEqual(order.calculate_total(), 1715.00)
+        self.assertEqual(order.discount, 135.00)
+
+    def test_stock_validation_and_home_filtering(self):
+        out_of_stock_item = Item.objects.create(
+            title="Out of Stock GPU",
+            price=300.00,
+            cost=200.00,
+            stock=0,
+            is_active=True,
+        )
+        self.client.login(username="testbuyer", password="password123")
+
+        # Home view should not list out of stock item
+        response = self.client.get('/')
+        self.assertContains(response, "Core i7 13700K")
+        self.assertNotContains(response, "Out of Stock GPU")
+
+        # Try to add out of stock item to cart
+        res = self.client.get(out_of_stock_item.get_add_to_cart_url(), follow=True)
+        self.assertContains(res, "no tiene stock disponible")
+
+    def test_profile_fields(self):
+        from datetime import date
+        self.profile.address_line = "Av. Corrientes 1234"
+        self.profile.city = "Buenos Aires"
+        self.profile.province = "CABA"
+        self.profile.zip_code = "C1043"
+        self.profile.country = "Argentina"
+        self.profile.birth_date = date(1995, 5, 20)
+        self.profile.save()
+
+        self.assertEqual(self.profile.address_line, "Av. Corrientes 1234")
+        self.assertEqual(self.profile.city, "Buenos Aires")
+        self.assertEqual(self.profile.province, "CABA")
+        self.assertEqual(self.profile.zip_code, "C1043")
+        self.assertEqual(self.profile.country, "Argentina")
+        self.assertFalse(self.profile.is_international())
+        self.assertEqual(self.profile.birth_date, date(1995, 5, 20))
+
+    def test_international_shipping(self):
+        order = Order.objects.create(user=self.user, status=OrderStatus.PENDING)
+        order_item = OrderItem.objects.create(order=order, item=self.item, quantity=1)
+
+        # Default country (Argentina) -> domestic shipping $500.00
+        self.assertEqual(order.recalculate_shipping_cost(), 500.00)
+        self.assertEqual(order.calculate_total(), 950.00) # 450 + 500
+
+        # Change profile country to Spain -> international shipping $2500.00
+        self.profile.country = "España"
+        self.profile.save()
+
+        self.assertTrue(self.profile.is_international())
+        self.assertEqual(order.recalculate_shipping_cost(), 2500.00)
+        self.assertEqual(order.calculate_total(), 2950.00) # 450 + 2500
+
+    def test_home_pagination(self):
+        # Create 20 active items with stock
+        for i in range(20):
+            Item.objects.create(
+                title=f"Paged Product {i}",
+                price=100.00,
+                cost=50.00,
+                stock=5,
+                is_active=True,
+            )
+
+        # Page 1 should contain 16 items
+        res1 = self.client.get('/?page=1')
+        self.assertEqual(res1.status_code, 200)
+        self.assertEqual(len(res1.context['items']), 16)
+
+        # Page 2 should contain remaining items (20 + 1 from setUp = 21 items total, page 2 has 5 items)
+        res2 = self.client.get('/?page=2')
+        self.assertEqual(res2.status_code, 200)
+        self.assertEqual(len(res2.context['items']), 5)
+
+
 

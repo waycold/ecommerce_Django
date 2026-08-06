@@ -10,7 +10,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views.generic import DetailView, View
 
-from product.models import Item, OrderItem, Order, Profile, Comments
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from product.models import Item, OrderItem, Order, Profile, Comments, Category, Brand, Supplier, OrderStatus, PaymentMethod
 from product.forms import (
     profile_edit_form,
     comments_form,
@@ -28,35 +29,43 @@ class HomeView(View):
     template_name = 'home.html'
 
     def _filter_items(self, request):
-        items = Item.objects.all()
-        search_query = request.POST.get('search')
+        items = Item.objects.filter(is_active=True, stock__gt=0).order_by('-id')
+        search_query = request.GET.get('search') or request.POST.get('search')
+        category_id = request.GET.get('category_id') or request.POST.get('category_id')
 
         if search_query:
             items = items.filter(
-                Q(category__icontains=search_query) |
+                Q(category__name__icontains=search_query) |
+                Q(brand__name__icontains=search_query) |
                 Q(title__icontains=search_query)
             ).distinct()
-        elif 'CPU' in request.POST:
-            items = items.filter(category='CPU')
-        elif 'GPU' in request.POST:
-            items = items.filter(category='GPU')
-        elif 'RAM' in request.POST:
-            items = items.filter(category='RAM')
+        elif category_id:
+            items = items.filter(category_id=category_id)
 
-        return items, search_query
+        return items, search_query, category_id
 
     def get(self, request):
+        items, search_query, category_id = self._filter_items(request)
+
+        paginator = Paginator(items, 16)
+        page_number = request.GET.get('page')
+        try:
+            page_obj = paginator.page(page_number)
+        except PageNotAnInteger:
+            page_obj = paginator.page(1)
+        except EmptyPage:
+            page_obj = paginator.page(paginator.num_pages)
+
         return render(request, self.template_name, {
-            'items': Item.objects.all(),
-            'search': None,
+            'page_obj': page_obj,
+            'items': page_obj.object_list,
+            'categories': Category.objects.all(),
+            'search': search_query,
+            'selected_category': int(category_id) if category_id and str(category_id).isdigit() else None,
         })
 
     def post(self, request):
-        items, search_query = self._filter_items(request)
-        return render(request, self.template_name, {
-            'items': items,
-            'search': search_query,
-        })
+        return self.get(request)
 
 
 class ProductDetailView(DetailView):
@@ -68,7 +77,7 @@ class ProductDetailView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['items'] = Item.objects.filter(slug=self.kwargs['slug'])
-        context['comments'] = Comments.objects.filter(url=self.request.path)
+        context['comments'] = Comments.objects.filter(item=self.object)
         context['form'] = comments_form()
         return context
 
@@ -89,12 +98,10 @@ class ProductDetailView(DetailView):
 
             form = comments_form(request.POST)
             if form.is_valid():
-                profile = Profile.objects.filter(username=request.user).first()
                 Comments.objects.create(
                     user=request.user,
+                    item=self.object,
                     body=form.cleaned_data['body'],
-                    url=request.path,
-                    image_perfil=profile.image if profile and profile.image else None,
                 )
             else:
                 messages.error(request, 'Could not post your comment.')
@@ -109,7 +116,7 @@ def sign_up(request):
     if request.POST['password1'] != request.POST['password2']:
         return render(request, 'signup.html', {
             'form': UserCreationForm,
-            'error': 'Password do not match',
+            'error': 'Passwords do not match',
         })
 
     try:
@@ -117,7 +124,7 @@ def sign_up(request):
             username=request.POST['username'],
             password=request.POST['password1'],
         )
-        Profile.objects.create(username=user)
+        Profile.objects.create(user=user)
         login(request, user)
         return redirect('/')
     except IntegrityError:
@@ -152,24 +159,23 @@ def log_in(request):
 
 
 def agregar_imagen(request):
-    profile = get_object_or_404(Profile, username=request.user)
+    profile, created = Profile.objects.get_or_create(user=request.user)
 
     if request.method == 'POST':
         form = image_form(request.POST, request.FILES, instance=profile)
         if form.is_valid():
             form.save()
-            return redirect('/')
+            return redirect('/profile')
     else:
         form = image_form(instance=profile)
 
-    return render(request, 'profile.html', {'image_form': form})
+    return render(request, 'profile.html', {'image_form': form, 'user_profile': profile})
 
 
 def about(request):
     return render(request, 'about.html', {
         'items': Item.objects.all(),
-        'orderitems': OrderItem.objects.all(),
-        'profile': Profile.objects.all(),
+        'categories': Category.objects.all(),
     })
 
 
@@ -180,7 +186,7 @@ def create_product(request):
         if form.is_valid():
             title = form.cleaned_data['title']
             if Item.objects.filter(title=title).exists():
-                messages.info(request, 'That title already exist')
+                messages.info(request, 'That title already exists')
                 return render(request, 'create_product.html', {'form': form})
             form.save()
             return redirect('/')
@@ -201,82 +207,133 @@ def edit_product(request, slug):
 
     form = edit_product_form(request.POST, request.FILES, instance=product)
     if not form.is_valid():
-        messages.info(request, 'Error updating data.')
+        messages.info(request, 'Error updating product data.')
         return render(request, 'edit_product.html', {'form': form})
 
     title = form.cleaned_data['title']
     if Item.objects.filter(title=title).exclude(pk=product.pk).exists():
-        messages.info(request, 'That title already exist')
+        messages.info(request, 'That title already exists')
         return render(request, 'edit_product.html', {'form': form})
 
     form.save()
     return redirect('/')
 
 
+class OrderSummaryView(LoginRequiredMixin, View):
+    login_url = '/login/'
+
+    def _get_active_order(self, user):
+        return Order.objects.filter(user=user, status=OrderStatus.PENDING).first()
+
+    def get(self, request, *args, **kwargs):
+        order = self._get_active_order(request.user)
+        if order:
+            order.calculate_total()
+            order.save()
+        return render(request, 'order_summary.html', {'object': order})
+
+    def post(self, request, *args, **kwargs):
+        order = self._get_active_order(request.user)
+
+        if not order:
+            messages.info(request, 'No tienes un carrito activo')
+            return redirect('product:order_summary')
+
+        if 'delete' in request.POST:
+            for order_item in list(order.items.all()):
+                order.items.remove(order_item)
+                order_item.delete()
+            order.delete()
+            messages.info(request, 'Tu carrito ha sido vaciado.')
+            return redirect('product:order_summary')
+
+        if 'apply_discount' in request.POST:
+            code = request.POST.get('discount_code', '').strip().upper()
+            if code in ['DESC10', 'PROMO10']:
+                order.discount_code = code
+                order.calculate_total()
+                order.save()
+                messages.info(request, f'¡Código "{code}" aplicado! Se descontó un 10%.')
+            elif code in ['OFF500', 'DESCUENTO']:
+                order.discount_code = code
+                order.calculate_total()
+                order.save()
+                messages.info(request, f'¡Código "{code}" aplicado! Se descontaron $500.00.')
+            else:
+                messages.error(request, 'Código de descuento no válido. Prueba con DESC10 o OFF500.')
+
+            return redirect('product:order_summary')
+
+        return redirect('product:order_summary')
+
+
 class CheckoutView(LoginRequiredMixin, View):
     login_url = '/login/'
 
-    def _get_active_order(self):
-        return Order.objects.filter(user=self.request.user, ordered=False).first()
-
-    def _build_context(self, order):
-        return {
-            'items': Item.objects.all(),
-            'orderitems': order.items.all() if order else OrderItem.objects.none(),
-            'comments': Comments.objects.all(),
-            'object': order,
-        }
-
-    def _clear_cart(self, order):
-        for order_item in list(order.items.all()):
-            order.items.remove(order_item)
-            order_item.delete()
-        order.delete()
+    def _get_active_order(self, user):
+        return Order.objects.filter(user=user, status=OrderStatus.PENDING).first()
 
     def get(self, request, *args, **kwargs):
-        order = self._get_active_order()
-        return render(request, 'checkout.html', self._build_context(order))
+        order = self._get_active_order(request.user)
+
+        if not order or not order.items.exists():
+            messages.info(request, 'Tu carrito está vacío. Agrega productos antes de realizar el checkout.')
+            return redirect('product:order_summary')
+
+        # Tarifa Plana de Envío (ej. $500.00)
+        order.shipping_cost = 500.00
+        order.calculate_total()
+        order.save()
+
+        user_profile, created = Profile.objects.get_or_create(user=request.user)
+
+        return render(request, 'checkout.html', {
+            'object': order,
+            'payment_methods': PaymentMethod.choices,
+            'user_profile': user_profile,
+        })
 
     def post(self, request, *args, **kwargs):
-        order = self._get_active_order()
+        order = self._get_active_order(request.user)
 
-        if not order:
-            messages.info(request, 'You do not have an active order')
-            return redirect('product:checkout')
+        if not order or not order.items.exists():
+            messages.info(request, 'Tu carrito está vacío.')
+            return redirect('product:order_summary')
 
-        if 'delete' in request.POST:
-            self._clear_cart(order)
-            messages.info(request, 'Your cart has been cleared.')
-            return redirect('product:checkout')
+        payment_method = request.POST.get('payment_method', PaymentMethod.CREDIT_CARD)
+        order.payment_method = payment_method
+        order.shipping_cost = 500.00
+        order.status = OrderStatus.PAID
+        order.ordered_date = timezone.now()
 
-        if 'buy' in request.POST:
-            if order.items.exists():
-                order.ordered = True
-                order.ordered_date = timezone.now()
-                order.save()
-                for order_item in order.items.all():
-                    order_item.ordered = True
-                    order_item.save()
-                messages.info(request, 'Your purchase has been successful!')
-                return redirect('/')
-            messages.info(request, 'Your cart is empty.')
-            return redirect('product:checkout')
+        for order_item in order.items.all():
+            order_item.unit_price = order_item.item.price
+            order_item.unit_cost = order_item.item.cost
+            order_item.subtotal = order_item.quantity * order_item.unit_price
+            order_item.save()
 
-        return redirect('product:checkout')
+            if order_item.item.stock > 0:
+                order_item.item.stock = max(0, order_item.item.stock - order_item.quantity)
+                order_item.item.save()
+
+        order.calculate_total()
+        order.save()
+
+        messages.info(request, '¡Tu compra ha sido realizada con éxito!')
+        return redirect('/')
 
 
 def profile(request):
-    user_profile, created = Profile.objects.get_or_create(username=request.user)
+    user_profile, created = Profile.objects.get_or_create(user=request.user)
     return render(request, 'profile.html', {
         'user_profile': user_profile,
-        'profile': [user_profile],
         'form': profile_edit_form(instance=user_profile),
         'image_form': image_form(instance=user_profile),
     })
 
 
 def edit_profile(request, username):
-    user_profile = get_object_or_404(Profile, username=request.user)
+    user_profile, created = Profile.objects.get_or_create(user=request.user)
 
     if request.method == 'GET':
         return render(request, 'edit_profile.html', {
@@ -299,85 +356,101 @@ def edit_profile(request, username):
 
 def add_to_cart(request, slug):
     item = get_object_or_404(Item, slug=slug)
-    order_item, created = OrderItem.objects.get_or_create(
-        item=item,
-        user=request.user,
-        ordered=False,
-    )
-    order_qs = Order.objects.filter(user=request.user, ordered=False)
-    if order_qs.exists():
-        order = order_qs[0]
-        if order.items.filter(item__slug=item.slug).exists():
-            order_item.quantity += 1
-            order_item.save()
-            return redirect('product:checkout')
-        order.items.add(order_item)
-        messages.info(request, 'This item was added to your cart.')
-        return redirect('product:product', slug=slug)
 
-    order = Order.objects.create(
+    if item.stock <= 0:
+        messages.error(request, f'El producto "{item.title}" no tiene stock disponible.')
+        referer = request.META.get('HTTP_REFERER')
+        if referer and ('/product/' in referer or '/order-summary' in referer):
+            return redirect(referer)
+        return redirect('product:order_summary')
+
+    order, created = Order.objects.get_or_create(
         user=request.user,
-        ordered_date=timezone.now(),
+        status=OrderStatus.PENDING,
     )
-    order.items.add(order_item)
-    messages.info(request, 'This item was added to your cart.')
-    return redirect('product:product', slug=slug)
+
+    order_item, item_created = OrderItem.objects.get_or_create(
+        order=order,
+        item=item,
+    )
+
+    current_qty = order_item.quantity if not item_created else 0
+    if current_qty + 1 > item.stock:
+        if item_created:
+            order_item.delete()
+        messages.warning(request, f'No puedes agregar más unidades de "{item.title}". Stock máximo disponible: {item.stock}.')
+        return redirect('product:order_summary')
+
+    if not item_created:
+        order_item.quantity += 1
+    else:
+        order_item.quantity = 1
+
+    order_item.unit_price = item.price
+    order_item.unit_cost = item.cost
+    order_item.subtotal = order_item.quantity * order_item.unit_price
+    order_item.save()
+
+    if order_item not in order.items.all():
+        order.items.add(order_item)
+
+    order.calculate_total()
+    order.save()
+
+    messages.info(request, f'"{item.title}" fue agregado a tu carrito.')
+    return redirect('product:order_summary')
 
 
 def remove_single_cart(request, slug):
     item = get_object_or_404(Item, slug=slug)
-    order_qs = Order.objects.filter(user=request.user, ordered=False)
-    if not order_qs.exists():
-        messages.info(request, 'You do not have an active order')
-        return redirect('product:checkout')
+    order = Order.objects.filter(user=request.user, status=OrderStatus.PENDING).first()
 
-    order = order_qs[0]
-    if not order.items.filter(item__slug=item.slug).exists():
-        messages.info(request, 'This item was not in your cart')
-        return redirect('product:checkout')
+    if not order:
+        messages.info(request, 'No tienes un carrito activo')
+        return redirect('product:order_summary')
 
-    order_item = OrderItem.objects.filter(
-        item=item,
-        user=request.user,
-        ordered=False,
-    ).first()
+    order_item = OrderItem.objects.filter(order=order, item=item).first()
+    if not order_item:
+        messages.info(request, 'Este producto no estaba en tu carrito')
+        return redirect('product:order_summary')
+
     order_item.quantity -= 1
-    order_item.save()
-    if order_item.quantity == 0:
+    if order_item.quantity <= 0:
         order.items.remove(order_item)
         order_item.delete()
-    return redirect('product:checkout')
+    else:
+        order_item.subtotal = order_item.quantity * order_item.unit_price
+        order_item.save()
+
+    order.calculate_total()
+    order.save()
+    return redirect('product:order_summary')
 
 
 def remove_from_cart(request, slug):
     item = get_object_or_404(Item, slug=slug)
-    order_qs = Order.objects.filter(user=request.user, ordered=False)
-    if not order_qs.exists():
-        messages.info(request, 'You do not have an active order')
-        return redirect('product:product', slug=slug)
+    order = Order.objects.filter(user=request.user, status=OrderStatus.PENDING).first()
 
-    order = order_qs[0]
-    if not order.items.filter(item__slug=item.slug).exists():
-        messages.info(request, 'This item was not in your cart')
-        return redirect('product:product', slug=slug)
+    if not order:
+        messages.info(request, 'No tienes un carrito activo')
+        return redirect('product:order_summary')
 
-    order_item = OrderItem.objects.filter(
-        item=item,
-        user=request.user,
-        ordered=False,
-    ).first()
-    order.items.remove(order_item)
-    order_item.delete()
-    messages.info(request, 'This item was removed from your cart.')
-    return redirect('product:product', slug=slug)
+    order_item = OrderItem.objects.filter(order=order, item=item).first()
+    if order_item:
+        order.items.remove(order_item)
+        order_item.delete()
+
+    order.calculate_total()
+    order.save()
+    messages.info(request, 'Producto eliminado del carrito.')
+    return redirect('product:order_summary')
 
 
 def delete(request, slug):
-    order_qs = Order.objects.filter(user=request.user, ordered=False)
-    if order_qs.exists():
-        order = order_qs[0]
+    order = Order.objects.filter(user=request.user, status=OrderStatus.PENDING).first()
+    if order:
         for order_item in list(order.items.all()):
             order.items.remove(order_item)
             order_item.delete()
         order.delete()
-    return redirect('product:checkout')
+    return redirect('product:order_summary')

@@ -1,15 +1,13 @@
-from product.models import Order, Profile, OrderItem
+from product.models import Order, OrderStatus
 from django import template
 
-
-
 register = template.Library()
+
 
 @register.filter()
 def cart_item_count(user):
     if user.is_authenticated:
-        qs = Order.objects.filter(user = user, ordered = False)
-        if qs.exists():
-            return qs[0].items.count()
+        order = Order.objects.filter(user=user, status=OrderStatus.PENDING).first()
+        if order:
+            return order.get_total_item_count()
     return 0
-

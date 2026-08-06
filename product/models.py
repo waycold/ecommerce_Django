@@ -4,11 +4,6 @@ from django.shortcuts import reverse
 from django.contrib.auth.models import User
 from django.utils.text import slugify
 
-CATEGORY_CHOICES = (
-    ('CPU', 'CPU'),
-    ('RAM', 'RAM'),
-    ('GPU', 'GPU')
-)
 
 LABEL_CHOICES = (
     ('P', 'primary'),
@@ -16,35 +11,78 @@ LABEL_CHOICES = (
     ('D', 'danger')
 )
 
-ORDER_STATUS_CHOICES = (
-    ('ABANDONED', 'Carrito Abandonado'),
-    ('PENDING', 'Pendiente de Pago'),
-    ('PAID', 'Pagado'),
-    ('SHIPPED', 'Enviado'),
-    ('DELIVERED', 'Entregado'),
-    ('CANCELED', 'Cancelado'),
-)
+
+class OrderStatus(models.TextChoices):
+    PENDING = 'PENDING', 'Pendiente de Pago'
+    PAID = 'PAID', 'Pagado'
+    SHIPPED = 'SHIPPED', 'Enviado'
+    DELIVERED = 'DELIVERED', 'Entregado'
+    CANCELED = 'CANCELED', 'Cancelado'
+
+
+class PaymentMethod(models.TextChoices):
+    CREDIT_CARD = 'CREDIT_CARD', 'Tarjeta de Crédito'
+    DEBIT_CARD = 'DEBIT_CARD', 'Tarjeta de Débito'
+    TRANSFER = 'TRANSFER', 'Transferencia Bancaria'
+    CASH = 'CASH', 'Efectivo'
+
+
+class Brand(models.Model):
+    name = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+
+class Category(models.Model):
+    name = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = 'Categories'
+
+    def __str__(self):
+        return self.name
+
+
+class Supplier(models.Model):
+    name = models.CharField(max_length=100)
+    country = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.country})"
+
 
 class Item(models.Model):
-    title = models.CharField(max_length=100) # CORREGIDO: title a title
-    description = models.CharField(max_length=500, null=True)
-    price = models.DecimalField(max_digits=10, decimal_places=0)
-    
-    cost = models.DecimalField(max_digits=10, decimal_places=0, default=0) 
-    
-    category = models.CharField(choices=CATEGORY_CHOICES, max_length=5)
+    title = models.CharField(max_length=100)
+    description = models.CharField(max_length=500, null=True, blank=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    stock = models.IntegerField(default=0)
+    minimum_stock = models.IntegerField(default=0)
+
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='items')
+    supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True, related_name='items')
+    brand = models.ForeignKey(Brand, on_delete=models.SET_NULL, null=True, blank=True, related_name='items')
+
     label = models.CharField(choices=LABEL_CHOICES, max_length=5, null=True, blank=True)
     slug = models.SlugField(unique=True, blank=True)
-    img = models.ImageField(upload_to='products/', null=True)
-    
-    created_at = models.DateTimeField(auto_now_add=True, null=True)
-    updated_at = models.DateTimeField(auto_now=True, null=True)
+    img = models.ImageField(upload_to='products/', null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return self.title
 
     def save(self, *args, **kwargs):
-        if self.title:
+        if self.title and not self.slug:
             base_slug = slugify(self.title) or 'product'
             slug = base_slug
             counter = 1
@@ -69,76 +107,113 @@ class Item(models.Model):
     def get_edit_product_url(self):
         return reverse("product:edit_product", kwargs={'slug': self.slug})
 
-    def get_delete_product_url(self):
-        return reverse("product:delete_product", kwargs={'slug': self.slug})
 
-
-class OrderItem(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, blank=True, null=True)
-    item = models.ForeignKey(Item, on_delete=models.CASCADE)
-    ordered = models.BooleanField(default=False)
-    quantity = models.IntegerField(default=1)
-    
-    historical_price = models.DecimalField(max_digits=10, decimal_places=0, default=0)
+class Profile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile', null=True, blank=True)
+    phone = models.CharField(max_length=30, null=True, blank=True)
+    description = models.CharField(max_length=300, null=True, blank=True)
+    image = models.ImageField(upload_to='profile_image/', blank=True, null=True)
+    address_line = models.CharField(max_length=255, null=True, blank=True)
+    city = models.CharField(max_length=100, null=True, blank=True)
+    province = models.CharField(max_length=100, null=True, blank=True)
+    zip_code = models.CharField(max_length=20, null=True, blank=True)
+    country = models.CharField(max_length=100, null=True, blank=True, default='Argentina')
+    birth_date = models.DateField(null=True, blank=True)
 
     def __str__(self):
-        return f"{self.quantity} of {self.item.title}"
+        return self.user.username if self.user else "Profile"
 
-    def get_total_item_price(self):
-        if self.ordered and self.historical_price > 0:
-            return self.quantity * self.historical_price
-        return self.quantity * self.item.price
+    def is_international(self):
+        if not self.country:
+            return False
+        return self.country.strip().lower() not in ['argentina', 'ar']
+
+    def get_profile_url(self):
+        return reverse("product:edit_profile", kwargs={'username': self.user.username})
 
 
 class Order(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    items = models.ManyToManyField(OrderItem)
-    
-    status = models.CharField(max_length=20, choices=ORDER_STATUS_CHOICES, default='PENDING')
-    
+    status = models.CharField(max_length=20, choices=OrderStatus.choices, default=OrderStatus.PENDING)
+    payment_method = models.CharField(max_length=30, choices=PaymentMethod.choices, default=PaymentMethod.CREDIT_CARD, null=True, blank=True)
+    discount_code = models.CharField(max_length=50, null=True, blank=True)
+    discount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    shipping_cost = models.DecimalField(max_digits=10, decimal_places=2, default=500.00)
+    total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     start_date = models.DateTimeField(auto_now_add=True)
-    ordered_date = models.DateTimeField(null=True, blank=True) # Permite nulos para carritos activos
-    ordered = models.BooleanField(default=False)
-    
+    ordered_date = models.DateTimeField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.user.username
+        return f"Order #{self.id} - {self.user.username} ({self.status})"
+
+    def get_items_subtotal(self):
+        return sum(item.subtotal for item in self.items.all())
+
+    def recalculate_shipping_cost(self):
+        try:
+            if hasattr(self.user, 'profile') and self.user.profile and self.user.profile.is_international():
+                self.shipping_cost = 2500.00
+            else:
+                self.shipping_cost = 500.00
+        except Exception:
+            self.shipping_cost = 500.00
+        return self.shipping_cost
+
+    def recalculate_discount(self):
+        subtotal = float(self.get_items_subtotal())
+        if self.discount_code in ['DESC10', 'PROMO10']:
+            self.discount = round(subtotal * 0.10, 2)
+        elif self.discount_code in ['OFF500', 'DESCUENTO']:
+            self.discount = min(500.00, subtotal)
+        return self.discount
+
+    def calculate_total(self):
+        subtotal_sum = self.get_items_subtotal()
+        self.recalculate_shipping_cost()
+        self.recalculate_discount()
+        self.total = max(0, float(subtotal_sum) + float(self.shipping_cost) - float(self.discount))
+        return self.total
 
     def get_total_price(self):
-        total = 0
-        for order_item in self.items.all():
-            total += order_item.get_total_item_price()
-        return total
+        return self.calculate_total()
 
     def get_total_item_count(self):
         return sum(order_item.quantity for order_item in self.items.all())
 
 
-class Profile(models.Model):
-    username = models.ForeignKey(User, on_delete=models.CASCADE)
-    user = models.CharField(max_length=100, null=True, blank=True)
-    email = models.EmailField(null=True, blank=True)
-    phone = models.DecimalField(decimal_places=0, max_digits=10, null=True, blank=True)
-    description = models.CharField(max_length=300, null=True, blank=True)
-    image = models.ImageField(upload_to='profile_image/', blank=True, null=True)
+class OrderItem(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items', null=True, blank=True)
+    item = models.ForeignKey(Item, on_delete=models.CASCADE)
+    quantity = models.IntegerField(default=1)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    unit_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     def __str__(self):
-        return self.username.username
+        return f"{self.quantity} x {self.item.title}"
 
-    def get_profile_url(self):
-        return reverse("product:edit_profile", kwargs={'username': self.username.username})
+    def save(self, *args, **kwargs):
+        if not self.unit_price and self.item:
+            self.unit_price = self.item.price
+        if not self.unit_cost and self.item:
+            self.unit_cost = self.item.cost
+        self.subtotal = self.quantity * self.unit_price
+        super().save(*args, **kwargs)
+
+    def get_total_item_price(self):
+        return self.subtotal
 
 
 class Comments(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='comments', null=True, blank=True)
     body = models.TextField()
-    
     date_added = models.DateTimeField(auto_now_add=True)
-    
-    url = models.URLField(max_length=200)
     likes = models.IntegerField(default=0)
-    image_perfil = models.ImageField(upload_to='profile_image/', blank=True, null=True, default='profile_image/default.jpg')
+
+    class Meta:
+        verbose_name_plural = 'Comments'
 
     def __str__(self):
-        return f"comment of {self.user} in {self.url}"
+        return f"Comment by {self.user.username} on {self.item.title}"

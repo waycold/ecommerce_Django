@@ -39,16 +39,58 @@
             </div>
 
             <div class="row mt-4">
-              <div class="col-sm-6">
+              <div class="col-sm-6 mb-3">
                 <div class="profile-info-block">
                   <div class="profile-info-label"><i class="fas fa-envelope mr-1"></i> Email</div>
-                  <p class="profile-info-value">{{ user_profile.email|default:user.email|default:"No especificado" }}</p>
+                  <p class="profile-info-value">{{ user_profile.user.email|default:user.email|default:"No especificado" }}</p>
                 </div>
               </div>
-              <div class="col-sm-6">
+              <div class="col-sm-6 mb-3">
                 <div class="profile-info-block">
                   <div class="profile-info-label"><i class="fas fa-phone mr-1"></i> Teléfono</div>
                   <p class="profile-info-value">{{ user_profile.phone|default:"No especificado" }}</p>
+                </div>
+              </div>
+              <div class="col-12 mb-3">
+                <div class="profile-info-block">
+                  <div class="profile-info-label"><i class="fas fa-map-marker-alt mr-1"></i> Dirección (Calle y N°)</div>
+                  <p class="profile-info-value">{{ user_profile.address_line|default:"No especificada" }}</p>
+                </div>
+              </div>
+              <div class="col-sm-6 mb-3">
+                <div class="profile-info-block">
+                  <div class="profile-info-label"><i class="fas fa-city mr-1"></i> Ciudad</div>
+                  <p class="profile-info-value">{{ user_profile.city|default:"No especificado" }}</p>
+                </div>
+              </div>
+              <div class="col-sm-6 mb-3">
+                <div class="profile-info-block">
+                  <div class="profile-info-label"><i class="fas fa-map mr-1"></i> Provincia / Estado</div>
+                  <p class="profile-info-value">{{ user_profile.province|default:"No especificado" }}</p>
+                </div>
+              </div>
+              <div class="col-sm-6 mb-3">
+                <div class="profile-info-block">
+                  <div class="profile-info-label"><i class="fas fa-mail-bulk mr-1"></i> Código Postal</div>
+                  <p class="profile-info-value">{{ user_profile.zip_code|default:"No especificado" }}</p>
+                </div>
+              </div>
+              <div class="col-sm-6 mb-3">
+                <div class="profile-info-block">
+                  <div class="profile-info-label"><i class="fas fa-globe-americas mr-1"></i> País</div>
+                  <p class="profile-info-value">{{ user_profile.country|default:"Argentina" }}</p>
+                </div>
+              </div>
+              <div class="col-sm-6 mb-3">
+                <div class="profile-info-block">
+                  <div class="profile-info-label"><i class="fas fa-birthday-cake mr-1"></i> Fecha de Nacimiento</div>
+                  <p class="profile-info-value">
+                    {% if user_profile.birth_date %}
+                      {{ user_profile.birth_date|date:"d/m/Y" }}
+                    {% else %}
+                      No especificado
+                    {% endif %}
+                  </p>
                 </div>
               </div>
               <div class="col-12">

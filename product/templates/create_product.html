@@ -1,34 +1,88 @@
 {% extends "base.html" %}
-{% load cart_template_tag %}
 {% block content %}
 
-
-
-<div class="general-content">
-    <div class="content">
-        <h1 class="title">Create product</h1>
+<div class="auth-wrapper">
+  <div class="auth-card" style="max-width: 650px;">
+    <div class="auth-header">
+      <div class="logo-badge">
+        <i class="fas fa-plus-circle"></i>
+      </div>
+      <h2>Crear Nuevo Producto</h2>
+      <p>Completa la información del componente para el catálogo</p>
     </div>
 
+    <form action="" method="post" enctype="multipart/form-data" class="custom-form">
+      {% csrf_token %}
 
-    <div class="content-form">
-        <form action="" method="post" enctype="multipart/form-data" class="form">
-            {% csrf_token %}
+      <div class="row">
+        <div class="col-md-6 form-group">
+          <label for="{{ form.title.id_for_label }}">Título del Producto *</label>
+          {{ form.title }}
+        </div>
+        <div class="col-md-6 form-group">
+          <label for="{{ form.category.id_for_label }}">Categoría</label>
+          {{ form.category }}
+        </div>
+      </div>
 
-                {{ form.title }}
-                {{ form.description }}
-                {{ form.price }}
-                {{ form.category }}
-                {{ form.img }}
+      <div class="row">
+        <div class="col-md-6 form-group">
+          <label for="{{ form.brand.id_for_label }}">Marca</label>
+          {{ form.brand }}
+        </div>
+        <div class="col-md-6 form-group">
+          <label for="{{ form.supplier.id_for_label }}">Proveedor</label>
+          {{ form.supplier }}
+        </div>
+      </div>
 
+      <div class="row">
+        <div class="col-md-6 form-group">
+          <label for="{{ form.price.id_for_label }}">Precio de Venta ($) *</label>
+          {{ form.price }}
+        </div>
+        <div class="col-md-6 form-group">
+          <label for="{{ form.cost.id_for_label }}">Costo de Compra ($)</label>
+          {{ form.cost }}
+        </div>
+      </div>
 
-            
-            <button class="button-save">
-                Save
-            </button>
-        </form>
-    </div>
+      <div class="row">
+        <div class="col-md-6 form-group">
+          <label for="{{ form.stock.id_for_label }}">Stock Actual</label>
+          {{ form.stock }}
+        </div>
+        <div class="col-md-6 form-group">
+          <label for="{{ form.minimum_stock.id_for_label }}">Stock Mínimo</label>
+          {{ form.minimum_stock }}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="{{ form.description.id_for_label }}">Descripción</label>
+        {{ form.description }}
+      </div>
+
+      <div class="form-group">
+        <label for="{{ form.img.id_for_label }}">Imagen del Producto</label>
+        {{ form.img }}
+      </div>
+
+      <div class="form-group form-check">
+        {{ form.is_active }}
+        <label class="form-check-label ml-2" for="{{ form.is_active.id_for_label }}">Producto Activo (Visible en tienda)</label>
+      </div>
+
+      <div class="d-flex justify-content-between align-items-center mt-4">
+        <a href="/" class="btn-custom-outline">
+          <i class="fas fa-arrow-left mr-1"></i> Cancelar
+        </a>
+        <button type="submit" class="btn-custom-primary" style="width: auto; padding-left: 30px; padding-right: 30px;">
+          <i class="fas fa-save mr-2"></i> Guardar Producto
+        </button>
+      </div>
+    </form>
+  </div>
 </div>
-
-
 
 {% endblock %}

@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% load cart_template_tag %}
+
+{% block content %}
+
+<div class="container mt-4 mb-5" style="min-height: calc(100vh - 200px);">
+  <div class="d-flex align-items-center justify-content-between my-4">
+    <h2 class="h3 font-weight-bold mb-0" style="color: var(--primary-dark);">
+      <i class="fas fa-shopping-cart mr-2 text-primary"></i> Mi Carrito de Compras
+    </h2>
+    {% if object and object.items.exists %}
+    <span class="badge badge-pill badge-primary px-3 py-2" style="font-size: 14px;">
+      {{ object.get_total_item_count }} producto(s)
+    </span>
+    {% endif %}
+  </div>
+
+  {% if object and object.items.exists %}
+  <div class="row">
+    <!-- Lista de Productos -->
+    <div class="col-lg-8 mb-4">
+      <div class="cart-card p-0 mb-4">
+        <div class="p-4 border-bottom bg-light d-none d-md-block" style="border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
+          <div class="row font-weight-bold text-muted" style="font-size: 13px; text-transform: uppercase;">
+            <div class="col-md-6">Producto</div>
+            <div class="col-md-3 text-center">Cantidad</div>
+            <div class="col-md-3 text-right">Precio</div>
+          </div>
+        </div>
+
+        <div class="px-4">
+          {% for order_item in object.items.all %}
+          <div class="cart-item-row">
+            <div class="d-flex align-items-center col-md-6 pl-0">
+              {% if order_item.item.img %}
+              <img src="/uploads/{{ order_item.item.img }}" alt="{{ order_item.item.title }}" class="cart-item-img mr-3">
+              {% else %}
+              <div class="cart-item-img mr-3 d-flex align-items-center justify-content-center bg-light">
+                <i class="fas fa-box text-muted"></i>
+              </div>
+              {% endif %}
+              <div>
+                <h6 class="font-weight-bold mb-1" style="color: var(--primary-dark);">
+                  <a href="{{ order_item.item.get_absolute_url }}" class="text-dark">{{ order_item.item.title }}</a>
+                </h6>
+                {% if order_item.item.category %}
+                <span class="badge badge-light border text-muted">{{ order_item.item.category.name }}</span>
+                {% endif %}
+                <div class="mt-1">
+                  <a href="{% url 'product:remove-from-cart' order_item.item.slug %}" class="text-danger small font-weight-bold" title="Eliminar del carrito">
+                    <i class="fas fa-trash-alt mr-1"></i> Quitar
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-md-3 text-center my-3 my-md-0">
+              <div class="cart-qty-control justify-content-center">
+                <a href="{% url 'product:remove_single_from_cart' order_item.item.slug %}" class="cart-qty-btn">
+                  <i class="fas fa-minus small"></i>
+                </a>
+                <span class="font-weight-bold px-2" style="font-size: 16px;">{{ order_item.quantity }}</span>
+                {% if order_item.quantity < order_item.item.stock %}
+                <a href="{% url 'product:add_to_cart' order_item.item.slug %}" class="cart-qty-btn">
+                  <i class="fas fa-plus small"></i>
+                </a>
+                {% else %}
+                <span class="cart-qty-btn text-muted" style="cursor: not-allowed; opacity: 0.5;" title="Stock máximo alcanzado">
+                  <i class="fas fa-plus small"></i>
+                </span>
+                {% endif %}
+              </div>
+              {% if order_item.quantity >= order_item.item.stock %}
+              <small class="text-danger font-weight-bold d-block mt-1">Máximo stock</small>
+              {% endif %}
+            </div>
+
+            <div class="col-md-3 text-right pr-0">
+              <div class="font-weight-bold text-dark" style="font-size: 18px;">
+                ${{ order_item.get_total_item_price }}
+              </div>
+              {% if order_item.quantity > 1 %}
+              <small class="text-muted">(${{ order_item.item.price }} c/u)</small>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Casilla de Código de Descuento -->
+      <div class="cart-card p-4">
+        <h6 class="font-weight-bold mb-3" style="color: var(--primary-dark);">
+          <i class="fas fa-ticket-alt text-primary mr-2"></i> ¿Tienes un Código de Descuento?
+        </h6>
+        <form method="POST" action="" class="form-inline">
+          {% csrf_token %}
+          <div class="input-group w-100">
+            <input type="text" name="discount_code" class="form-control" placeholder="Ej: DESC10 u OFF500" style="text-transform: uppercase; border-radius: var(--radius-md) 0 0 var(--radius-md);">
+            <div class="input-group-append">
+              <button type="submit" name="apply_discount" class="btn btn-primary m-0" style="border-radius: 0 var(--radius-md) var(--radius-md) 0;">
+                Aplicar Código
+              </button>
+            </div>
+          </div>
+        </form>
+        {% if object.discount > 0 %}
+        <div class="alert alert-success mt-3 mb-0 d-flex align-items-center justify-content-between p-2 rounded-lg">
+          <small class="font-weight-bold"><i class="fas fa-check-circle mr-1"></i> Descuento aplicado correctamente</small>
+          <span class="font-weight-bold">-${{ object.discount }}</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Resumen lateral -->
+    <div class="col-lg-4">
+      <div class="cart-card">
+        <h5 class="font-weight-bold mb-4" style="color: var(--primary-dark);">Resumen de Carrito</h5>
+
+        <div class="d-flex justify-content-between mb-3" style="font-size: 15px;">
+          <span class="text-muted">Subtotal de productos</span>
+          <span class="font-weight-bold">${{ object.get_items_subtotal }}</span>
+        </div>
+
+        <div class="d-flex justify-content-between mb-3" style="font-size: 15px;">
+          <span class="text-muted">
+            Costo de envío 
+            {% if object.user.profile and object.user.profile.is_international %}
+              <span class="badge badge-warning ml-1" style="font-size: 10px; font-weight: 600;">Internacional</span>
+            {% else %}
+              <span class="badge badge-light border ml-1" style="font-size: 10px; font-weight: 600;">Nacional</span>
+            {% endif %}
+          </span>
+          <span class="font-weight-bold">${{ object.shipping_cost }}</span>
+        </div>
+
+        {% if object.discount > 0 %}
+        <div class="d-flex justify-content-between mb-3 text-success" style="font-size: 15px;">
+          <span>Descuento aplicado</span>
+          <span class="font-weight-bold">-${{ object.discount }}</span>
+        </div>
+        {% endif %}
+
+        <hr class="my-4">
+
+        <div class="d-flex justify-content-between mb-4" style="font-size: 20px;">
+          <span class="font-weight-bold" style="color: var(--primary-dark);">Total estimado</span>
+          <span class="font-weight-bold text-primary">${{ object.total }}</span>
+        </div>
+
+        <a href="{% url 'product:checkout' %}" class="btn-custom-primary mb-3">
+          Proceder al Checkout <i class="fas fa-arrow-right ml-2"></i>
+        </a>
+
+        <form method="POST" action="">
+          {% csrf_token %}
+          <button type="submit" name="delete" class="btn btn-outline-danger btn-block btn-sm rounded-lg" onclick="return confirm('¿Seguro que deseas vaciar el carrito?');">
+            <i class="fas fa-trash mr-1"></i> Vaciar Carrito
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  {% else %}
+  <!-- Carrito Vacío -->
+  <div class="row justify-content-center my-5">
+    <div class="col-md-8 text-center">
+      <div class="cart-card py-5 px-4">
+        <div class="mb-4">
+          <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-light text-muted" style="width: 100px; height: 100px; font-size: 40px;">
+            <i class="fas fa-shopping-bag text-primary"></i>
+          </span>
+        </div>
+        <h3 class="font-weight-bold text-dark mb-2">Tu carrito está vacío</h3>
+        <p class="text-muted mb-4">Parece que aún no has añadido ningún componente a tu carrito de compras.</p>
+        <a href="/" class="btn-custom-primary px-4 py-3" style="width: auto;">
+          <i class="fas fa-store mr-2"></i> Explorar Catálogo de Productos
+        </a>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!--Footer-->
+<footer class="page-footer text-center font-small mt-auto">
+  <div class="footer-copyright py-3">
+    © Store 2026 - Todos los derechos reservados
+  </div>
+</footer>
+
+{% endblock %}

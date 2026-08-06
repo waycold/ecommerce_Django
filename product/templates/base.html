@@ -99,7 +99,7 @@
         <ul class="navbar-nav nav-flex-icons">
           <li class="nav-item">
             {% if user.is_authenticated %}
-            <a class="nav-link waves-effect" href="/checkout">
+            <a class="nav-link waves-effect" href="/order-summary">
               {% if request.user|cart_item_count > 0 %}
               <span class="badge red z-depth-1 mr-1">{{ request.user|cart_item_count }}</span>
               {% endif %}
