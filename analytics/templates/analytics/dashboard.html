@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics Dashboard - MVP (Dark Mode)</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Custom Dark Mode UI Style -->
+    <style>
+        :root {
+            --dark-bg: #0f1115;
+            --card-dark: #181b20;
+            --card-border: #262b33;
+            --text-light: #f1f5f9;
+            --text-muted-dark: #94a3b8;
+            --card-border-radius: 8px;
+        }
+        body {
+            background-color: var(--dark-bg);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            color: var(--text-light);
+        }
+        .navbar-dark-custom {
+            background-color: #14171c;
+            border-bottom: 1px solid var(--card-border);
+        }
+        .analytics-card {
+            border: 1px solid var(--card-border);
+            border-radius: var(--card-border-radius);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+            background: var(--card-dark);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .analytics-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        }
+        .kpi-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+        .table-dark-custom {
+            color: var(--text-light);
+            --bs-table-bg: transparent;
+        }
+        .table-dark-custom th {
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+            color: var(--text-muted-dark);
+            background-color: #13151a;
+            border-bottom: 1px solid var(--card-border);
+        }
+        .table-dark-custom td {
+            border-bottom: 1px solid #1f242c;
+        }
+        .badge-rank-1 { background-color: #ffd700; color: #856404; }
+        .badge-rank-2 { background-color: #94a3b8; color: #0f172a; }
+        .badge-rank-3 { background-color: #cd7f32; color: #ffffff; }
+    </style>
+</head>
+<body>
+
+    <!-- Header / Navbar (Dark Mode) -->
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-dark-custom py-3 mb-4">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" href="#">
+                <i class="fa-solid fa-chart-line me-2 text-primary"></i>
+                <span class="fw-bold fs-4">E-Commerce Analytics MVP</span>
+            </a>
+            <div class="d-flex align-items-center">
+                <span class="badge bg-danger text-uppercase px-3 py-2 me-3" style="font-size: 11px; letter-spacing: 0.5px;">
+                    <i class="fa-solid fa-lock me-1"></i> Restricted Access: Staff
+                </span>
+                <a href="/" class="btn btn-outline-light btn-sm rounded-2">
+                    <i class="fa-solid fa-store me-1"></i> Back to Store
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container mb-5">
+
+        <!-- Top Actions Bar -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="fw-bold mb-1 text-light">Management Dashboard</h2>
+                <p class="text-secondary mb-0">Real-time performance metrics and Business Intelligence ETL pipeline</p>
+            </div>
+            <div>
+                <a href="{% url 'analytics:export_excel' %}" class="btn btn-success btn-lg shadow">
+                    <i class="fa-solid fa-file-excel me-2"></i> Export ETL Report (.xlsx)
+                </a>
+            </div>
+        </div>
+
+        <!-- SECTION A: KPI Cards (Key Performance Indicators) -->
+        <div class="row g-4 mb-4">
+            
+            <!-- KPI 1: Current Month Revenue -->
+            <div class="col-md-4">
+                <div class="analytics-card p-4 h-100">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <span class="text-secondary fw-semibold small text-uppercase" style="letter-spacing: 0.5px;">Current Month Revenue ({{ current_month_name }})</span>
+                        <div class="kpi-icon bg-success bg-opacity-20 text-success">
+                            <i class="fa-solid fa-dollar-sign"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-bold mb-2 text-light">$ {{ monthly_revenue|floatformat:2 }}</h3>
+                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-20">
+                        <i class="fa-solid fa-circle-check me-1"></i> Processed Orders
+                    </span>
+                </div>
+            </div>
+
+            <!-- KPI 2: Abandoned Carts -->
+            <div class="col-md-4">
+                <div class="analytics-card p-4 h-100">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <span class="text-secondary fw-semibold small text-uppercase" style="letter-spacing: 0.5px;">Abandoned / Pending Carts</span>
+                        <div class="kpi-icon bg-warning bg-opacity-20 text-warning">
+                            <i class="fa-solid fa-cart-shopping"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-bold mb-2 text-light">{{ abandoned_carts_count }}</h3>
+                    <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-20">
+                        <i class="fa-solid fa-triangle-exclamation me-1"></i> Pending State (PENDING)
+                    </span>
+                </div>
+            </div>
+
+            <!-- KPI 3: Top Selling Product (#1) -->
+            <div class="col-md-4">
+                <div class="analytics-card p-4 h-100">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <span class="text-secondary fw-semibold small text-uppercase" style="letter-spacing: 0.5px;">Top Selling Product (#1)</span>
+                        <div class="kpi-icon bg-primary bg-opacity-20 text-primary">
+                            <i class="fa-solid fa-trophy"></i>
+                        </div>
+                    </div>
+                    {% if top_product_star %}
+                        <h5 class="fw-bold mb-1 text-truncate text-light" title="{{ top_product_star.item__title }}">
+                            {{ top_product_star.item__title }}
+                        </h5>
+                        <small class="text-secondary d-block mb-2">
+                            Units sold: <strong class="text-light">{{ top_product_star.total_units_sold }}</strong>
+                        </small>
+                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-20">
+                            Best Selling Record
+                        </span>
+                    {% else %}
+                        <p class="text-secondary mb-0">No sales recorded yet</p>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+
+        <!-- SECTION B: Top 3 Best-Selling Products Table -->
+        <div class="row mb-5">
+            <div class="col-12">
+                <div class="analytics-card p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold mb-0 text-light">
+                            <i class="fa-solid fa-chart-simple text-primary me-2"></i> Top 3 Best-Selling Products
+                        </h5>
+                        <span class="text-secondary small">Based on total units sold</span>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-dark-custom table-hover align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th style="width: 80px;" class="text-center">Rank</th>
+                                    <th>Product</th>
+                                    <th>Category</th>
+                                    <th class="text-end">Units Sold</th>
+                                    <th class="text-end">Revenue Generated</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for prod in top_products %}
+                                <tr>
+                                    <td class="text-center">
+                                        {% if forloop.counter == 1 %}
+                                            <span class="badge rounded-pill badge-rank-1 fs-6">#1</span>
+                                        {% elif forloop.counter == 2 %}
+                                            <span class="badge rounded-pill badge-rank-2 fs-6">#2</span>
+                                        {% elif forloop.counter == 3 %}
+                                            <span class="badge rounded-pill badge-rank-3 fs-6">#3</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="fw-bold text-light">{{ prod.item__title }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-dark border border-secondary text-secondary">
+                                            {{ prod.item__category__name|default:"Uncategorized" }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end fw-bold text-light">
+                                        {{ prod.total_units_sold }} units
+                                    </td>
+                                    <td class="text-end fw-bold text-success">
+                                        $ {{ prod.total_revenue_generated|floatformat:2 }}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-4 text-secondary">
+                                        <i class="fa-solid fa-inbox fa-2x mb-2 d-block"></i>
+                                        Not enough sales recorded to compute ranking.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION C: Async Tasks & Machine Learning Roadmap -->
+        <div class="row">
+            <div class="col-12">
+                <div class="analytics-card p-4" style="background: #14171d;">
+                    <h5 class="fw-bold mb-3 text-light">
+                        <i class="fa-solid fa-microchip text-primary me-2"></i> Future Extensions (Scalable Architecture)
+                    </h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="border border-secondary border-opacity-20 rounded p-3" style="background: #181c22;">
+                                <h6 class="fw-bold text-light mb-1">
+                                    <i class="fa-solid fa-diagram-project me-1 text-info"></i> Market Basket Analysis (Apriori Algorithm)
+                                </h6>
+                                <p class="small text-secondary mb-0">
+                                    Identifying joint product purchasing patterns in shopping carts for cross-selling recommendations.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="border border-secondary border-opacity-20 rounded p-3" style="background: #181c22;">
+                                <h6 class="fw-bold text-light mb-1">
+                                    <i class="fa-solid fa-clock-rotate-left me-1 text-success"></i> Sales Demand Forecasting (Time Series)
+                                </h6>
+                                <p class="small text-secondary mb-0">
+                                    Automated 30-day inventory forecasting using time-series predictive modeling.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/bootstrap.bundle.min.js"></script>
+</body>
+</html>

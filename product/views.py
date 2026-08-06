@@ -236,7 +236,7 @@ class OrderSummaryView(LoginRequiredMixin, View):
         order = self._get_active_order(request.user)
 
         if not order:
-            messages.info(request, 'No tienes un carrito activo')
+            messages.info(request, 'You do not have an active cart')
             return redirect('product:order_summary')
 
         if 'delete' in request.POST:
@@ -244,7 +244,7 @@ class OrderSummaryView(LoginRequiredMixin, View):
                 order.items.remove(order_item)
                 order_item.delete()
             order.delete()
-            messages.info(request, 'Tu carrito ha sido vaciado.')
+            messages.info(request, 'Your cart has been emptied.')
             return redirect('product:order_summary')
 
         if 'apply_discount' in request.POST:
@@ -253,14 +253,14 @@ class OrderSummaryView(LoginRequiredMixin, View):
                 order.discount_code = code
                 order.calculate_total()
                 order.save()
-                messages.info(request, f'¡Código "{code}" aplicado! Se descontó un 10%.')
+                messages.info(request, f'Promo code "{code}" applied! 10% discount subtracted.')
             elif code in ['OFF500', 'DESCUENTO']:
                 order.discount_code = code
                 order.calculate_total()
                 order.save()
-                messages.info(request, f'¡Código "{code}" aplicado! Se descontaron $500.00.')
+                messages.info(request, f'Promo code "{code}" applied! $500.00 discount subtracted.')
             else:
-                messages.error(request, 'Código de descuento no válido. Prueba con DESC10 o OFF500.')
+                messages.error(request, 'Invalid discount code. Try DESC10 or OFF500.')
 
             return redirect('product:order_summary')
 
@@ -277,7 +277,7 @@ class CheckoutView(LoginRequiredMixin, View):
         order = self._get_active_order(request.user)
 
         if not order or not order.items.exists():
-            messages.info(request, 'Tu carrito está vacío. Agrega productos antes de realizar el checkout.')
+            messages.info(request, 'Your cart is empty. Add products before proceeding to checkout.')
             return redirect('product:order_summary')
 
         # Tarifa Plana de Envío (ej. $500.00)
@@ -297,7 +297,7 @@ class CheckoutView(LoginRequiredMixin, View):
         order = self._get_active_order(request.user)
 
         if not order or not order.items.exists():
-            messages.info(request, 'Tu carrito está vacío.')
+            messages.info(request, 'Your cart is empty.')
             return redirect('product:order_summary')
 
         payment_method = request.POST.get('payment_method', PaymentMethod.CREDIT_CARD)
@@ -319,7 +319,7 @@ class CheckoutView(LoginRequiredMixin, View):
         order.calculate_total()
         order.save()
 
-        messages.info(request, '¡Tu compra ha sido realizada con éxito!')
+        messages.info(request, 'Your purchase was completed successfully!')
         return redirect('/')
 
 
@@ -358,7 +358,7 @@ def add_to_cart(request, slug):
     item = get_object_or_404(Item, slug=slug)
 
     if item.stock <= 0:
-        messages.error(request, f'El producto "{item.title}" no tiene stock disponible.')
+        messages.error(request, f'Product "{item.title}" is out of stock.')
         referer = request.META.get('HTTP_REFERER')
         if referer and ('/product/' in referer or '/order-summary' in referer):
             return redirect(referer)
@@ -378,7 +378,7 @@ def add_to_cart(request, slug):
     if current_qty + 1 > item.stock:
         if item_created:
             order_item.delete()
-        messages.warning(request, f'No puedes agregar más unidades de "{item.title}". Stock máximo disponible: {item.stock}.')
+        messages.warning(request, f'Cannot add more units of "{item.title}". Maximum available stock: {item.stock}.')
         return redirect('product:order_summary')
 
     if not item_created:
@@ -397,7 +397,7 @@ def add_to_cart(request, slug):
     order.calculate_total()
     order.save()
 
-    messages.info(request, f'"{item.title}" fue agregado a tu carrito.')
+    messages.info(request, f'"{item.title}" was added to your cart.')
     return redirect('product:order_summary')
 
 
@@ -406,12 +406,12 @@ def remove_single_cart(request, slug):
     order = Order.objects.filter(user=request.user, status=OrderStatus.PENDING).first()
 
     if not order:
-        messages.info(request, 'No tienes un carrito activo')
+        messages.info(request, 'You do not have an active cart')
         return redirect('product:order_summary')
 
     order_item = OrderItem.objects.filter(order=order, item=item).first()
     if not order_item:
-        messages.info(request, 'Este producto no estaba en tu carrito')
+        messages.info(request, 'This product was not in your cart')
         return redirect('product:order_summary')
 
     order_item.quantity -= 1

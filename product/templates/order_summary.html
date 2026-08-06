@@ -3,160 +3,160 @@
 
 {% block content %}
 
-<div class="container mt-4 mb-5" style="min-height: calc(100vh - 200px);">
-  <div class="d-flex align-items-center justify-content-between my-4">
-    <h2 class="h3 font-weight-bold mb-0" style="color: var(--primary-dark);">
-      <i class="fas fa-shopping-cart mr-2 text-primary"></i> Mi Carrito de Compras
+<div class="container my-4">
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <h2 class="h4 font-weight-bold mb-0 text-dark">
+      <i class="fas fa-shopping-cart mr-2 text-primary"></i> Shopping Cart
     </h2>
     {% if object and object.items.exists %}
-    <span class="badge badge-pill badge-primary px-3 py-2" style="font-size: 14px;">
-      {{ object.get_total_item_count }} producto(s)
+    <span class="badge badge-secondary px-3 py-2" style="font-size: 13px; border-radius: 6px;">
+      {{ object.get_total_item_count }} item(s)
     </span>
     {% endif %}
   </div>
 
   {% if object and object.items.exists %}
   <div class="row">
-    <!-- Lista de Productos -->
+    <!-- Left Column: Item List -->
     <div class="col-lg-8 mb-4">
-      <div class="cart-card p-0 mb-4">
-        <div class="p-4 border-bottom bg-light d-none d-md-block" style="border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
-          <div class="row font-weight-bold text-muted" style="font-size: 13px; text-transform: uppercase;">
-            <div class="col-md-6">Producto</div>
-            <div class="col-md-3 text-center">Cantidad</div>
-            <div class="col-md-3 text-right">Precio</div>
+      <div class="sober-card p-0 mb-4">
+        <div class="p-3 border-bottom bg-light d-none d-md-block" style="border-radius: 2px 2px 0 0;">
+          <div class="row font-weight-bold text-muted small text-uppercase" style="letter-spacing: 0.5px;">
+            <div class="col-md-6">Product</div>
+            <div class="col-md-3 text-center">Quantity</div>
+            <div class="col-md-3 text-right">Price</div>
           </div>
         </div>
 
         <div class="px-4">
           {% for order_item in object.items.all %}
-          <div class="cart-item-row">
+          <div class="cart-item-row py-3 d-flex align-items-center justify-content-between border-bottom">
             <div class="d-flex align-items-center col-md-6 pl-0">
               {% if order_item.item.img %}
-              <img src="/uploads/{{ order_item.item.img }}" alt="{{ order_item.item.title }}" class="cart-item-img mr-3">
+              <img src="/uploads/{{ order_item.item.img }}" alt="{{ order_item.item.title }}" class="mr-3 border p-1 rounded" style="width: 64px; height: 64px; object-fit: contain; background: #fff; border-radius: 6px !important;">
               {% else %}
-              <div class="cart-item-img mr-3 d-flex align-items-center justify-content-center bg-light">
+              <div class="mr-3 d-flex align-items-center justify-content-center bg-light border rounded" style="width: 64px; height: 64px; border-radius: 6px !important;">
                 <i class="fas fa-box text-muted"></i>
               </div>
               {% endif %}
               <div>
-                <h6 class="font-weight-bold mb-1" style="color: var(--primary-dark);">
-                  <a href="{{ order_item.item.get_absolute_url }}" class="text-dark">{{ order_item.item.title }}</a>
+                <h6 class="font-weight-bold mb-1 text-dark">
+                  <a href="{{ order_item.item.get_absolute_url }}" class="text-dark text-decoration-none">{{ order_item.item.title }}</a>
                 </h6>
                 {% if order_item.item.category %}
-                <span class="badge badge-light border text-muted">{{ order_item.item.category.name }}</span>
+                <span class="badge badge-light border text-muted" style="font-size: 11px;">{{ order_item.item.category.name }}</span>
                 {% endif %}
                 <div class="mt-1">
-                  <a href="{% url 'product:remove-from-cart' order_item.item.slug %}" class="text-danger small font-weight-bold" title="Eliminar del carrito">
-                    <i class="fas fa-trash-alt mr-1"></i> Quitar
+                  <a href="{% url 'product:remove-from-cart' order_item.item.slug %}" class="text-danger small font-weight-bold text-decoration-none">
+                    <i class="fas fa-trash-alt mr-1"></i> Remove
                   </a>
                 </div>
               </div>
             </div>
 
-            <div class="col-md-3 text-center my-3 my-md-0">
-              <div class="cart-qty-control justify-content-center">
-                <a href="{% url 'product:remove_single_from_cart' order_item.item.slug %}" class="cart-qty-btn">
-                  <i class="fas fa-minus small"></i>
+            <div class="col-md-3 text-center my-2 my-md-0">
+              <div class="cart-qty-control justify-content-center d-flex align-items-center">
+                <a href="{% url 'product:remove_single_from_cart' order_item.item.slug %}" class="btn btn-sm p-1" style="width: 28px; height: 28px; border-radius: 4px; line-height: 1;">
+                  <i class="fas fa-minus medium"></i>
                 </a>
-                <span class="font-weight-bold px-2" style="font-size: 16px;">{{ order_item.quantity }}</span>
+                <span class="font-weight-bold px-3">{{ order_item.quantity }}</span>
                 {% if order_item.quantity < order_item.item.stock %}
-                <a href="{% url 'product:add_to_cart' order_item.item.slug %}" class="cart-qty-btn">
-                  <i class="fas fa-plus small"></i>
+                <a href="{% url 'product:add_to_cart' order_item.item.slug %}" class="btn btn-sm p-1" style="width: 28px; height: 28px; border-radius: 4px;">
+                  <i class="fas fa-plus medium"></i>
                 </a>
                 {% else %}
-                <span class="cart-qty-btn text-muted" style="cursor: not-allowed; opacity: 0.5;" title="Stock máximo alcanzado">
-                  <i class="fas fa-plus small"></i>
+                <span class="btn btn-sm btn-outline-secondary p-1 text-muted disabled" style="width: 28px; height: 28px; border-radius: 4px; line-height: 1; opacity: 0.4;">
+                  <i class="fas fa-plus medium"></i>
                 </span>
                 {% endif %}
               </div>
               {% if order_item.quantity >= order_item.item.stock %}
-              <small class="text-danger font-weight-bold d-block mt-1">Máximo stock</small>
+              <small class="text-danger font-weight-bold d-block mt-1" style="font-size: 11px;">Max stock reached</small>
               {% endif %}
             </div>
 
             <div class="col-md-3 text-right pr-0">
-              <div class="font-weight-bold text-dark" style="font-size: 18px;">
+              <div class="font-weight-bold text-dark" style="font-size: 16px;">
                 ${{ order_item.get_total_item_price }}
               </div>
               {% if order_item.quantity > 1 %}
-              <small class="text-muted">(${{ order_item.item.price }} c/u)</small>
+              <small class="text-muted" style="font-size: 11px;">(${{ order_item.item.price }} each)</small>
               {% endif %}
             </div>
           </div>
           {% endfor %}
         </div>
       </div>
-
-      <!-- Casilla de Código de Descuento -->
-      <div class="cart-card p-4">
-        <h6 class="font-weight-bold mb-3" style="color: var(--primary-dark);">
-          <i class="fas fa-ticket-alt text-primary mr-2"></i> ¿Tienes un Código de Descuento?
-        </h6>
-        <form method="POST" action="" class="form-inline">
-          {% csrf_token %}
-          <div class="input-group w-100">
-            <input type="text" name="discount_code" class="form-control" placeholder="Ej: DESC10 u OFF500" style="text-transform: uppercase; border-radius: var(--radius-md) 0 0 var(--radius-md);">
-            <div class="input-group-append">
-              <button type="submit" name="apply_discount" class="btn btn-primary m-0" style="border-radius: 0 var(--radius-md) var(--radius-md) 0;">
-                Aplicar Código
-              </button>
-            </div>
-          </div>
-        </form>
-        {% if object.discount > 0 %}
-        <div class="alert alert-success mt-3 mb-0 d-flex align-items-center justify-content-between p-2 rounded-lg">
-          <small class="font-weight-bold"><i class="fas fa-check-circle mr-1"></i> Descuento aplicado correctamente</small>
-          <span class="font-weight-bold">-${{ object.discount }}</span>
-        </div>
-        {% endif %}
-      </div>
     </div>
 
-    <!-- Resumen lateral -->
+    <!-- Right Sidebar: Order Summary Box (WITH PROMO CODE INTEGRATED) -->
     <div class="col-lg-4">
-      <div class="cart-card">
-        <h5 class="font-weight-bold mb-4" style="color: var(--primary-dark);">Resumen de Carrito</h5>
+      <div class="sober-card p-4">
+        <h5 class="font-weight-bold mb-4 text-dark border-bottom pb-3">Order Summary</h5>
 
-        <div class="d-flex justify-content-between mb-3" style="font-size: 15px;">
-          <span class="text-muted">Subtotal de productos</span>
+        <!-- Promo Code Input Form (Integrated directly in Summary Sidebar) -->
+        <div class="mb-4 p-3 bg-light border rounded" style="border-radius: 6px !important;">
+          <label class="small font-weight-bold text-muted mb-2 d-block">
+            <i class="fas fa-ticket-alt text-primary mr-1"></i> Promo Code
+          </label>
+          <form method="POST" action="" class="form-inline">
+            {% csrf_token %}
+            <div class="input-group w-100">
+              <input type="text" name="discount_code" class="form-control sober-input text-uppercase" placeholder="e.g. DESC10 or OFF500" style="font-size: 13px;">
+              <div class="input-group-append">
+                <button type="submit" name="apply_discount" class="sober-btn-primary py-1 px-3" style="font-size: 13px;">
+                  Apply
+                </button>
+              </div>
+            </div>
+          </form>
+          {% if object.discount > 0 %}
+          <div class="alert alert-success mt-2 mb-0 d-flex align-items-center justify-content-between p-2 rounded" style="font-size: 12px;">
+            <span class="font-weight-bold"><i class="fas fa-check-circle mr-1"></i> Discount Applied</span>
+            <span class="font-weight-bold">-${{ object.discount }}</span>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="d-flex justify-content-between mb-3 small">
+          <span class="text-muted">Items Subtotal</span>
           <span class="font-weight-bold">${{ object.get_items_subtotal }}</span>
         </div>
 
-        <div class="d-flex justify-content-between mb-3" style="font-size: 15px;">
+        <div class="d-flex justify-content-between mb-3 small">
           <span class="text-muted">
-            Costo de envío 
+            Shipping Fee 
             {% if object.user.profile and object.user.profile.is_international %}
-              <span class="badge badge-warning ml-1" style="font-size: 10px; font-weight: 600;">Internacional</span>
+              <span class="badge badge-warning ml-1" style="font-size: 10px;">International</span>
             {% else %}
-              <span class="badge badge-light border ml-1" style="font-size: 10px; font-weight: 600;">Nacional</span>
+              <span class="badge badge-light border ml-1" style="font-size: 10px;">Domestic</span>
             {% endif %}
           </span>
           <span class="font-weight-bold">${{ object.shipping_cost }}</span>
         </div>
 
         {% if object.discount > 0 %}
-        <div class="d-flex justify-content-between mb-3 text-success" style="font-size: 15px;">
-          <span>Descuento aplicado</span>
+        <div class="d-flex justify-content-between mb-3 text-success small">
+          <span>Applied Discount</span>
           <span class="font-weight-bold">-${{ object.discount }}</span>
         </div>
         {% endif %}
 
-        <hr class="my-4">
+        <hr class="my-3">
 
-        <div class="d-flex justify-content-between mb-4" style="font-size: 20px;">
-          <span class="font-weight-bold" style="color: var(--primary-dark);">Total estimado</span>
-          <span class="font-weight-bold text-primary">${{ object.total }}</span>
+        <div class="d-flex justify-content-between mb-4">
+          <span class="font-weight-bold text-dark" style="font-size: 18px;">Total</span>
+          <span class="font-weight-bold text-primary" style="font-size: 20px;">${{ object.total }}</span>
         </div>
 
-        <a href="{% url 'product:checkout' %}" class="btn-custom-primary mb-3">
-          Proceder al Checkout <i class="fas fa-arrow-right ml-2"></i>
+        <a href="{% url 'product:checkout' %}" class="sober-btn-primary btn-block text-center mb-3 text-decoration-none py-3" style="font-size: 15px;">
+          Proceed to Checkout <i class="fas fa-arrow-right ml-2"></i>
         </a>
 
         <form method="POST" action="">
           {% csrf_token %}
-          <button type="submit" name="delete" class="btn btn-outline-danger btn-block btn-sm rounded-lg" onclick="return confirm('¿Seguro que deseas vaciar el carrito?');">
-            <i class="fas fa-trash mr-1"></i> Vaciar Carrito
+          <button type="submit" name="delete" class="sober-btn-outline btn-block btn-sm py-2" onclick="return confirm('Are you sure you want to empty your cart?');">
+            <i class="fas fa-trash mr-1"></i> Empty Cart
           </button>
         </form>
       </div>
@@ -164,31 +164,24 @@
   </div>
 
   {% else %}
-  <!-- Carrito Vacío -->
+  <!-- Empty Cart State -->
   <div class="row justify-content-center my-5">
-    <div class="col-md-8 text-center">
-      <div class="cart-card py-5 px-4">
+    <div class="col-md-7 text-center">
+      <div class="sober-card py-5 px-4">
         <div class="mb-4">
-          <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-light text-muted" style="width: 100px; height: 100px; font-size: 40px;">
+          <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-light text-muted" style="width: 80px; height: 80px; font-size: 32px;">
             <i class="fas fa-shopping-bag text-primary"></i>
           </span>
         </div>
-        <h3 class="font-weight-bold text-dark mb-2">Tu carrito está vacío</h3>
-        <p class="text-muted mb-4">Parece que aún no has añadido ningún componente a tu carrito de compras.</p>
-        <a href="/" class="btn-custom-primary px-4 py-3" style="width: auto;">
-          <i class="fas fa-store mr-2"></i> Explorar Catálogo de Productos
+        <h4 class="font-weight-bold text-dark mb-2">Your cart is empty</h4>
+        <p class="text-muted small mb-4">Looks like you haven't added any products to your cart yet.</p>
+        <a href="/" class="sober-btn-primary px-4 py-3 text-decoration-none" style="display: inline-block;">
+          <i class="fas fa-store mr-2"></i> Explore Product Catalog
         </a>
       </div>
     </div>
   </div>
   {% endif %}
 </div>
-
-<!--Footer-->
-<footer class="page-footer text-center font-small mt-auto">
-  <div class="footer-copyright py-3">
-    © Store 2026 - Todos los derechos reservados
-  </div>
-</footer>
 
 {% endblock %}

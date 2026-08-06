@@ -1,86 +1,86 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<div class="container my-5">
+<div class="container my-4">
   <div class="row justify-content-center">
-    <div class="col-lg-8">
+    <div class="col-lg-7 col-md-9">
       <div class="sober-card">
-        <div class="sober-header d-flex align-items-center justify-content-between">
+        <div class="sober-header d-flex align-items-center justify-content-between pb-3 mb-4">
           <div>
-            <h3><i class="fas fa-user-cog text-primary mr-2"></i>Editar Perfil</h3>
-            <p>Actualiza tus datos personales y dirección de envío</p>
+            <h3 class="mb-1 font-weight-bold" style="font-size: 20px;">Edit Profile</h3>
+            <p class="text-muted small mb-0">Update your personal information and shipping address</p>
           </div>
-          <a href="/profile" class="sober-btn-outline btn-sm">
-            <i class="fas fa-arrow-left mr-1"></i> Volver al Perfil
+          <a href="/profile" class="sober-btn-outline btn-sm text-decoration-none">
+            Back to Profile
           </a>
         </div>
 
         <form method="POST" enctype="multipart/form-data" class="custom-form">
           {% csrf_token %}
 
-          <!-- Sección 1: Datos Personales -->
-          <div class="form-section-title">
-            <i class="fas fa-user-circle mr-2"></i> Información Personal
+          <!-- Section 1: Personal Information -->
+          <div class="form-section-title text-uppercase font-weight-bold mb-3" style="font-size: 13px; color: var(--primary-blue); letter-spacing: 0.5px;">
+            Personal Information
           </div>
 
-          <div class="row">
-            <div class="col-md-6 form-group">
-              <label for="id_phone"><i class="fas fa-phone mr-1 text-muted"></i> Teléfono</label>
-              <input type="text" name="phone" id="id_phone" class="form-control sober-input" value="{{ form.phone.value|default:'' }}" placeholder="Número de contacto">
-            </div>
+          <div class="form-group mb-3">
+            <label for="id_phone" class="small text-muted font-weight-bold">Phone Number</label>
+            <input type="text" name="phone" id="id_phone" class="form-control sober-input" value="{{ form.phone.value|default:'' }}" placeholder="e.g. +1 555-0199">
+          </div>
 
-            <div class="col-md-6 form-group">
-              <label for="id_birth_date"><i class="fas fa-birthday-cake mr-1 text-muted"></i> Fecha de Nacimiento</label>
-              <input type="date" name="birth_date" id="id_birth_date" class="form-control sober-input" value="{{ form.birth_date.value|date:'Y-m-d'|default:'' }}">
-            </div>
+          <div class="form-group mb-3">
+            <label for="id_birth_date" class="small text-muted font-weight-bold">Date of Birth</label>
+            <input type="date" name="birth_date" id="id_birth_date" class="form-control sober-input" value="{{ form.birth_date.value|date:'Y-m-d'|default:'' }}">
+          </div>
 
-            <div class="col-12 form-group">
-              <label for="id_description"><i class="fas fa-align-left mr-1 text-muted"></i> Bio / Descripción</label>
-              <textarea name="description" id="id_description" rows="3" class="form-control sober-input" placeholder="Cuéntanos un poco sobre ti...">{{ form.description.value|default:'' }}</textarea>
-            </div>
+          <div class="form-group mb-4">
+            <label for="id_description" class="small text-muted font-weight-bold">Bio / Description</label>
+            <textarea name="description" id="id_description" rows="3" class="form-control sober-input" placeholder="Tell us a bit about yourself...">{{ form.description.value|default:'' }}</textarea>
           </div>
 
           <hr class="my-4">
 
-          <!-- Sección 2: Dirección y Ubicación -->
-          <div class="form-section-title">
-            <i class="fas fa-map-marked-alt mr-2"></i> Dirección y Ubicación
+          <!-- Section 2: Address & Location -->
+          <div class="form-section-title text-uppercase font-weight-bold mb-3" style="font-size: 13px; color: var(--primary-blue); letter-spacing: 0.5px;">
+            Shipping Address
+          </div>
+
+          <div class="form-group mb-3">
+            <label for="id_address_line" class="small text-muted font-weight-bold">Street Address (Apt, Suite)</label>
+            <input type="text" name="address_line" id="id_address_line" class="form-control sober-input" value="{{ form.address_line.value|default:'' }}" placeholder="e.g. 123 Main St, Apt 4B">
           </div>
 
           <div class="row">
-            <div class="col-12 form-group">
-              <label for="id_address_line"><i class="fas fa-road mr-1 text-muted"></i> Calle y Número (Piso, Dpto)</label>
-              <input type="text" name="address_line" id="id_address_line" class="form-control sober-input" value="{{ form.address_line.value|default:'' }}" placeholder="Ej: Av. Corrientes 1234, 4° B">
+            <div class="col-md-6 form-group mb-3">
+              <label for="id_city" class="small text-muted font-weight-bold">City</label>
+              <input type="text" name="city" id="id_city" class="form-control sober-input" value="{{ form.city.value|default:'' }}" placeholder="City">
             </div>
 
-            <div class="col-md-6 form-group">
-              <label for="id_city"><i class="fas fa-city mr-1 text-muted"></i> Ciudad</label>
-              <input type="text" name="city" id="id_city" class="form-control sober-input" value="{{ form.city.value|default:'' }}" placeholder="Ciudad">
+            <div class="col-md-6 form-group mb-3">
+              <label for="id_province" class="small text-muted font-weight-bold">State / Province / Region</label>
+              <input type="text" name="province" id="id_province" class="form-control sober-input" value="{{ form.province.value|default:'' }}" placeholder="State or Region">
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 form-group mb-3">
+              <label for="id_zip_code" class="small text-muted font-weight-bold">Postal Code</label>
+              <input type="text" name="zip_code" id="id_zip_code" class="form-control sober-input" value="{{ form.zip_code.value|default:'' }}" placeholder="ZIP / Postal Code">
             </div>
 
-            <div class="col-md-6 form-group">
-              <label for="id_province"><i class="fas fa-map mr-1 text-muted"></i> Provincia / Estado / Región</label>
-              <input type="text" name="province" id="id_province" class="form-control sober-input" value="{{ form.province.value|default:'' }}" placeholder="Provincia o Estado">
-            </div>
-
-            <div class="col-md-6 form-group">
-              <label for="id_zip_code"><i class="fas fa-mail-bulk mr-1 text-muted"></i> Código Postal</label>
-              <input type="text" name="zip_code" id="id_zip_code" class="form-control sober-input" value="{{ form.zip_code.value|default:'' }}" placeholder="Código Postal">
-            </div>
-
-            <div class="col-md-6 form-group">
-              <label for="id_country"><i class="fas fa-globe-americas mr-1 text-muted"></i> País</label>
-              <input type="text" name="country" id="id_country" class="form-control sober-input" value="{{ form.country.value|default:'Argentina' }}" placeholder="País de residencia">
-              <small class="form-text text-muted">Compras fuera de Argentina aplican tarifa de envío internacional.</small>
+            <div class="col-md-6 form-group mb-3">
+              <label for="id_country" class="small text-muted font-weight-bold">Country</label>
+              <input type="text" name="country" id="id_country" class="form-control sober-input" value="{{ form.country.value|default:'Argentina' }}" placeholder="Country">
+              <small class="form-text text-muted" style="font-size: 11px;">Orders outside Argentina apply international shipping rates.</small>
             </div>
           </div>
 
           <div class="d-flex justify-content-end align-items-center mt-4 pt-3 border-top">
-            <a href="/profile" class="sober-btn-outline mr-3">
-              Cancelar
+            <a href="/profile" class="sober-btn-outline mr-3 text-decoration-none">
+              Cancel
             </a>
             <button type="submit" class="sober-btn-primary">
-              <i class="fas fa-save mr-2"></i> Guardar Cambios
+              Save Changes
             </button>
           </div>
         </form>

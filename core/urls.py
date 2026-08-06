@@ -7,6 +7,7 @@ from product.views import log_in
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/login/', log_in, name='login'),
+    path('analytics/', include('analytics.urls', namespace='analytics')),
     path('', include('product.urls', namespace='product'))
 ]
 

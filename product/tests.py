@@ -89,7 +89,7 @@ class ModelsRefactorTestCase(TestCase):
 
         # Try to add out of stock item to cart
         res = self.client.get(out_of_stock_item.get_add_to_cart_url(), follow=True)
-        self.assertContains(res, "no tiene stock disponible")
+        self.assertContains(res, "is out of stock")
 
     def test_profile_fields(self):
         from datetime import date

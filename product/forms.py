@@ -12,20 +12,20 @@ class profile_edit_form(forms.ModelForm):
         model = Profile
         fields = ['phone', 'description', 'address_line', 'city', 'province', 'zip_code', 'country', 'birth_date']
         widgets = {
-            'phone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Teléfono'}),
-            'address_line': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Calle y número, piso, dpto'}),
-            'city': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ciudad'}),
-            'province': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Provincia / Estado / Región'}),
-            'zip_code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Código Postal'}),
-            'country': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'País'}),
-            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descripción'}),
+            'phone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Phone number'}),
+            'address_line': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Street address, Apt, Suite'}),
+            'city': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'City'}),
+            'province': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'State / Province / Region'}),
+            'zip_code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Postal Code'}),
+            'country': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Country'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Bio / Description'}),
         }
 
 
 class comments_form(forms.ModelForm):
     body = forms.CharField(
         label='',
-        widget=forms.Textarea(attrs={'placeholder': 'Escribe tu comentario aquí...', 'rows': 3, 'class': 'form-control'})
+        widget=forms.Textarea(attrs={'placeholder': 'Write your comment here...', 'rows': 3, 'class': 'form-control'})
     )
 
     class Meta:
@@ -48,12 +48,12 @@ class product_form(forms.ModelForm):
         model = Item
         fields = ['title', 'description', 'price', 'cost', 'stock', 'minimum_stock', 'category', 'brand', 'supplier', 'label', 'img', 'is_active']
         widgets = {
-            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Título del producto'}),
-            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descripción'}),
-            'price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Precio de venta'}),
-            'cost': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Costo'}),
-            'stock': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Stock actual'}),
-            'minimum_stock': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Stock mínimo'}),
+            'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Product Title'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Description'}),
+            'price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Price'}),
+            'cost': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': 'Cost'}),
+            'stock': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Current Stock'}),
+            'minimum_stock': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Minimum Stock'}),
             'label': forms.Select(attrs={'class': 'form-control'}),
             'img': forms.FileInput(attrs={'class': 'form-control-file'}),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),

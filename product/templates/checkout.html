@@ -3,74 +3,74 @@
 
 {% block content %}
 
-<div class="container mt-4 mb-5" style="min-height: calc(100vh - 200px);">
-  <div class="d-flex align-items-center justify-content-between my-4">
-    <h2 class="h3 font-weight-bold mb-0" style="color: var(--primary-dark);">
-      <i class="fas fa-credit-card mr-2 text-primary"></i> Finalizar Compra (Checkout)
+<div class="container my-4">
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <h2 class="h4 font-weight-bold mb-0 text-dark">
+      Checkout
     </h2>
-    <a href="{% url 'product:order_summary' %}" class="btn btn-outline-secondary btn-sm rounded-pill">
-      <i class="fas fa-arrow-left mr-1"></i> Volver al Carrito
+    <a href="{% url 'product:order_summary' %}" class="sober-btn-outline btn-sm text-decoration-none">
+      <i class="fas fa-arrow-left mr-1"></i> Back to Cart
     </a>
   </div>
 
   <form method="POST" action="">
     {% csrf_token %}
     <div class="row">
-      <!-- Columna Izquierda: Envío y Pago -->
+      <!-- Left Column: Shipping & Payment -->
       <div class="col-lg-7 mb-4">
-        <!-- 1. Sistema de Shipping / Envío (Tarifa Plana) -->
-        <div class="cart-card mb-4 p-4">
-          <h5 class="font-weight-bold mb-3" style="color: var(--primary-dark);">
-            <i class="fas fa-truck text-primary mr-2"></i> 1. Método de Envío
+        <!-- 1. Shipping Method -->
+        <div class="sober-card mb-4 p-4">
+          <h5 class="font-weight-bold mb-3 text-dark border-bottom pb-2">
+            1. Shipping Method
           </h5>
 
-          <div class="p-3 border rounded-lg bg-light mb-3 d-flex align-items-center justify-content-between">
+          <div class="p-3 border rounded bg-light mb-3 d-flex align-items-center justify-content-between" style="border-radius: 6px !important;">
             <div class="custom-control custom-radio">
               <input type="radio" id="shipping_flat" name="shipping_method" class="custom-control-input" checked disabled>
-              <label class="custom-control-label font-weight-bold" for="shipping_flat">
-                Envío Estándar a Domicilio (Tarifa Plana)
+              <label class="custom-control-label font-weight-bold text-dark" for="shipping_flat">
+                Standard Home Delivery
               </label>
-              <small class="d-block text-muted">Entrega estimada de 2 a 5 días hábiles</small>
+              <small class="d-block text-muted">Estimated delivery: 2 to 5 business days</small>
             </div>
-            <span class="font-weight-bold text-dark" style="font-size: 16px;">$500.00</span>
+            <span class="font-weight-bold text-dark">${{ object.shipping_cost }}</span>
           </div>
 
-          <div class="border-top pt-3 mt-3">
-            <h6 class="font-weight-bold text-muted mb-2"><i class="fas fa-map-marker-alt mr-1"></i> Datos de Entrega</h6>
+          <div class="pt-2">
+            <h6 class="font-weight-bold text-muted small text-uppercase mb-2"><i class="fas fa-map-marker-alt mr-1"></i> Delivery Address</h6>
             <div class="row">
               <div class="col-md-6 mb-2">
-                <small class="text-muted d-block">Ciudad:</small>
-                <strong>{{ user_profile.city|default:"No especificada" }}</strong>
+                <small class="text-muted d-block">City:</small>
+                <strong class="text-dark">{{ user_profile.city|default:"Not specified" }}</strong>
               </div>
               <div class="col-md-6 mb-2">
-                <small class="text-muted d-block">Provincia:</small>
-                <strong>{{ user_profile.province|default:"No especificada" }}</strong>
+                <small class="text-muted d-block">State / Country:</small>
+                <strong class="text-dark">{{ user_profile.province|default:"" }} {% if user_profile.country %}({{ user_profile.country }}){% endif %}</strong>
               </div>
               <div class="col-12 mt-2">
-                <a href="{{ user_profile.get_profile_url }}" class="small text-primary font-weight-bold">
-                  <i class="fas fa-edit mr-1"></i> Actualizar dirección en mi perfil
+                <a href="{{ user_profile.get_profile_url }}" class="small text-primary font-weight-bold text-decoration-none">
+                  Update address in your profile
                 </a>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- 2. Método de Pago -->
-        <div class="cart-card p-4">
-          <h5 class="font-weight-bold mb-3" style="color: var(--primary-dark);">
-            <i class="fas fa-wallet text-primary mr-2"></i> 2. Método de Pago
+        <!-- 2. Payment Method -->
+        <div class="sober-card p-4">
+          <h5 class="font-weight-bold mb-3 text-dark border-bottom pb-2">
+            2. Payment Method
           </h5>
 
           <div class="payment-options">
             {% for code, label in payment_methods %}
-            <div class="custom-control custom-radio p-3 border rounded-lg mb-2 bg-white hover-shadow" style="transition: all 0.2s;">
+            <div class="custom-control custom-radio p-3 border rounded mb-2 bg-white" style="border-radius: 6px !important; transition: all 0.2s;">
               <input type="radio" id="pm_{{ code }}" name="payment_method" value="{{ code }}" class="custom-control-input" {% if forloop.first %}checked{% endif %}>
-              <label class="custom-control-label font-weight-bold d-flex align-items-center justify-content-between w-100 cursor-pointer" for="pm_{{ code }}">
+              <label class="custom-control-label font-weight-bold d-flex align-items-center justify-content-between w-100 cursor-pointer text-dark" for="pm_{{ code }}">
                 <span>
                   {% if code == 'CREDIT_CARD' %}<i class="fas fa-credit-card text-primary mr-2"></i>
-                  {% elif code == 'DEBIT_CARD' %}<i class="far fa-credit-card text-info mr-2"></i>
-                  {% elif code == 'TRANSFER' %}<i class="fas fa-university text-success mr-2"></i>
-                  {% else %}<i class="fas fa-money-bill-wave text-warning mr-2"></i>{% endif %}
+                  {% elif code == 'DEBIT_CARD' %}<i class="far fa-credit-card text-primary mr-2"></i>
+                  {% elif code == 'TRANSFER' %}<i class="fas fa-university text-primary mr-2"></i>
+                  {% else %}<i class="fas fa-money-bill-wave text-primary mr-2"></i>{% endif %}
                   {{ label }}
                 </span>
               </label>
@@ -80,20 +80,20 @@
         </div>
       </div>
 
-      <!-- Columna Derecha: Div Resumen de Compra en Checkout -->
+      <!-- Right Column: Order Summary -->
       <div class="col-lg-5">
-        <div class="cart-card position-sticky" style="top: 90px;">
-          <h5 class="font-weight-bold mb-4" style="color: var(--primary-dark);">
-            <i class="fas fa-clipboard-list text-primary mr-2"></i> Resumen de Compra
+        <div class="sober-card p-4 position-sticky" style="top: 90px;">
+          <h5 class="font-weight-bold mb-4 text-dark border-bottom pb-2">
+            <i class="fas fa-clipboard-list text-primary mr-2"></i> Order Summary
           </h5>
 
-          <!-- Lista de Items resumida -->
-          <div class="mb-4 pr-1" style="max-height: 220px; overflow-y: auto;">
+          <!-- Items list -->
+          <div class="mb-3 pr-1" style="max-height: 220px; overflow-y: auto;">
             {% for order_item in object.items.all %}
             <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
               <div class="d-flex align-items-center">
                 {% if order_item.item.img %}
-                <img src="/uploads/{{ order_item.item.img }}" alt="{{ order_item.item.title }}" class="mr-2 rounded border" width="40" height="40" style="object-fit: contain;">
+                <img src="/uploads/{{ order_item.item.img }}" alt="{{ order_item.item.title }}" class="mr-2 border rounded p-1" width="36" height="36" style="object-fit: contain; border-radius: 4px !important;">
                 {% endif %}
                 <div>
                   <h6 class="mb-0 small font-weight-bold text-dark">{{ order_item.item.title }}</h6>
@@ -105,45 +105,38 @@
             {% endfor %}
           </div>
 
-          <!-- Desglose de Totales -->
-          <div class="d-flex justify-content-between mb-2" style="font-size: 14px;">
-            <span class="text-muted">Subtotal Productos</span>
+          <!-- Summary Breakdown -->
+          <div class="d-flex justify-content-between mb-2 small">
+            <span class="text-muted">Items Subtotal</span>
             <span class="font-weight-bold">${{ object.get_items_subtotal }}</span>
           </div>
 
-          <div class="d-flex justify-content-between mb-2" style="font-size: 14px;">
-            <span class="text-muted">Envío (Tarifa Plana)</span>
-            <span class="font-weight-bold text-dark">$500.00</span>
+          <div class="d-flex justify-content-between mb-2 small">
+            <span class="text-muted">Shipping Fee</span>
+            <span class="font-weight-bold text-dark">${{ object.shipping_cost }}</span>
           </div>
 
           {% if object.discount > 0 %}
-          <div class="d-flex justify-content-between mb-2 text-success" style="font-size: 14px;">
-            <span>Descuento aplicado</span>
+          <div class="d-flex justify-content-between mb-2 text-success small">
+            <span>Applied Discount</span>
             <span class="font-weight-bold">-${{ object.discount }}</span>
           </div>
           {% endif %}
 
           <hr class="my-3">
 
-          <div class="d-flex justify-content-between mb-4" style="font-size: 20px;">
-            <span class="font-weight-bold" style="color: var(--primary-dark);">TOTAL</span>
-            <span class="font-weight-bold text-primary">${{ object.total }}</span>
+          <div class="d-flex justify-content-between mb-4">
+            <span class="font-weight-bold text-dark" style="font-size: 18px;">TOTAL</span>
+            <span class="font-weight-bold text-primary" style="font-size: 20px;">${{ object.total }}</span>
           </div>
 
-          <button type="submit" name="buy" class="btn-custom-primary">
-            <i class="fas fa-lock mr-2"></i> Confirmar y Pagar
+          <button type="submit" name="buy" class="sober-btn-primary btn-block text-center py-3">
+            <i class="fas fa-lock mr-2"></i> Confirm and Place Order
           </button>
         </div>
       </div>
     </div>
   </form>
 </div>
-
-<!--Footer-->
-<footer class="page-footer text-center font-small mt-auto">
-  <div class="footer-copyright py-3">
-    © Store 2026 - Todos los derechos reservados
-  </div>
-</footer>
 
 {% endblock %}

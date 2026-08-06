@@ -13,18 +13,18 @@ LABEL_CHOICES = (
 
 
 class OrderStatus(models.TextChoices):
-    PENDING = 'PENDING', 'Pendiente de Pago'
-    PAID = 'PAID', 'Pagado'
-    SHIPPED = 'SHIPPED', 'Enviado'
-    DELIVERED = 'DELIVERED', 'Entregado'
-    CANCELED = 'CANCELED', 'Cancelado'
+    PENDING = 'PENDING', 'Pending Payment'
+    PAID = 'PAID', 'Paid'
+    SHIPPED = 'SHIPPED', 'Shipped'
+    DELIVERED = 'DELIVERED', 'Delivered'
+    CANCELED = 'CANCELED', 'Canceled'
 
 
 class PaymentMethod(models.TextChoices):
-    CREDIT_CARD = 'CREDIT_CARD', 'Tarjeta de Crédito'
-    DEBIT_CARD = 'DEBIT_CARD', 'Tarjeta de Débito'
-    TRANSFER = 'TRANSFER', 'Transferencia Bancaria'
-    CASH = 'CASH', 'Efectivo'
+    CREDIT_CARD = 'CREDIT_CARD', 'Credit Card'
+    DEBIT_CARD = 'DEBIT_CARD', 'Debit Card'
+    TRANSFER = 'TRANSFER', 'Bank Transfer'
+    CASH = 'CASH', 'Cash'
 
 
 class Brand(models.Model):
