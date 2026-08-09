@@ -2,7 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth import logout, login, authenticate
-from django.contrib.auth.decorators import user_passes_test
+from django.contrib.auth.decorators import user_passes_test, login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import IntegrityError
 from django.db.models import Q
@@ -79,6 +79,11 @@ class ProductDetailView(DetailView):
         context['items'] = Item.objects.filter(slug=self.kwargs['slug'])
         context['comments'] = Comments.objects.filter(item=self.object)
         context['form'] = comments_form()
+        
+        user_already_commented = False
+        if self.request.user.is_authenticated:
+            user_already_commented = Comments.objects.filter(user=self.request.user, item=self.object).exists()
+        context['user_already_commented'] = user_already_commented
         return context
 
     def post(self, request, *args, **kwargs):
@@ -96,12 +101,18 @@ class ProductDetailView(DetailView):
             if not request.user.is_authenticated:
                 return redirect('product:login')
 
+            # Check if user already commented
+            if Comments.objects.filter(user=request.user, item=self.object).exists():
+                messages.error(request, 'You have already reviewed this product.')
+                return redirect('product:product', slug=slug)
+
             form = comments_form(request.POST)
             if form.is_valid():
                 Comments.objects.create(
                     user=request.user,
                     item=self.object,
                     body=form.cleaned_data['body'],
+                    rating=form.cleaned_data['rating'],
                 )
             else:
                 messages.error(request, 'Could not post your comment.')
@@ -111,26 +122,22 @@ class ProductDetailView(DetailView):
 
 def sign_up(request):
     if request.method == 'GET':
-        return render(request, 'signup.html', {'form': UserCreationForm})
+        return render(request, 'signup.html', {'form': UserCreationForm()})
 
-    if request.POST['password1'] != request.POST['password2']:
-        return render(request, 'signup.html', {
-            'form': UserCreationForm,
-            'error': 'Passwords do not match',
-        })
-
-    try:
-        user = User.objects.create_user(
-            username=request.POST['username'],
-            password=request.POST['password1'],
-        )
-        Profile.objects.create(user=user)
+    form = UserCreationForm(request.POST)
+    if form.is_valid():
+        user = form.save()
+        Profile.objects.get_or_create(user=user)
         login(request, user)
         return redirect('/')
-    except IntegrityError:
+    else:
+        error_msg = None
+        for field, errors in form.errors.items():
+            error_msg = f"{field}: {errors[0]}"
+            break
         return render(request, 'signup.html', {
-            'form': UserCreationForm,
-            'error': 'User already exists',
+            'form': form,
+            'error': error_msg or 'Invalid form data. Please check password requirements.',
         })
 
 
@@ -141,23 +148,21 @@ def log_out(request):
 
 def log_in(request):
     if request.method == 'GET':
-        return render(request, 'login.html', {'form': AuthenticationForm})
+        return render(request, 'login.html', {'form': AuthenticationForm()})
 
-    user = authenticate(
-        request,
-        username=request.POST['username'],
-        password=request.POST['password'],
-    )
-    if user is None:
+    form = AuthenticationForm(request, data=request.POST)
+    if form.is_valid():
+        user = form.get_user()
+        login(request, user)
+        return redirect('/')
+    else:
         return render(request, 'login.html', {
-            'form': AuthenticationForm,
+            'form': form,
             'error': 'User or password is incorrect',
         })
 
-    login(request, user)
-    return redirect('/')
 
-
+@login_required
 def agregar_imagen(request):
     profile, created = Profile.objects.get_or_create(user=request.user)
 
@@ -323,6 +328,7 @@ class CheckoutView(LoginRequiredMixin, View):
         return redirect('/')
 
 
+@login_required
 def profile(request):
     user_profile, created = Profile.objects.get_or_create(user=request.user)
     return render(request, 'profile.html', {
@@ -332,6 +338,7 @@ def profile(request):
     })
 
 
+@login_required
 def edit_profile(request, username):
     user_profile, created = Profile.objects.get_or_create(user=request.user)
 
@@ -354,6 +361,7 @@ def edit_profile(request, username):
     })
 
 
+@login_required
 def add_to_cart(request, slug):
     item = get_object_or_404(Item, slug=slug)
 
@@ -401,6 +409,7 @@ def add_to_cart(request, slug):
     return redirect('product:order_summary')
 
 
+@login_required
 def remove_single_cart(request, slug):
     item = get_object_or_404(Item, slug=slug)
     order = Order.objects.filter(user=request.user, status=OrderStatus.PENDING).first()
@@ -427,6 +436,7 @@ def remove_single_cart(request, slug):
     return redirect('product:order_summary')
 
 
+@login_required
 def remove_from_cart(request, slug):
     item = get_object_or_404(Item, slug=slug)
     order = Order.objects.filter(user=request.user, status=OrderStatus.PENDING).first()
@@ -446,6 +456,7 @@ def remove_from_cart(request, slug):
     return redirect('product:order_summary')
 
 
+@login_required
 def delete(request, slug):
     order = Order.objects.filter(user=request.user, status=OrderStatus.PENDING).first()
     if order:

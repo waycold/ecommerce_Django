@@ -40,9 +40,9 @@ class Command(BaseCommand):
         User.objects.exclude(is_superuser=True).delete()
 
         self.stdout.write("2. Generating Categories...")
-        categories = ['Electrónica', 'Hogar y Muebles', 'Ropa y Accesorios', 'Deportes', 'Juguetes', 
-                      'Salud y Belleza', 'Automotriz', 'Herramientas', 'Libros', 'Videojuegos',
-                      'Alimentos y Bebidas', 'Mascotas', 'Joyería', 'Oficina', 'Bebés']
+        categories = ['Electronics', 'Home & Furniture', 'Clothing & Accessories', 'Sports', 'Toys', 
+                      'Health & Beauty', 'Automotive', 'Tools', 'Books', 'Video Games',
+                      'Food & Beverage', 'Pets', 'Jewelry', 'Office', 'Baby']
         Category.objects.bulk_create([Category(name=name) for name in categories])
         cats_db = list(Category.objects.all())
         cat_probs = [random.uniform(0.1, 1.0) for _ in cats_db]
@@ -212,7 +212,7 @@ class Command(BaseCommand):
                 
                 order_batch.append(Order(
                     user=user,
-                    status=random.choices([OrderStatus.DELIVERED, OrderStatus.SHIPPED, OrderStatus.PAID, OrderStatus.CANCELED], weights=[0.7, 0.1, 0.1, 0.1])[0],
+                    status=random.choices([OrderStatus.DELIVERED, OrderStatus.SHIPPED, OrderStatus.PAID, OrderStatus.CANCELED, OrderStatus.PENDING], weights=[0.6, 0.1, 0.1, 0.1, 0.1])[0],
                     payment_method=random.choice(list(PaymentMethod)).value,
                     discount_code=discount_code,
                     discount=discount,
@@ -253,15 +253,26 @@ class Command(BaseCommand):
         
         self.stdout.write("7. Generating Comments...")
         comment_objs = []
+        used_pairs = set()
         for i in range(3000):
             if i % 500 == 0:
                 self.print_progress(i, 3000, prefix='Comments')
-            comment_objs.append(Comments(
-                user=random.choice(users_db),
-                item=random.choice(items_db),
-                body=fake.paragraph(nb_sentences=3),
-                likes=random.randint(0, 100)
-            ))
+            attempts = 0
+            while attempts < 10:
+                usr = random.choice(users_db)
+                itm = random.choice(items_db)
+                pair = (usr.id, itm.id)
+                if pair not in used_pairs:
+                    used_pairs.add(pair)
+                    comment_objs.append(Comments(
+                        user=usr,
+                        item=itm,
+                        body=fake.paragraph(nb_sentences=3),
+                        rating=random.randint(1, 5),
+                        likes=random.randint(0, 100)
+                    ))
+                    break
+                attempts += 1
         self.print_progress(3000, 3000, prefix='Comments')
         Comments.objects.bulk_create(comment_objs, batch_size=1000)
 

@@ -1,8 +1,10 @@
+from decimal import Decimal
 from django.conf import settings
 from django.db import models
 from django.shortcuts import reverse
 from django.contrib.auth.models import User
 from django.utils.text import slugify
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 LABEL_CHOICES = (
@@ -153,26 +155,26 @@ class Order(models.Model):
     def recalculate_shipping_cost(self):
         try:
             if hasattr(self.user, 'profile') and self.user.profile and self.user.profile.is_international():
-                self.shipping_cost = 2500.00
+                self.shipping_cost = Decimal('2500.00')
             else:
-                self.shipping_cost = 500.00
+                self.shipping_cost = Decimal('500.00')
         except Exception:
-            self.shipping_cost = 500.00
+            self.shipping_cost = Decimal('500.00')
         return self.shipping_cost
 
     def recalculate_discount(self):
-        subtotal = float(self.get_items_subtotal())
+        subtotal = self.get_items_subtotal()
         if self.discount_code in ['DESC10', 'PROMO10']:
-            self.discount = round(subtotal * 0.10, 2)
+            self.discount = (subtotal * Decimal('0.10')).quantize(Decimal('0.01'))
         elif self.discount_code in ['OFF500', 'DESCUENTO']:
-            self.discount = min(500.00, subtotal)
+            self.discount = min(Decimal('500.00'), subtotal)
         return self.discount
 
     def calculate_total(self):
         subtotal_sum = self.get_items_subtotal()
         self.recalculate_shipping_cost()
         self.recalculate_discount()
-        self.total = max(0, float(subtotal_sum) + float(self.shipping_cost) - float(self.discount))
+        self.total = max(Decimal('0.00'), subtotal_sum + self.shipping_cost - self.discount)
         return self.total
 
     def get_total_price(self):
@@ -194,10 +196,12 @@ class OrderItem(models.Model):
         return f"{self.quantity} x {self.item.title}"
 
     def save(self, *args, **kwargs):
-        if not self.unit_price and self.item:
-            self.unit_price = self.item.price
-        if not self.unit_cost and self.item:
-            self.unit_cost = self.item.cost
+        if (self.unit_price is None or self.unit_price == 0) and self.item:
+            if self.item.price != 0 or self.unit_price is None:
+                self.unit_price = self.item.price
+        if (self.unit_cost is None or self.unit_cost == 0) and self.item:
+            if self.item.cost != 0 or self.unit_cost is None:
+                self.unit_cost = self.item.cost
         self.subtotal = self.quantity * self.unit_price
         super().save(*args, **kwargs)
 
@@ -209,11 +213,13 @@ class Comments(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name='comments', null=True, blank=True)
     body = models.TextField()
+    rating = models.IntegerField(default=5, validators=[MinValueValidator(1), MaxValueValidator(5)])
     date_added = models.DateTimeField(auto_now_add=True)
     likes = models.IntegerField(default=0)
 
     class Meta:
         verbose_name_plural = 'Comments'
+        unique_together = ('user', 'item')
 
     def __str__(self):
         return f"Comment by {self.user.username} on {self.item.title}"

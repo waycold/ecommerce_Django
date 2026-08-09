@@ -132,7 +132,7 @@ def export_sales_to_excel() -> HttpResponse:
         df['Categoría'] = df['Categoría'].fillna('Sin Categoría')
         df['Cliente'] = df['Cliente'].fillna('Invitado/Anónimo')
 
-        # Cálculo de métricas avanzadas en Pandas (Margen de Ganancia)
+        # Cálculo de métricas (Margen de Ganancia)
         df['Costo Total'] = df['Costo Unitario Histórico'] * df['Cantidad']
         df['Ganancia Neta ($)'] = df['Subtotal ($)'] - df['Costo Total']
         df['Margen (%)'] = ((df['Ganancia Neta ($)'] / df['Subtotal ($)']) * 100).round(2).fillna(0.0)

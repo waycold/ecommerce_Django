@@ -27,10 +27,16 @@ class comments_form(forms.ModelForm):
         label='',
         widget=forms.Textarea(attrs={'placeholder': 'Write your comment here...', 'rows': 3, 'class': 'form-control'})
     )
+    rating = forms.IntegerField(
+        min_value=1,
+        max_value=5,
+        initial=5,
+        widget=forms.HiddenInput(attrs={'id': 'id_rating_hidden'})
+    )
 
     class Meta:
         model = Comments
-        fields = ['body']
+        fields = ['body', 'rating']
 
 
 class image_form(forms.ModelForm):

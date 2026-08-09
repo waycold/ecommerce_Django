@@ -146,5 +146,26 @@ class ModelsRefactorTestCase(TestCase):
         self.assertEqual(res2.status_code, 200)
         self.assertEqual(len(res2.context['items']), 5)
 
+    def test_comment_rating_and_uniqueness(self):
+        # Create a first review with rating
+        Comments.objects.create(
+            user=self.user,
+            item=self.item,
+            body="First review",
+            rating=4
+        )
+
+        comment = Comments.objects.get(user=self.user, item=self.item)
+        self.assertEqual(comment.rating, 4)
+
+        # Enforce unique constraint: trying to create a second comment by same user on same item should fail
+        from django.db import IntegrityError
+        with self.assertRaises(IntegrityError):
+            Comments.objects.create(
+                user=self.user,
+                item=self.item,
+                body="Second review"
+            )
+
 
 
