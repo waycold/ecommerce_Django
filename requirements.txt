@@ -1,19 +1,28 @@
-# Tus librerías originales 
-asgiref==3.5.2
+# --- Core Framework & APIs ---
 Django==4.1.2
 djangorestframework==3.14.0
-Pillow==10.4.0
-pytz==2022.6
+asgiref==3.5.2
 sqlparse==0.4.3
+pytz==2022.6
 tzdata>=2022.7
 
-# Nuevas librerías 
-psycopg2-binary==2.9.9   # Conector PostgreSQL
+# --- Database Management ---
+psycopg2-binary==2.9.9
+dj-database-url==2.1.0
+
+# --- Environment & Configuration ---
+python-dotenv==1.2.2
+
+# --- Data Processing & Export ---
 pandas==2.2.0
-openpyxl==3.1.2          # Pandas para exportar a Excel
+openpyxl==3.1.2
+
+# --- Media & File Handling ---
+Pillow==10.4.0
+
+# --- Testing & Mock Data ---
 Faker==22.5.1
 
-# Librerías para producción en Render
+# --- Production & Deployment ---
 gunicorn==21.2.0
 whitenoise==6.6.0
-dj-database-url==2.1.0
