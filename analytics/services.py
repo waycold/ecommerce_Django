@@ -11,9 +11,10 @@ Diseñado con arquitectura modular para soportar futuras ejecuciones asíncronas
 
 import io
 from datetime import datetime
-import pandas as pd
+from openpyxl import Workbook
 
-from django.db.models import Sum, Count, F, Q
+from django.db.models import Sum, Count, F, Q, DecimalField, Case, When, Value, ExpressionWrapper
+from django.db.models.functions import Round
 from django.utils import timezone
 from django.http import HttpResponse
 
@@ -78,17 +79,39 @@ def get_dashboard_kpis() -> dict:
 
 def export_sales_to_excel() -> HttpResponse:
     """
-    Pipeline de Extracción, Transformación y Carga (ETL) utilizando Pandas.
-    1. Extracción: Consulta la base de datos uniendo Órdenes y Detalles de Órdenes.
-    2. Transformación: Limpia tipos de datos, calcula métricas de margen en Pandas y formatea columnas.
-    3. Carga: Genera un archivo binario `.xlsx` optimizado para Business Intelligence (PowerBI / Tableau).
+    Pipeline de Extracción, Transformación y Carga (ETL) utilizando un enfoque SQL-First.
+    1. Extracción y Transformación: Realiza los cálculos matemáticos directamente en el motor 
+       de base de datos (PostgreSQL/SQLite) mediante annotations de Django.
+    2. Carga: Genera el archivo Excel (.xlsx) de manera optimizada y eficiente en memoria 
+       usando openpyxl en modo write-only para evitar WORKER TIMEOUT y OOM en Render.
 
     Returns:
         HttpResponse: Respuesta HTTP estructurada para descarga automática de Excel.
     """
-    # 1. EXTRACCIÓN (Extraction): Consulta optimizada mediante select_related / values
-    sales_queryset = OrderItem.objects.all().values(
-        'id',
+    # 1. EXTRACCIÓN Y TRANSFORMACIÓN (SQL-First)
+    # Calculamos Costo Total, Ganancia Neta y Margen directamente en el motor de base de datos
+    cost_total_expr = ExpressionWrapper(
+        F('unit_cost') * F('quantity'),
+        output_field=DecimalField(max_digits=10, decimal_places=2)
+    )
+    
+    net_profit_expr = ExpressionWrapper(
+        F('subtotal') - (F('unit_cost') * F('quantity')),
+        output_field=DecimalField(max_digits=10, decimal_places=2)
+    )
+    
+    # Manejo seguro de división por cero para el margen
+    margin_expr = Case(
+        When(subtotal__gt=0, then=Round((net_profit_expr / F('subtotal')) * 100, 2)),
+        default=Value(0.0),
+        output_field=DecimalField(max_digits=5, decimal_places=2)
+    )
+
+    sales_queryset = OrderItem.objects.annotate(
+        costo_total=cost_total_expr,
+        ganancia_neta=net_profit_expr,
+        margen=margin_expr
+    ).values_list(
         'order__id',
         'order__ordered_date',
         'order__status',
@@ -99,67 +122,47 @@ def export_sales_to_excel() -> HttpResponse:
         'quantity',
         'unit_price',
         'unit_cost',
-        'subtotal'
+        'subtotal',
+        'ganancia_neta',
+        'margen'
     )
 
-    # 2. TRANSFORMACIÓN (Transformation): Carga en DataFrame de Pandas
-    df = pd.DataFrame(list(sales_queryset))
+    # 2. CARGA (Load)
+    # openpyxl en modo write_only=True escribe directamente en el archivo ZIP en memoria,
+    # sin construir la estructura del documento en memoria de Python.
+    wb = Workbook(write_only=True)
+    ws = wb.create_sheet(title='Reporte_Ventas_ETL')
+    
+    # Headers
+    headers = [
+        'ID Orden', 'Fecha Orden', 'Estado Orden', 'Método Pago', 'Cliente',
+        'Producto', 'Categoría', 'Cantidad', 'Precio Unitario Histórico',
+        'Costo Unitario Histórico', 'Subtotal ($)', 'Ganancia Neta ($)', 'Margen (%)'
+    ]
+    ws.append(headers)
 
-    if not df.empty:
-        # Renombrar columnas para formato estándar de Business Intelligence
-        column_mapping = {
-            'id': 'ID Detalle',
-            'order__id': 'ID Orden',
-            'order__ordered_date': 'Fecha Orden',
-            'order__status': 'Estado Orden',
-            'order__payment_method': 'Método Pago',
-            'order__user__username': 'Cliente',
-            'item__title': 'Producto',
-            'item__category__name': 'Categoría',
-            'quantity': 'Cantidad',
-            'unit_price': 'Precio Unitario Histórico',
-            'unit_cost': 'Costo Unitario Histórico',
-            'subtotal': 'Subtotal ($)'
-        }
-        df.rename(columns=column_mapping, inplace=True)
-
-        # Formatear la fecha (eliminar zona horaria para compatibilidad con Excel)
-        if 'Fecha Orden' in df.columns and pd.notnull(df['Fecha Orden']).any():
-            df['Fecha Orden'] = pd.to_datetime(df['Fecha Orden']).dt.tz_localize(None)
-            df['Fecha Orden'] = df['Fecha Orden'].dt.strftime('%Y-%m-%d %H:%M:%S')
-
-        # Manejo de valores nulos o categóricos vacíos
-        df['Categoría'] = df['Categoría'].fillna('Sin Categoría')
-        df['Cliente'] = df['Cliente'].fillna('Invitado/Anónimo')
-
-        # Cálculo de métricas (Margen de Ganancia)
-        df['Costo Total'] = df['Costo Unitario Histórico'] * df['Cantidad']
-        df['Ganancia Neta ($)'] = df['Subtotal ($)'] - df['Costo Total']
-        df['Margen (%)'] = ((df['Ganancia Neta ($)'] / df['Subtotal ($)']) * 100).round(2).fillna(0.0)
-
-        # Reordenar columnas lógicamente
-        ordered_cols = [
-            'ID Orden', 'Fecha Orden', 'Estado Orden', 'Método Pago', 'Cliente',
-            'Producto', 'Categoría', 'Cantidad', 'Precio Unitario Histórico',
-            'Costo Unitario Histórico', 'Subtotal ($)', 'Ganancia Neta ($)', 'Margen (%)'
-        ]
-        df = df[[col for col in ordered_cols if col in df.columns]]
-    else:
-        # DataFrame vacío estructurado si no hay datos
-        df = pd.DataFrame(columns=[
-            'ID Orden', 'Fecha Orden', 'Estado Orden', 'Método Pago', 'Cliente',
-            'Producto', 'Categoría', 'Cantidad', 'Precio Unitario Histórico',
-            'Costo Unitario Histórico', 'Subtotal ($)', 'Ganancia Neta ($)', 'Margen (%)'
-        ])
-
-    # 3. CARGA (Load): Exportación a flujo binario en memoria usando openpyxl
+    # Usamos iterator para procesar en bloques (chunks) de 2000 registros,
+    # liberando memoria entre cada bloque procesado.
+    for row in sales_queryset.iterator(chunk_size=2000):
+        # Convertimos la tupla de row a lista para poder modificar los valores nulos/fechas
+        row_list = list(row)
+        
+        # Fecha Orden: Remover zona horaria para compatibilidad con Excel
+        if row_list[1]:
+            row_list[1] = row_list[1].replace(tzinfo=None)
+            
+        # Valores nulos en campos categóricos
+        if row_list[4] is None:
+            row_list[4] = 'Invitado/Anónimo'
+        if row_list[6] is None:
+            row_list[6] = 'Sin Categoría'
+            
+        ws.append(row_list)
+        
     excel_buffer = io.BytesIO()
-    with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-        df.to_excel(writer, sheet_name='Reporte_Ventas_ETL', index=False)
-
+    wb.save(excel_buffer)
     excel_buffer.seek(0)
-
-    # Generación de la respuesta HTTP para descarga de archivo
+    
     file_name = f"reporte_ventas_analytics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     response = HttpResponse(
         excel_buffer.getvalue(),
