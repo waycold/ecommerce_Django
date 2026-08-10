@@ -138,7 +138,25 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 if 'test' in sys.argv:
     STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 else:
-    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+    STATICFILES_STORAGE = 'core.settings.CustomCompressedManifestStaticFilesStorage'
+
+try:
+    from whitenoise.storage import CompressedManifestStaticFilesStorage
+    class CustomCompressedManifestStaticFilesStorage(CompressedManifestStaticFilesStorage):
+        # Disable strict manifest checks to ignore missing source maps (.map files)
+        # and prevent build failures during collectstatic on Render
+        manifest_strict = False
+
+        def hashed_name(self, name, content=None, filename=None):
+            try:
+                return super().hashed_name(name, content, filename)
+            except ValueError:
+                # Fallback to the original unhashed name if the referenced file does not exist
+                return name
+except ImportError:
+    from django.contrib.staticfiles.storage import StaticFilesStorage
+    class CustomCompressedManifestStaticFilesStorage(StaticFilesStorage):
+        pass
 
 
 # Default primary key field type
