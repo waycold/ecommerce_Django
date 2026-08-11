@@ -1,12 +1,12 @@
 """
 analytics/services.py
 
-Capa de Servicios y Procesamiento de Datos (Data Engineering & Business Logic).
-Separación estricta de responsabilidades: este módulo abstrae todas las consultas ORM complejas,
-agregaciones estadísticas y el pipeline de ETL impulsado por Pandas para exportación a BI.
+Services and Data Processing Layer (Data Engineering & Business Logic).
+Strict separation of concerns: this module abstracts all complex ORM queries,
+statistical aggregations, and the ETL pipeline powered by openpyxl for BI exports.
 
-Diseñado con arquitectura modular para soportar futuras ejecuciones asíncronas
-(Celery/Redis) y modelos de Machine Learning (Market Basket Analysis, Predicción de Demanda).
+Designed with a modular architecture to support future asynchronous executions
+(Celery/Redis) and Machine Learning models (Market Basket Analysis, Demand Forecasting).
 """
 
 import io
@@ -24,18 +24,18 @@ from product.models import Order, OrderItem, Item, OrderStatus
 
 def get_dashboard_kpis() -> dict:
     """
-    Calcula en tiempo real las métricas clave de rendimiento (KPIs) para el Dashboard Gerencial.
-    Utiliza consultas optimizadas del ORM de Django (aggregate/annotate) para minimizar
-    la carga en la base de datos.
+    Calculates key performance indicators (KPIs) in real-time for the Managerial Dashboard.
+    Uses optimized Django ORM queries (aggregate/annotate) to minimize
+    database load.
 
     Returns:
-        dict: Diccionario estructurado con métricas de ventas, carritos abandonados y top productos.
+        dict: Structured dictionary with sales metrics, abandoned carts, and top products.
     """
     now = timezone.now()
     current_year = now.year
     current_month = now.month
 
-    # 1. Ingresos Totales (Revenue) del mes en curso (Órdenes pagadas/enviadas/entregadas)
+    # 1. Total Revenue of the current month (Paid/Shipped/Delivered orders)
     paid_statuses = [OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.DELIVERED]
     
     monthly_revenue_agg = Order.objects.filter(
@@ -47,12 +47,12 @@ def get_dashboard_kpis() -> dict:
     )
     monthly_revenue = monthly_revenue_agg['total_revenue'] or 0.0
 
-    # 2. Cantidad de Carritos Abandonados (Órdenes en estado PENDING)
+    # 2. Abandoned Carts count (Orders in PENDING status)
     abandoned_carts_count = Order.objects.filter(
         status=OrderStatus.PENDING
     ).count()
 
-    # 3. Top 3 de Productos Más Vendidos (por cantidad en órdenes completadas)
+    # 3. Top 3 Best-Selling Products (by quantity in completed orders)
     top_products_qs = OrderItem.objects.filter(
         order__status__in=paid_statuses
     ).values(
@@ -67,7 +67,7 @@ def get_dashboard_kpis() -> dict:
 
     top_products = list(top_products_qs)
 
-    # Retorno estructurado para la capa de presentación (views.py)
+    # Structured return for the presentation layer (views.py)
     return {
         'current_month_name': now.strftime('%B %Y'),
         'monthly_revenue': float(monthly_revenue),
@@ -79,17 +79,17 @@ def get_dashboard_kpis() -> dict:
 
 def export_sales_to_excel() -> HttpResponse:
     """
-    Pipeline de Extracción, Transformación y Carga (ETL) utilizando un enfoque SQL-First.
-    1. Extracción y Transformación: Realiza los cálculos matemáticos directamente en el motor 
-       de base de datos (PostgreSQL/SQLite) mediante annotations de Django.
-    2. Carga: Genera el archivo Excel (.xlsx) de manera optimizada y eficiente en memoria 
-       usando openpyxl en modo write-only para evitar WORKER TIMEOUT y OOM en Render.
+    Extraction, Transformation, and Loading (ETL) pipeline using a SQL-First approach.
+    1. Extract & Transform: Performs mathematical calculations directly in the database engine
+       (PostgreSQL/SQLite) using Django annotations.
+    2. Load: Generates the Excel file (.xlsx) efficiently in memory using openpyxl in
+       write-only mode to prevent worker timeouts and OOM errors on Render.
 
     Returns:
-        HttpResponse: Respuesta HTTP estructurada para descarga automática de Excel.
+        HttpResponse: Structured HTTP response for automatic Excel download.
     """
-    # 1. EXTRACCIÓN Y TRANSFORMACIÓN (SQL-First)
-    # Calculamos Costo Total, Ganancia Neta y Margen directamente en el motor de base de datos
+    # 1. EXTRACTION AND TRANSFORMATION (SQL-First)
+    # Calculate Total Cost, Net Profit, and Margin directly in the database engine
     cost_total_expr = ExpressionWrapper(
         F('unit_cost') * F('quantity'),
         output_field=DecimalField(max_digits=10, decimal_places=2)
@@ -100,7 +100,7 @@ def export_sales_to_excel() -> HttpResponse:
         output_field=DecimalField(max_digits=10, decimal_places=2)
     )
     
-    # Manejo seguro de división por cero para el margen
+    # Safe handling of division by zero for the margin
     margin_expr = Case(
         When(subtotal__gt=0, then=Round((net_profit_expr / F('subtotal')) * 100, 2)),
         default=Value(0.0),
@@ -108,9 +108,9 @@ def export_sales_to_excel() -> HttpResponse:
     )
 
     sales_queryset = OrderItem.objects.annotate(
-        costo_total=cost_total_expr,
-        ganancia_neta=net_profit_expr,
-        margen=margin_expr
+        total_cost=cost_total_expr,
+        net_profit=net_profit_expr,
+        margin=margin_expr
     ).values_list(
         'order__id',
         'order__ordered_date',
@@ -123,39 +123,39 @@ def export_sales_to_excel() -> HttpResponse:
         'unit_price',
         'unit_cost',
         'subtotal',
-        'ganancia_neta',
-        'margen'
+        'net_profit',
+        'margin'
     )
 
-    # 2. CARGA (Load)
-    # openpyxl en modo write_only=True escribe directamente en el archivo ZIP en memoria,
-    # sin construir la estructura del documento en memoria de Python.
+    # 2. LOAD
+    # openpyxl with write_only=True writes directly to the in-memory ZIP file,
+    # without building the entire document structure in Python memory.
     wb = Workbook(write_only=True)
-    ws = wb.create_sheet(title='Reporte_Ventas_ETL')
+    ws = wb.create_sheet(title='Sales_Report_ETL')
     
     # Headers
     headers = [
-        'ID Orden', 'Fecha Orden', 'Estado Orden', 'Método Pago', 'Cliente',
-        'Producto', 'Categoría', 'Cantidad', 'Precio Unitario Histórico',
-        'Costo Unitario Histórico', 'Subtotal ($)', 'Ganancia Neta ($)', 'Margen (%)'
+        'Order ID', 'Order Date', 'Order Status', 'Payment Method', 'Customer',
+        'Product', 'Category', 'Quantity', 'Historical Unit Price',
+        'Historical Unit Cost', 'Subtotal ($)', 'Net Profit ($)', 'Margin (%)'
     ]
     ws.append(headers)
 
-    # Usamos iterator para procesar en bloques (chunks) de 2000 registros,
-    # liberando memoria entre cada bloque procesado.
+    # We use iterator to process in chunks of 2000 records,
+    # freeing up memory between each processed block.
     for row in sales_queryset.iterator(chunk_size=2000):
-        # Convertimos la tupla de row a lista para poder modificar los valores nulos/fechas
+        # Convert row tuple to list to modify null values / dates
         row_list = list(row)
         
-        # Fecha Orden: Remover zona horaria para compatibilidad con Excel
+        # Order Date: Remove timezone for Excel compatibility
         if row_list[1]:
             row_list[1] = row_list[1].replace(tzinfo=None)
             
-        # Valores nulos en campos categóricos
+        # Null values in categorical fields
         if row_list[4] is None:
-            row_list[4] = 'Invitado/Anónimo'
+            row_list[4] = 'Guest/Anonymous'
         if row_list[6] is None:
-            row_list[6] = 'Sin Categoría'
+            row_list[6] = 'Uncategorized'
             
         ws.append(row_list)
         
@@ -163,7 +163,7 @@ def export_sales_to_excel() -> HttpResponse:
     wb.save(excel_buffer)
     excel_buffer.seek(0)
     
-    file_name = f"reporte_ventas_analytics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    file_name = f"sales_report_analytics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     response = HttpResponse(
         excel_buffer.getvalue(),
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -173,27 +173,27 @@ def export_sales_to_excel() -> HttpResponse:
 
 
 # ==============================================================================
-# SECCIÓN STUBS Y EXTENSIONES FUTURAS (Machine Learning & Asynchronous Tasks)
+# FUTURE EXTENSIONS & STUBS SECTION (Machine Learning & Asynchronous Tasks)
 # ==============================================================================
 
 class AdvancedAnalyticsService:
     """
-    Clase reservada para la integración futura de algoritmos de Data Science,
-    Machine Learning y tareas en segundo plano (Celery / Redis / Scikit-learn).
+    Reserved class for future integration of Data Science algorithms,
+    Machine Learning, and background tasks (Celery / Redis / Scikit-learn).
     """
 
     @staticmethod
     def run_market_basket_analysis():
         """
-        [FUTURO] Algoritmo Apriori / FP-Growth para detectar patrones de compra conjunta
-        (Asociación de productos frecuentes en carrito).
+        [FUTURE] Apriori / FP-Growth algorithm to detect frequent itemsets/purchasing patterns
+        (Product association in shopping carts).
         """
         pass
 
     @staticmethod
     def predict_sales_demand(periods_days: int = 30):
         """
-        [FUTURO] Algoritmo de predicción de series temporales (Prophet / ARIMA)
-        para estimación de demanda de inventario.
+        [FUTURE] Time-series forecasting algorithm (Prophet / ARIMA)
+        for inventory demand estimation.
         """
         pass

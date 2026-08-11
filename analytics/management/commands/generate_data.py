@@ -24,9 +24,37 @@ class Command(BaseCommand):
             sys.stdout.write('\n')
 
     def handle(self, *args, **kwargs):
+        import json
+        import os
         random.seed(42)
         Faker.seed(42)
         fake = Faker(['es_ES', 'es_AR'])
+
+        # Load configs from data folder
+        data_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'data')
+        templates_path = os.path.join(data_dir, 'product_templates.json')
+        weights_path = os.path.join(data_dir, 'weights_config.json')
+
+        with open(templates_path, 'r', encoding='utf-8') as f:
+            product_templates = json.load(f)
+            
+        with open(weights_path, 'r', encoding='utf-8') as f:
+            weights_config = json.load(f)
+
+        # Calculate boundaries and weights for product tiers based on N=2000 items
+        tier_configs = weights_config["product_tiers"]
+        t1_pct = tier_configs["tier_1_best_sellers"]["percentage_of_catalog"]
+        t2_pct = tier_configs["tier_2_steady_sellers"]["percentage_of_catalog"]
+        t3_pct = tier_configs["tier_3_slow_sellers"]["percentage_of_catalog"]
+        
+        t1_count = int(2000 * t1_pct)
+        t2_count = int(2000 * t2_pct)
+        t3_count = int(2000 * t3_pct)
+        
+        t1_w = tier_configs["tier_1_best_sellers"]["sales_weight"] / max(1, t1_count)
+        t2_w = tier_configs["tier_2_steady_sellers"]["sales_weight"] / max(1, t2_count)
+        t3_w = tier_configs["tier_3_slow_sellers"]["sales_weight"] / max(1, t3_count)
+        t4_w = tier_configs["tier_4_long_tail"]["sales_weight"] / max(1, 2000 - t1_count - t2_count - t3_count)
 
         self.stdout.write("1. Deleting existing records...")
         OrderItem.objects.all().delete()
@@ -45,12 +73,16 @@ class Command(BaseCommand):
                       'Food & Beverage', 'Pets', 'Jewelry', 'Office', 'Baby']
         Category.objects.bulk_create([Category(name=name) for name in categories])
         cats_db = list(Category.objects.all())
-        cat_probs = [random.uniform(0.1, 1.0) for _ in cats_db]
+        cat_probs = [weights_config["category_weights"].get(cat.name, 1.0) for cat in cats_db]
         
         self.stdout.write("3. Generating Brands and Suppliers (Zipf distribution)...")
-        num_brands = 100
-        Brand.objects.bulk_create([Brand(name=fake.company()) for _ in range(num_brands)])
-        brands_db = list(Brand.objects.all())
+        # Extract unique brand names from templates
+        unique_brand_names = set()
+        for cat_name, data in product_templates.items():
+            unique_brand_names.update(data["brands"])
+            
+        Brand.objects.bulk_create([Brand(name=name) for name in sorted(unique_brand_names)])
+        brands_by_name = {b.name: b for b in Brand.objects.all()}
         
         num_suppliers = 50
         countries_pool = ['Argentina'] * 7 + ['Chile', 'Brasil', 'USA', 'China']
@@ -60,8 +92,8 @@ class Command(BaseCommand):
         def zipf_weights(n, alpha=1.5):
             return [1.0 / (i**alpha) for i in range(1, n+1)]
             
-        brand_weights = zipf_weights(num_brands)
         supplier_weights = zipf_weights(num_suppliers)
+        local_brand_weights = zipf_weights(15, alpha=1.2) # Zipf weights for 15 brands in each category
 
         self.stdout.write("4. Generating 2000 Items...")
         item_objs = []
@@ -73,10 +105,30 @@ class Command(BaseCommand):
             cost = round(price * random.uniform(0.45, 0.80), 2)
             
             cat = random.choices(cats_db, weights=cat_probs)[0]
-            brand = random.choices(brands_db, weights=brand_weights)[0]
             sup = random.choices(suppliers_db, weights=supplier_weights)[0]
             
-            title = f"{fake.word().capitalize()} {fake.word().capitalize()} {cat.name[:5]}"
+            # Select semantically matched brand, adjective, and noun from category templates
+            cat_templates = product_templates.get(cat.name, {
+                "brands": ["Generic"],
+                "adjectives": ["Premium"],
+                "nouns": ["Product"]
+            })
+            
+            b_list = cat_templates.get("brands", ["Generic"])
+            adj_list = cat_templates.get("adjectives", ["Premium"])
+            noun_list = cat_templates.get("nouns", ["Product"])
+            
+            # Use Zipf weights to select the brand (e.g. popular brands are chosen more often)
+            brand_weights = local_brand_weights[:len(b_list)]
+            sum_w = sum(brand_weights)
+            brand_weights = [w / sum_w for w in brand_weights]
+            
+            brand_name = random.choices(b_list, weights=brand_weights)[0]
+            brand = brands_by_name.get(brand_name)
+            
+            t_adj = random.choice(adj_list)
+            t_noun = random.choice(noun_list)
+            title = f"{brand_name} {t_adj} {t_noun}"
             
             item_objs.append(Item(
                 title=title[:100],
@@ -93,7 +145,19 @@ class Command(BaseCommand):
             ))
         self.print_progress(2000, 2000, prefix='Items')
         Item.objects.bulk_create(item_objs, batch_size=500)
-        items_db = list(Item.objects.all())
+        items_db = list(Item.objects.order_by('id'))
+        
+        # Build weight list corresponding to items_db order
+        items_sales_weights = []
+        for idx, item in enumerate(items_db):
+            if idx < t1_count:
+                items_sales_weights.append(t1_w)
+            elif idx < t1_count + t2_count:
+                items_sales_weights.append(t2_w)
+            elif idx < t1_count + t2_count + t3_count:
+                items_sales_weights.append(t3_w)
+            else:
+                items_sales_weights.append(t4_w)
         
         self.stdout.write("5. Generating 5000 Users and Profiles...")
         user_objs = []
@@ -123,7 +187,7 @@ class Command(BaseCommand):
                 province = fake.state()
             else:
                 country = 'Argentina'
-                province = random.choice(['Buenos Aires', 'CABA', 'Córdoba', 'Santa Fe', 'Mendoza'])
+                province = random.choice(['Buenos Aires', 'CABA', 'Cordoba', 'Santa Fe', 'Mendoza'])
                 
             profile_objs.append(Profile(
                 user=user,
@@ -179,7 +243,7 @@ class Command(BaseCommand):
                 inflation_factor = (1 + MONTHLY_INFLATION) ** months_ago
                 
                 num_items = random.randint(1, 5)
-                selected_items = random.choices(items_db, k=num_items)
+                selected_items = random.choices(items_db, weights=items_sales_weights, k=num_items)
                 
                 subtotal = 0.0
                 items_for_this_order = []
@@ -201,7 +265,7 @@ class Command(BaseCommand):
                 discount = 0.0
                 discount_code = None
                 if random.random() < 0.2:
-                    discount_code = random.choice(['DESC10', 'PROMO10', 'OFF500', 'DESCUENTO'])
+                    discount_code = random.choice(['DESC10', 'PROMO10', 'OFF500', 'DISCOUNT'])
                     if discount_code in ['DESC10', 'PROMO10']:
                         discount = round(subtotal * 0.10, 2)
                     else:

@@ -1,0 +1,37 @@
+{
+  "product_tiers": {
+    "tier_1_best_sellers": {
+      "percentage_of_catalog": 0.01,
+      "sales_weight": 0.50
+    },
+    "tier_2_steady_sellers": {
+      "percentage_of_catalog": 0.09,
+      "sales_weight": 0.30
+    },
+    "tier_3_slow_sellers": {
+      "percentage_of_catalog": 0.30,
+      "sales_weight": 0.15
+    },
+    "tier_4_long_tail": {
+      "percentage_of_catalog": 0.60,
+      "sales_weight": 0.05
+    }
+  },
+  "category_weights": {
+    "Electronics": 1.0,
+    "Home & Furniture": 0.8,
+    "Clothing & Accessories": 0.9,
+    "Sports": 0.6,
+    "Toys": 0.5,
+    "Health & Beauty": 0.7,
+    "Automotive": 0.4,
+    "Tools": 0.4,
+    "Books": 0.3,
+    "Video Games": 0.6,
+    "Food & Beverage": 0.8,
+    "Pets": 0.5,
+    "Jewelry": 0.4,
+    "Office": 0.3,
+    "Baby": 0.5
+  }
+}

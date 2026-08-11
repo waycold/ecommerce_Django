@@ -14,7 +14,7 @@ A production-ready Django E-commerce platform integrated with a custom **Pandas-
 Unlike standard online stores, this project focuses heavily on **realistic database simulation**, **data transformation**, and **analytics aggregation**. 
 
 ### 1. Statistical Synthetic Data Simulation Engine
-To demonstrate data engineering and analytics capabilities under realistic conditions, the project includes a custom Django command (`generar_datos`) that generates large, coherent synthetic datasets from scratch using advanced statistical modeling:
+To demonstrate data engineering and analytics capabilities under realistic conditions, the project includes a custom Django command (`generate_data`) that generates large, coherent synthetic datasets from scratch using advanced statistical modeling:
 *   **Zipf's Law Distribution:** Brands and suppliers are distributed using Zipfian weights, mimicking real-world markets where a small group of companies dominates search and order volume.
 *   **Log-Normal Price Modeling:** Item prices are modeled using a log-normal distribution:
     $$\text{Price} \sim e^{\mathcal{N}(\mu=8,\, \sigma^2=1.5^2)}$$
@@ -70,7 +70,7 @@ A staff-only dashboard (`analytics/views.py`) displays real-time key performance
 │   ├── views.py            # Staff-only dashboards and Excel exports
 │   └── management/
 │       └── commands/
-│           └── generar_datos.py   # Complex synthetic data generator script
+│           └── generate_data.py   # Complex synthetic data generator script
 ├── requirements.txt        # PIP dependencies
 └── build.sh                # Deployment execution script
 ```
@@ -115,7 +115,7 @@ python manage.py migrate
 ### 5. Generate Synthetic Data
 Execute the simulation command to wipe the database and generate 5,000 users, 2,000 products, 3,000 comments, and thousands of monthly orders:
 ```bash
-python manage.py generar_datos
+python manage.py generate_data
 ```
 
 ### 6. Create Superuser (Admin Access)

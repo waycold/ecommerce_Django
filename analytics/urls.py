@@ -1,7 +1,7 @@
 """
 analytics/urls.py
 
-Rutas URL exclusivas para el módulo de análisis de datos gerencial.
+Exclusive URL routes for the managerial data analytics module.
 """
 
 from django.urls import path
