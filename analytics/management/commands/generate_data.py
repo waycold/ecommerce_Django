@@ -1,6 +1,8 @@
 import sys
 import math
 import random
+import json
+import os
 from datetime import timedelta
 from django.utils import timezone
 from django.core.management.base import BaseCommand
@@ -10,9 +12,27 @@ from product.models import (
     OrderItem, Order, Comments, Item, Category, Brand, Supplier, Profile,
     OrderStatus, PaymentMethod
 )
+from analytics.data_ingestion import get_amazon_data
+
+CATEGORIES_LIST = [
+    "All_Beauty", "Amazon_Fashion", "Appliances", "Arts_Crafts_and_Sewing", "Automotive",
+    "Baby_Products", "Beauty_and_Personal_Care", "Books", "CDs_and_Vinyl", "Cell_Phones_and_Accessories",
+    "Clothing_Shoes_and_Jewelry", "Digital_Music", "Electronics", "Gift_Cards", "Grocery_and_Gourmet_Food",
+    "Handmade_Products", "Health_and_Household", "Health_and_Personal_Care", "Home_and_Kitchen", "Industrial_and_Scientific",
+    "Kindle_Store", "Magazine_Subscriptions", "Movies_and_TV", "Musical_Instruments", "Office_Products",
+    "Patio_Lawn_and_Garden", "Pet_Supplies", "Software", "Sports_and_Outdoors", "Subscription_Boxes",
+    "Tools_and_Home_Improvement", "Toys_and_Games", "Video_Games", "Unknown"
+]
 
 class Command(BaseCommand):
-    help = 'Generates complex synthetic dataset for analytics'
+    help = 'Generates synthetic dataset for analytics based on Amazon Reviews 2023'
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '--seed',
+            type=int,
+            help='Specify a seed for reproducible generation'
+        )
 
     def print_progress(self, current, total, bar_length=40, prefix='Progress'):
         progress = float(current) / total if total > 0 else 1
@@ -24,37 +44,27 @@ class Command(BaseCommand):
             sys.stdout.write('\n')
 
     def handle(self, *args, **kwargs):
-        import json
-        import os
-        random.seed(42)
-        Faker.seed(42)
+        # Determine seed
+        seed = kwargs.get('seed')
+        if seed is None:
+            seed = random.randint(1, 1000000)
+            
+        self.stdout.write(self.style.SUCCESS(f"Generating data using seed: {seed}"))
+        random.seed(seed)
+        Faker.seed(seed)
         fake = Faker(['es_ES', 'es_AR'])
 
-        # Load configs from data folder
+        # Load config weights
         data_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'data')
-        templates_path = os.path.join(data_dir, 'product_templates.json')
         weights_path = os.path.join(data_dir, 'weights_config.json')
-
-        with open(templates_path, 'r', encoding='utf-8') as f:
-            product_templates = json.load(f)
-            
         with open(weights_path, 'r', encoding='utf-8') as f:
             weights_config = json.load(f)
 
-        # Calculate boundaries and weights for product tiers based on N=2000 items
-        tier_configs = weights_config["product_tiers"]
-        t1_pct = tier_configs["tier_1_best_sellers"]["percentage_of_catalog"]
-        t2_pct = tier_configs["tier_2_steady_sellers"]["percentage_of_catalog"]
-        t3_pct = tier_configs["tier_3_slow_sellers"]["percentage_of_catalog"]
-        
-        t1_count = int(2000 * t1_pct)
-        t2_count = int(2000 * t2_pct)
-        t3_count = int(2000 * t3_pct)
-        
-        t1_w = tier_configs["tier_1_best_sellers"]["sales_weight"] / max(1, t1_count)
-        t2_w = tier_configs["tier_2_steady_sellers"]["sales_weight"] / max(1, t2_count)
-        t3_w = tier_configs["tier_3_slow_sellers"]["sales_weight"] / max(1, t3_count)
-        t4_w = tier_configs["tier_4_long_tail"]["sales_weight"] / max(1, 2000 - t1_count - t2_count - t3_count)
+        # Ingest Amazon 2023 dataset (uses cache if exists, otherwise streams from Hugging Face)
+        self.stdout.write("Ingesting Amazon Reviews 2023 dataset...")
+        amazon_data = get_amazon_data(data_dir, limit_meta=65, limit_reviews=100)
+        products = amazon_data["products"]
+        reviews = amazon_data["reviews"]
 
         self.stdout.write("1. Deleting existing records...")
         OrderItem.objects.all().delete()
@@ -68,21 +78,21 @@ class Command(BaseCommand):
         User.objects.exclude(is_superuser=True).delete()
 
         self.stdout.write("2. Generating Categories...")
-        categories = ['Electronics', 'Home & Furniture', 'Clothing & Accessories', 'Sports', 'Toys', 
-                      'Health & Beauty', 'Automotive', 'Tools', 'Books', 'Video Games',
-                      'Food & Beverage', 'Pets', 'Jewelry', 'Office', 'Baby']
-        Category.objects.bulk_create([Category(name=name) for name in categories])
-        cats_db = list(Category.objects.all())
-        cat_probs = [weights_config["category_weights"].get(cat.name, 1.0) for cat in cats_db]
+        Category.objects.bulk_create([Category(name=name) for name in CATEGORIES_LIST])
+        cats_db = {c.name: c for c in Category.objects.all()}
+        
+        # Build category probability list based on our config weights
+        cat_probs = [weights_config["category_weights"].get(cat_name, 1.0) for cat_name in CATEGORIES_LIST]
         
         self.stdout.write("3. Generating Brands and Suppliers (Zipf distribution)...")
-        # Extract unique brand names from templates
-        unique_brand_names = set()
-        for cat_name, data in product_templates.items():
-            unique_brand_names.update(data["brands"])
+        # Extract unique brand names from imported products
+        unique_brands = sorted(list(set(p["brand"][:100] for p in products)))
+        # Make sure "Generic" is available
+        if "Generic" not in unique_brands:
+            unique_brands.append("Generic")
             
-        Brand.objects.bulk_create([Brand(name=name) for name in sorted(unique_brand_names)])
-        brands_by_name = {b.name: b for b in Brand.objects.all()}
+        Brand.objects.bulk_create([Brand(name=name[:100]) for name in unique_brands])
+        brands_db = {b.name: b for b in Brand.objects.all()}
         
         num_suppliers = 50
         countries_pool = ['Argentina'] * 7 + ['Chile', 'Brasil', 'USA', 'China']
@@ -93,46 +103,32 @@ class Command(BaseCommand):
             return [1.0 / (i**alpha) for i in range(1, n+1)]
             
         supplier_weights = zipf_weights(num_suppliers)
-        local_brand_weights = zipf_weights(15, alpha=1.2) # Zipf weights for 15 brands in each category
 
-        self.stdout.write("4. Generating 2000 Items...")
+        self.stdout.write(f"4. Generating {len(products)} Items from Amazon Metadata...")
         item_objs = []
-        for i in range(2000):
-            if i % 100 == 0:
-                self.print_progress(i, 2000, prefix='Items')
-            price = round(math.exp(random.gauss(8, 1.5)), 2)
-            price = max(100.0, min(price, 500000.0))
+        for idx, p in enumerate(products):
+            if idx % 100 == 0:
+                self.print_progress(idx, len(products), prefix='Items')
+            
+            # Retrieve or generate log-normal price
+            price = p["price"]
+            if price is None or price <= 0:
+                price = round(math.exp(random.gauss(8, 1.5)), 2)
+                price = max(100.0, min(price, 50000.0))
+                
             cost = round(price * random.uniform(0.45, 0.80), 2)
             
-            cat = random.choices(cats_db, weights=cat_probs)[0]
+            cat_name = p["category"]
+            cat = cats_db.get(cat_name, cats_db["Unknown"])
+            
+            brand_name = p["brand"][:100]
+            brand = brands_db.get(brand_name, brands_db["Generic"])
+            
             sup = random.choices(suppliers_db, weights=supplier_weights)[0]
             
-            # Select semantically matched brand, adjective, and noun from category templates
-            cat_templates = product_templates.get(cat.name, {
-                "brands": ["Generic"],
-                "adjectives": ["Premium"],
-                "nouns": ["Product"]
-            })
-            
-            b_list = cat_templates.get("brands", ["Generic"])
-            adj_list = cat_templates.get("adjectives", ["Premium"])
-            noun_list = cat_templates.get("nouns", ["Product"])
-            
-            # Use Zipf weights to select the brand (e.g. popular brands are chosen more often)
-            brand_weights = local_brand_weights[:len(b_list)]
-            sum_w = sum(brand_weights)
-            brand_weights = [w / sum_w for w in brand_weights]
-            
-            brand_name = random.choices(b_list, weights=brand_weights)[0]
-            brand = brands_by_name.get(brand_name)
-            
-            t_adj = random.choice(adj_list)
-            t_noun = random.choice(noun_list)
-            title = f"{brand_name} {t_adj} {t_noun}"
-            
             item_objs.append(Item(
-                title=title[:100],
-                description=fake.text(max_nb_chars=200),
+                title=p["title"][:100],
+                description=p["description"][:200] if p["description"] else "No description",
                 price=price,
                 cost=cost,
                 stock=random.randint(0, 500),
@@ -140,16 +136,39 @@ class Command(BaseCommand):
                 category=cat,
                 supplier=sup,
                 brand=brand,
-                slug=f"item-{i}-{random.randint(1000, 9999)}",
+                slug=f"item-{idx}-{random.randint(1000, 9999)}",
                 is_active=random.choices([True, False], weights=[0.95, 0.05])[0]
             ))
-        self.print_progress(2000, 2000, prefix='Items')
+            
+        self.print_progress(len(products), len(products), prefix='Items')
         Item.objects.bulk_create(item_objs, batch_size=500)
         items_db = list(Item.objects.order_by('id'))
         
-        # Build weight list corresponding to items_db order
-        items_sales_weights = []
+        # Build map parent_asin -> Item database object
+        asin_to_item = {}
         for idx, item in enumerate(items_db):
+            asin = products[idx]["parent_asin"]
+            asin_to_item[asin] = item
+
+        # Calculate boundaries and weights for product Tiers based on actual items generated
+        num_items = len(items_db)
+        tier_configs = weights_config["product_tiers"]
+        t1_pct = tier_configs["tier_1_best_sellers"]["percentage_of_catalog"]
+        t2_pct = tier_configs["tier_2_steady_sellers"]["percentage_of_catalog"]
+        t3_pct = tier_configs["tier_3_slow_sellers"]["percentage_of_catalog"]
+        
+        t1_count = int(num_items * t1_pct)
+        t2_count = int(num_items * t2_pct)
+        t3_count = int(num_items * t3_pct)
+        t4_count = num_items - t1_count - t2_count - t3_count
+        
+        t1_w = tier_configs["tier_1_best_sellers"]["sales_weight"] / max(1, t1_count)
+        t2_w = tier_configs["tier_2_steady_sellers"]["sales_weight"] / max(1, t2_count)
+        t3_w = tier_configs["tier_3_slow_sellers"]["sales_weight"] / max(1, t3_count)
+        t4_w = tier_configs["tier_4_long_tail"]["sales_weight"] / max(1, t4_count)
+        
+        items_sales_weights = []
+        for idx in range(num_items):
             if idx < t1_count:
                 items_sales_weights.append(t1_w)
             elif idx < t1_count + t2_count:
@@ -158,7 +177,7 @@ class Command(BaseCommand):
                 items_sales_weights.append(t3_w)
             else:
                 items_sales_weights.append(t4_w)
-        
+
         self.stdout.write("5. Generating 5000 Users and Profiles...")
         user_objs = []
         for i in range(5000):
@@ -201,8 +220,6 @@ class Command(BaseCommand):
             ))
         self.print_progress(5000, 5000, prefix='Profiles')
         Profile.objects.bulk_create(profile_objs, batch_size=1000)
-        
-        # Build dictionary for quick lookup to avoid DB queries per user
         profile_dict = {p.user_id: p for p in profile_objs}
         
         self.stdout.write("6. Generating Orders and OrderItems over 24 months...")
@@ -315,29 +332,32 @@ class Command(BaseCommand):
         self.stdout.write(f"Bulk inserting {len(order_item_objs)} OrderItems...")
         OrderItem.objects.bulk_create(order_item_objs, batch_size=5000)
         
-        self.stdout.write("7. Generating Comments...")
+        self.stdout.write("7. Generating Comments from Amazon Reviews...")
         comment_objs = []
         used_pairs = set()
-        for i in range(3000):
-            if i % 500 == 0:
-                self.print_progress(i, 3000, prefix='Comments')
-            attempts = 0
-            while attempts < 10:
-                usr = random.choice(users_db)
-                itm = random.choice(items_db)
-                pair = (usr.id, itm.id)
-                if pair not in used_pairs:
-                    used_pairs.add(pair)
-                    comment_objs.append(Comments(
-                        user=usr,
-                        item=itm,
-                        body=fake.paragraph(nb_sentences=3),
-                        rating=random.randint(1, 5),
-                        likes=random.randint(0, 100)
-                    ))
-                    break
-                attempts += 1
-        self.print_progress(3000, 3000, prefix='Comments')
+        for idx, rev in enumerate(reviews):
+            if idx % 500 == 0:
+                self.print_progress(idx, len(reviews), prefix='Comments')
+            
+            asin = rev["parent_asin"]
+            item = asin_to_item.get(asin)
+            if not item:
+                continue
+                
+            usr = random.choice(users_db)
+            pair = (usr.id, item.id)
+            if pair not in used_pairs:
+                used_pairs.add(pair)
+                body = rev["text"][:1000] if rev["text"] else "No review content"
+                comment_objs.append(Comments(
+                    user=usr,
+                    item=item,
+                    body=body,
+                    rating=int(rev["rating"]),
+                    likes=random.randint(0, 100)
+                ))
+                
+        self.print_progress(len(reviews), len(reviews), prefix='Comments')
         Comments.objects.bulk_create(comment_objs, batch_size=1000)
 
-        self.stdout.write(self.style.SUCCESS('Successfully generated the complex synthetic dataset!'))
+        self.stdout.write(self.style.SUCCESS('Successfully generated the synthetic dataset!'))

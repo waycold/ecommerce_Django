@@ -22,6 +22,7 @@ Pillow==10.4.0
 
 # --- Testing & Mock Data ---
 Faker==22.5.1
+datasets==2.21.0
 
 # --- Production & Deployment ---
 gunicorn==21.2.0
