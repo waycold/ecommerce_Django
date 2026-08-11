@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load cloudinary %}
 
 {% block content %}
 
@@ -59,7 +60,7 @@
           <div class="card w-100 shadow-sm border-0 rounded-lg overflow-hidden position-relative hover-shadow" style="transition: transform 0.3s ease; border-radius: 6px !important;">
             <div class="view overlay p-3 d-flex align-items-center justify-content-center" style="height: 200px; background-color: #FAFAFA;">
               {% if item.img %}
-              <img src="/uploads/{{ item.img }}" style="max-width: 100%; max-height: 100%; object-fit: contain;" alt="{{ item.title }}">
+              <img src="{% cloudinary_url item.img.name width=300 height=300 crop="fill" fetch_format="auto" quality="auto" %}" style="max-width: 100%; max-height: 100%; object-fit: contain;" alt="{{ item.title }}">
               {% else %}
               <i class="fas fa-box text-muted" style="font-size: 48px;"></i>
               {% endif %}

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load cloudinary %}
 {% block content %}
 
 <main class="mt-4 pt-4" style="min-height: 100vh;">
@@ -6,9 +7,9 @@
     <div class="row">
       <!-- Product Image -->
       <div class="col-md-6 mb-4 text-center d-flex align-items-center justify-content-center bg-white rounded p-4 shadow-sm" style="border-radius: 6px !important; border: 1px solid var(--border-color);">
-        {% if object.img %}
-        <img src="{{ object.img.url }}" class="img-fluid" alt="{{ object.title }}" style="max-height: 350px; object-fit: contain;">
-        {% else %}
+         {% if object.img %}
+         <img src="{% cloudinary_url object.img.name width=600 height=600 crop="limit" fetch_format="auto" quality="auto" %}" class="img-fluid" alt="{{ object.title }}" style="max-height: 350px; object-fit: contain;">
+         {% else %}
         <i class="fas fa-box text-muted" style="font-size: 80px;"></i>
         {% endif %}
       </div>

@@ -19,6 +19,9 @@ openpyxl==3.1.2
 
 # --- Media & File Handling ---
 Pillow==10.4.0
+cloudinary>=1.40.0
+django-cloudinary-storage>=0.3.0
+requests>=2.31.0
 
 # --- Testing & Mock Data ---
 Faker==22.5.1

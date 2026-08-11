@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load cart_template_tag %}
+{% load cloudinary %}
 
 {% block content %}
 
@@ -33,7 +34,7 @@
           <div class="cart-item-row py-3 d-flex align-items-center justify-content-between border-bottom">
             <div class="d-flex align-items-center col-md-6 pl-0">
               {% if order_item.item.img %}
-              <img src="/uploads/{{ order_item.item.img }}" alt="{{ order_item.item.title }}" class="mr-3 border p-1 rounded" style="width: 64px; height: 64px; object-fit: contain; background: #fff; border-radius: 6px !important;">
+              <img src="{% cloudinary_url order_item.item.img.name width=150 height=150 crop="fill" fetch_format="auto" quality="auto" %}" alt="{{ order_item.item.title }}" class="mr-3 border p-1 rounded" style="width: 64px; height: 64px; object-fit: contain; background: #fff; border-radius: 6px !important;">
               {% else %}
               <div class="mr-3 d-flex align-items-center justify-content-center bg-light border rounded" style="width: 64px; height: 64px; border-radius: 6px !important;">
                 <i class="fas fa-box text-muted"></i>

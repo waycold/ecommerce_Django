@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load cloudinary %}
 
 {% block content %}
 
@@ -85,7 +86,7 @@
                 <div class="card">
                   <!--Card image-->
                   <div class="view overlay" style="display: flex; justify-content: center; justify-items: center;">
-                    <img src="/uploads/{{ item.img }}" style="width: 100px; height: 100px;"
+                    <img src="{% cloudinary_url item.img.name width=200 height=200 crop="fill" fetch_format="auto" quality="auto" %}" style="width: 100px; height: 100px;"
                         alt="not image found">
                       </div>
                       <!--Card image-->
