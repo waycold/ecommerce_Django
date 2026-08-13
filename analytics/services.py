@@ -450,20 +450,30 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
         update_progress(18, "Clearing previous database records...", "Purging old sales, items, users & profiles...")
         log("1. Purging existing database records...")
 
+        models_to_purge = [OrderItem, Order, Comments, Item, Category, Brand, Supplier, Profile]
+        db_tables = [m._meta.db_table for m in models_to_purge]
+
         with transaction.atomic():
-            OrderItem.objects.all().delete()
-            Order.objects.all().delete()
-            Comments.objects.all().delete()
-            Item.objects.all().delete()
-            Category.objects.all().delete()
-            Brand.objects.all().delete()
-            Supplier.objects.all().delete()
-            Profile.objects.all().delete()
-            User.objects.exclude(is_superuser=True).delete()
+            with connection.cursor() as cursor:
+                if connection.vendor == 'postgresql':
+                    tbl_str = ', '.join([f'"{t}"' for t in db_tables])
+                    cursor.execute(f'TRUNCATE TABLE {tbl_str} RESTART IDENTITY CASCADE;')
+                    cursor.execute('DELETE FROM auth_user WHERE is_superuser = false;')
+                elif connection.vendor == 'sqlite':
+                    cursor.execute('PRAGMA foreign_keys = OFF;')
+                    for tbl in db_tables:
+                        cursor.execute(f'DELETE FROM {tbl};')
+                    cursor.execute('DELETE FROM auth_user WHERE is_superuser = 0;')
+                    cursor.execute('PRAGMA foreign_keys = ON;')
+                else:
+                    for m in models_to_purge:
+                        m.objects.all().delete()
+                    User.objects.exclude(is_superuser=True).delete()
 
         gc.collect()
 
         update_progress(25, "Creating Categories & Suppliers...", f"Generating {len(CATEGORIES_LIST)} categories...")
+        log(f"2. Creating Categories & Suppliers...")
         Category.objects.bulk_create([Category(name=name) for name in CATEGORIES_LIST])
         cats_db = {c.name: c for c in Category.objects.all()}
         
@@ -482,6 +492,7 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
         supplier_weights = [1.0 / (i**1.5) for i in range(1, num_suppliers + 1)]
 
         update_progress(35, "Generating Catalog Items from Amazon metadata...", f"Processing {len(products)} products...")
+        log(f"3. Generating Catalog Items from Amazon metadata...")
         item_objs = []
         for idx, p in enumerate(products):
             price = p["price"]
@@ -509,7 +520,7 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
             ))
             
         Item.objects.bulk_create(item_objs, batch_size=500)
-        items_db = list(Item.objects.order_by('id'))
+        items_db = list(Item.objects.select_related('category').order_by('id'))
         asin_to_item = {products[idx]["parent_asin"]: item for idx, item in enumerate(items_db)}
 
         # Shuffle items so top sellers & best-selling categories vary across random seeds
@@ -548,15 +559,21 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
             items_sales_weights.append(base_w * max(0.01, cat_multiplier))
 
         update_progress(50, f"Generating {num_users} Users & Profiles...", f"Creating user base with {foreign_ratio*100:.0f}% international ratio...")
+        log(f"4. Generating Users & Profiles...")
+        end_date = timezone.now()
         user_objs = []
         for i in range(num_users):
             uname = f"user_{i}_{random.randint(10000,99999)}"
-            user_objs.append(User(
+            # User registration date prior to simulation horizon (730-900 days ago)
+            user_joined = end_date - timedelta(days=random.randint(730, 900), hours=random.randint(0, 23))
+            u = User(
                 username=uname,
                 email=fake.email(),
                 first_name=fake.first_name()[:30],
-                last_name=fake.last_name()[:30]
-            ))
+                last_name=fake.last_name()[:30],
+                date_joined=user_joined
+            )
+            user_objs.append(u)
             
         User.objects.bulk_create(user_objs, batch_size=1000)
         users_db = list(User.objects.exclude(is_superuser=True).order_by('id'))
@@ -587,11 +604,19 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
 
         # MEMORY CHUNKING FOR ORDERS AND ORDERITEMS
         update_progress(65, "Simulating Orders with Memory Chunking...", f"Inserting in streaming chunks of 500 orders...")
-        end_date = timezone.now()
-        user_order_counts = [int(random.paretovariate(2.5)) for _ in range(num_users)]
+        log(f"5. Simulating Orders with Memory Chunking...")
+        
+        # User Conversion Funnel: ~25% inactive registered users (0 orders)
+        user_order_counts = []
+        for _ in range(num_users):
+            if random.random() < 0.25:
+                user_order_counts.append(0)
+            else:
+                user_order_counts.append(int(random.paretovariate(2.2)))
         
         total_orders_counter = 0
         total_items_counter = 0
+        units_sold_per_item = {}
         
         chunk_orders = []
         chunk_items_data = []
@@ -631,13 +656,22 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
 
         for u_idx, user in enumerate(users_db):
             orders_to_create = user_order_counts[u_idx]
+            if orders_to_create == 0:
+                continue
+
             profile = profile_dict.get(user.id)
             is_intl = profile.is_international() if profile else False
             
             for _ in range(orders_to_create):
                 while True:
                     days_ago = random.randint(0, 730)
-                    test_date = end_date - timedelta(days=days_ago)
+                    # Randomize hour, minute, and second of purchase
+                    test_date = end_date - timedelta(
+                        days=days_ago,
+                        hours=random.randint(0, 23),
+                        minutes=random.randint(0, 59),
+                        seconds=random.randint(0, 59)
+                    )
                     month = test_date.month
                     weight = 1.0
                     if month == 11: weight = 1.4
@@ -646,8 +680,9 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
                     elif month == 1: weight = 0.75
                     
                     if random.random() < weight / 1.8:
-                        order_date = test_date
-                        break
+                        if test_date >= user.date_joined:
+                            order_date = test_date
+                            break
                         
                 months_ago = days_ago / 30.0
                 inflation_factor = (1 + monthly_inflation) ** months_ago
@@ -664,6 +699,9 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
                     it_subtotal = round(past_price * qty, 2)
                     subtotal += it_subtotal
                     
+                    # Track total units sold for inventory decrement
+                    units_sold_per_item[itm.id] = units_sold_per_item.get(itm.id, 0) + qty
+                    
                     items_for_this_order.append({
                         'item': itm,
                         'qty': qty,
@@ -678,8 +716,13 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
                     discount_code = random.choice(['DESC10', 'PROMO10', 'OFF500', 'DISCOUNT'])
                     if discount_code in ['DESC10', 'PROMO10']:
                         discount = round(subtotal * 0.10, 2)
-                    else:
-                        discount = min(500.00, subtotal)
+                    elif discount_code == 'OFF500':
+                        if subtotal >= 1000.0:
+                            discount = 500.00
+                        else:
+                            discount = round(subtotal * 0.20, 2)
+                    else: # DISCOUNT
+                        discount = round(min(500.0, subtotal * 0.25), 2)
                         
                 shipping_cost = 2500.0 if is_intl else 500.0
                 total = max(0.0, subtotal + shipping_cost - discount)
@@ -702,7 +745,14 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
         # Flush remaining chunk
         flush_order_chunk()
 
+        # Decrement stock based on simulated sales
+        for itm in items_db:
+            sold_qty = units_sold_per_item.get(itm.id, 0)
+            itm.stock = max(0, itm.stock - sold_qty)
+        Item.objects.bulk_update(items_db, ['stock'], batch_size=1000)
+
         update_progress(92, "Generating Reviews & Comments...", f"Ensuring rating coverage across all categories...")
+        log(f"6. Generating Reviews & Comments...")
         comment_objs = []
         used_pairs = set()
 
