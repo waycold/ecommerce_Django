@@ -512,8 +512,12 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
         items_db = list(Item.objects.order_by('id'))
         asin_to_item = {products[idx]["parent_asin"]: item for idx, item in enumerate(items_db)}
 
+        # Shuffle items so top sellers & best-selling categories vary across random seeds
+        random.shuffle(items_db)
+
         num_items = len(items_db)
         tier_configs = config.get("product_tiers", {})
+        cat_weights = config.get("category_weights", {})
         
         t1_pct = float(tier_configs.get("tier_1_best_sellers", {}).get("percentage_of_catalog", 0.01))
         t2_pct = float(tier_configs.get("tier_2_steady_sellers", {}).get("percentage_of_catalog", 0.09))
@@ -530,15 +534,18 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
         t4_w = float(tier_configs.get("tier_4_long_tail", {}).get("sales_weight", 0.05)) / max(1, t4_count)
         
         items_sales_weights = []
-        for idx in range(num_items):
+        for idx, item in enumerate(items_db):
             if idx < t1_count:
-                items_sales_weights.append(t1_w)
+                base_w = t1_w
             elif idx < t1_count + t2_count:
-                items_sales_weights.append(t2_w)
+                base_w = t2_w
             elif idx < t1_count + t2_count + t3_count:
-                items_sales_weights.append(t3_w)
+                base_w = t3_w
             else:
-                items_sales_weights.append(t4_w)
+                base_w = t4_w
+                
+            cat_multiplier = float(cat_weights.get(item.category.name if item.category else "Unknown", 1.0))
+            items_sales_weights.append(base_w * max(0.01, cat_multiplier))
 
         update_progress(50, f"Generating {num_users} Users & Profiles...", f"Creating user base with {foreign_ratio*100:.0f}% international ratio...")
         user_objs = []
@@ -695,9 +702,60 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
         # Flush remaining chunk
         flush_order_chunk()
 
-        update_progress(92, "Generating Reviews & Comments...", f"Processing product review entries...")
+        update_progress(92, "Generating Reviews & Comments...", f"Ensuring rating coverage across all categories...")
         comment_objs = []
         used_pairs = set()
+
+        items_by_cat = {}
+        for item in items_db:
+            cname = item.category.name if item.category else "Unknown"
+            items_by_cat.setdefault(cname, []).append(item)
+
+        reviews_by_cat = {}
+        for rev in reviews:
+            cname = rev.get("category", "Unknown")
+            reviews_by_cat.setdefault(cname, []).append(rev)
+
+        sample_bodies = [
+            "Excelente producto, cumplió con todas mis expectativas.",
+            "Buena relación calidad-precio. Llegó a tiempo y bien empaquetado.",
+            "Muy satisfecho con la compra, funciona de maravilla.",
+            "Calidad garantizada, lo recomiendo totalmente.",
+            "Un producto muy práctico y duradero. Volvería a comprarlo."
+        ]
+
+        # Step A: Guarantee at least 2-4 comments/ratings for EVERY category
+        for cat_name, cat_obj in cats_db.items():
+            cat_items = items_by_cat.get(cat_name, [])
+            if not cat_items:
+                continue
+            
+            cat_reviews = reviews_by_cat.get(cat_name, [])
+            count_to_create = max(2, min(5, len(cat_reviews) if cat_reviews else 3))
+            
+            for i in range(count_to_create):
+                target_item = random.choice(cat_items)
+                usr = random.choice(users_db)
+                pair = (usr.id, target_item.id)
+                
+                if pair not in used_pairs:
+                    used_pairs.add(pair)
+                    if i < len(cat_reviews) and cat_reviews[i].get("text"):
+                        body_text = cat_reviews[i]["text"][:1000]
+                        rating_val = int(cat_reviews[i].get("rating", random.randint(4, 5)))
+                    else:
+                        body_text = random.choice(sample_bodies)
+                        rating_val = random.randint(3, 5)
+                        
+                    comment_objs.append(Comments(
+                        user=usr,
+                        item=target_item,
+                        body=body_text,
+                        rating=rating_val,
+                        likes=random.randint(0, 100)
+                    ))
+
+        # Step B: Process remaining Amazon dataset reviews
         for rev in reviews:
             item = asin_to_item.get(rev["parent_asin"])
             if not item:
@@ -710,8 +768,8 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
                 comment_objs.append(Comments(
                     user=usr,
                     item=item,
-                    body=rev["text"][:1000] if rev["text"] else "No review content",
-                    rating=int(rev["rating"]),
+                    body=rev["text"][:1000] if rev["text"] else "Excelente producto",
+                    rating=int(rev.get("rating", 5)),
                     likes=random.randint(0, 100)
                 ))
                 
