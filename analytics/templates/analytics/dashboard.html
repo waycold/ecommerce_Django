@@ -1,413 +1,126 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Analytics Portal</title>
-    <!-- Bootstrap 5 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- FontAwesome Icons (Fundamental icons only) -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <style>
-        :root {
-            --bg-primary: #08090a;
-            --bg-secondary: #0d0f12;
-            --bg-card: #111317;
-            --border-color: #1e222b;
-            --text-primary: #f8fafc;
-            --text-secondary: #64748b;
-            --accent: #3b82f6;
-            --accent-dim: #1d4ed8;
-        }
-        body {
-            background-color: var(--bg-primary);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            color: var(--text-primary);
-            font-size: 13px;
-        }
-        .navbar-custom {
-            background-color: var(--bg-primary);
-            border-bottom: 1px solid var(--border-color);
-        }
-        .brand-text {
-            font-weight: 500;
-            letter-spacing: -0.01em;
-            color: var(--text-primary);
-            font-size: 14px;
-        }
-        .badge-restricted {
-            font-size: 10px;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            border: 1px solid var(--border-color);
-            padding: 3px 8px;
-            border-radius: 3px;
-            font-weight: 500;
-        }
-        .btn-minimal {
-            color: var(--text-secondary);
-            background: transparent;
-            border: 1px solid var(--border-color);
-            font-size: 12px;
-            padding: 4px 12px;
-            border-radius: 4px;
-            text-decoration: none;
-            transition: all 0.15s ease;
-        }
-        .btn-minimal:hover {
-            color: var(--text-primary);
-            border-color: var(--accent);
-            background-color: var(--bg-secondary);
-        }
-        .btn-accent {
-            color: #ffffff;
-            background-color: var(--accent);
-            border: none;
-            font-size: 12px;
-            font-weight: 500;
-            padding: 6px 14px;
-            border-radius: 4px;
-            text-decoration: none;
-            transition: background-color 0.15s ease;
-            display: inline-flex;
-            align-items: center;
-        }
-        .btn-accent:hover {
-            background-color: var(--accent-dim);
-            color: #ffffff;
-        }
-        .btn-accent.disabled {
-            pointer-events: none;
-            background-color: var(--text-secondary) !important;
-        }
-        .analytics-card {
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            background-color: var(--bg-card);
-            padding: 20px;
-            height: 100%;
-        }
-        .kpi-title {
-            color: var(--text-secondary);
-            font-weight: 500;
-            font-size: 10px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            display: block;
-            margin-bottom: 6px;
-        }
-        .kpi-value {
-            font-size: 1.6rem;
-            font-weight: 600;
-            letter-spacing: -0.02em;
-            color: var(--text-primary);
-            margin-bottom: 8px;
-            line-height: 1.2;
-        }
-        .kpi-meta {
-            font-size: 10px;
-            color: var(--text-secondary);
-            display: inline-flex;
-            align-items: center;
-            font-weight: 500;
-        }
-        .kpi-indicator {
-            width: 6px;
-            height: 6px;
-            background-color: var(--accent);
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 6px;
-        }
-        .table-custom {
-            width: 100%;
-            font-size: 12px;
-            border-collapse: collapse;
-        }
-        .table-custom th {
-            font-weight: 500;
-            text-transform: uppercase;
-            font-size: 9px;
-            letter-spacing: 0.05em;
-            color: var(--text-secondary);
-            border-bottom: 1px solid var(--border-color);
-            padding: 8px 12px;
-            text-align: left;
-        }
-        .table-custom td {
-            border-bottom: 1px solid #161a22;
-            padding: 10px 12px;
-            color: #cbd5e1;
-        }
-        .table-custom tr:hover td {
-            background-color: var(--bg-secondary);
-            color: var(--text-primary);
-        }
-        .rank-num {
-            font-weight: 600;
-            color: var(--accent);
-        }
-        .section-title {
-            font-size: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--text-primary);
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-        }
-        .future-sec {
-            background-color: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            padding: 20px;
-        }
-        .future-card {
-            border: 1px solid var(--border-color);
-            padding: 14px;
-            border-radius: 3px;
-            background-color: var(--bg-card);
-            height: 100%;
-        }
-        .future-title {
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 4px;
-            text-transform: uppercase;
-            letter-spacing: 0.02em;
-        }
-        .future-desc {
-            font-size: 11px;
-            color: var(--text-secondary);
-            margin-bottom: 0;
-            line-height: 1.4;
-        }
-    </style>
-</head>
-<body>
+{% extends 'analytics/base_analytics.html' %}
 
-    <!-- Header / Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-custom py-2 mb-4">
-        <div class="container">
-            <span class="brand-text">Analytics Portal</span>
-            <div class="d-flex align-items-center gap-2">
-                <span class="badge-restricted">Staff Only</span>
-                <a href="/" class="btn-minimal">
-                    <i class="fa-solid fa-arrow-left me-1"></i> Store
-                </a>
+{% block title %}Dashboard | Analytics Portal{% endblock %}
+
+{% block content %}
+<!-- Top Actions Bar -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="fw-bold mb-1 text-light">Management Dashboard</h4>
+        <p class="text-secondary mb-0" style="font-size: 11px;">Real-time performance metrics and business intelligence.</p>
+    </div>
+    <div>
+        <a href="{% url 'analytics:export_excel' %}" class="btn-accent" id="export-btn">
+            <i class="fa-solid fa-download me-2"></i> Export Report (.xlsx)
+        </a>
+    </div>
+</div>
+
+<!-- SECTION A: KPI Cards Grid -->
+<div class="row g-3 mb-4">
+    
+    <!-- KPI 1: Current Month Revenue -->
+    <div class="col-md-3">
+        <div class="analytics-card">
+            <span class="kpi-title">Revenue ({{ current_month_name }})</span>
+            <div class="kpi-value">$ {{ monthly_revenue|floatformat:2 }}</div>
+            <div class="kpi-meta">
+                <span class="kpi-indicator"></span> Active Monthly Sales
             </div>
         </div>
-    </nav>
-
-    <!-- Main Container -->
-    <div class="container mb-5">
-
-        <!-- Top Actions Bar -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
-                <h4 class="fw-bold mb-1 text-light">Management Dashboard</h4>
-                <p class="text-secondary mb-0" style="font-size: 11px;">Real-time performance metrics and business intelligence.</p>
-            </div>
-            <div>
-                <a href="{% url 'analytics:export_excel' %}" class="btn-accent" id="export-btn">
-                    <i class="fa-solid fa-download me-2"></i> Export Report (.xlsx)
-                </a>
-            </div>
-        </div>
-
-        <!-- SECTION A: KPI Cards -->
-        <div class="row g-3 mb-4">
-            
-            <!-- KPI 1: Current Month Revenue -->
-            <div class="col-md-4">
-                <div class="analytics-card">
-                    <span class="kpi-title">Revenue ({{ current_month_name }})</span>
-                    <div class="kpi-value">$ {{ monthly_revenue|floatformat:2 }}</div>
-                    <div class="kpi-meta">
-                        <span class="kpi-indicator"></span> Active Sales
-                    </div>
-                </div>
-            </div>
-
-            <!-- KPI 2: Abandoned Carts -->
-            <div class="col-md-4">
-                <div class="analytics-card">
-                    <span class="kpi-title">Pending Orders</span>
-                    <div class="kpi-value">{{ abandoned_carts_count }}</div>
-                    <div class="kpi-meta">
-                        <span class="kpi-indicator" style="background-color: var(--text-secondary);"></span> Awaiting Payment
-                    </div>
-                </div>
-            </div>
-
-            <!-- KPI 3: Top Selling Product -->
-            <div class="col-md-4">
-                <div class="analytics-card">
-                    <span class="kpi-title">Top Product</span>
-                    {% if top_product_star %}
-                        <div class="fw-bold mb-1 text-truncate text-light" style="font-size: 13px; margin-top: 4px;" title="{{ top_product_star.item__title }}">
-                            {{ top_product_star.item__title }}
-                        </div>
-                        <div class="text-secondary" style="font-size: 11px;">
-                            Units sold: <span class="text-light fw-medium">{{ top_product_star.total_units_sold }}</span>
-                        </div>
-                    {% else %}
-                        <p class="text-secondary mb-0" style="margin-top: 10px;">No sales recorded</p>
-                    {% endif %}
-                </div>
-            </div>
-
-        </div>
-
-        <!-- SECTION B: Top 3 Best-Selling Products Table -->
-        <div class="row g-3 mb-4">
-            <div class="col-12">
-                <div class="analytics-card">
-                    <div class="section-title">
-                        Top Products
-                    </div>
-
-                    <div class="table-responsive">
-                        <table class="table-custom">
-                            <thead>
-                                <tr>
-                                    <th style="width: 60px;" class="text-center">Rank</th>
-                                    <th>Product</th>
-                                    <th>Category</th>
-                                    <th class="text-end">Units Sold</th>
-                                    <th class="text-end">Revenue</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for prod in top_products %}
-                                <tr>
-                                    <td class="text-center rank-num">
-                                        {{ forloop.counter }}
-                                    </td>
-                                    <td>
-                                        <span class="fw-medium text-light">{{ prod.item__title }}</span>
-                                    </td>
-                                    <td>
-                                        <span class="text-secondary">
-                                            {{ prod.item__category__name|default:"Uncategorized" }}
-                                        </span>
-                                    </td>
-                                    <td class="text-end text-light">
-                                        {{ prod.total_units_sold }}
-                                    </td>
-                                    <td class="text-end text-light">
-                                        $ {{ prod.total_revenue_generated|floatformat:2 }}
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="5" class="text-center py-4 text-secondary">
-                                        Not enough sales recorded.
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- SECTION C: Future Extensions -->
-        <div class="row g-3">
-            <div class="col-12">
-                <div class="future-sec">
-                    <div class="section-title" style="margin-bottom: 12px;">
-                        Pipeline Roadmap
-                    </div>
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <div class="future-card">
-                                <div class="future-title">Market Basket Analysis</div>
-                                <p class="future-desc">
-                                    Algorithmic association logic to detect purchasing patterns and optimize cross-selling models.
-                                </p>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="future-card">
-                                <div class="future-title">Demand Forecasting</div>
-                                <p class="future-desc">
-                                    Time-series models to predict inventory demand for the next 30 days.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
     </div>
 
-    <!-- Bootstrap 5 JS Bundle -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/bootstrap.bundle.min.js"></script>
-    
-    <!-- Export Feedback Script -->
-    <script>
-        document.getElementById('export-btn').addEventListener('click', function(e) {
-            e.preventDefault();
-            const btn = this;
-            const originalContent = btn.innerHTML;
-            
-            // Lock button and show loading feedback
-            btn.classList.add('disabled');
-            btn.style.opacity = '0.7';
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> Generating...';
-            
-            // Download the file in the background using Fetch to track completion
-            fetch(btn.href)
-                .then(response => {
-                    if (!response.ok) throw new Error('Export failed');
-                    
-                    // Extract the filename from Content-Disposition
-                    const disposition = response.headers.get('content-disposition');
-                    let filename = `sales_report_analytics_${new Date().toISOString().slice(0,10)}.xlsx`;
-                    if (disposition && disposition.indexOf('attachment') !== -1) {
-                        const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
-                        const matches = filenameRegex.exec(disposition);
-                        if (matches != null && matches[1]) { 
-                            filename = matches[1].replace(/['"]/g, '');
-                        }
-                    }
-                    return response.blob().then(blob => ({ blob, filename }));
-                })
-                .then(({ blob, filename }) => {
-                    // Generate a virtual link and trigger client-side download
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.style.display = 'none';
-                    a.href = url;
-                    a.download = filename;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    
-                    // Show success feedback
-                    btn.classList.remove('disabled');
-                    btn.style.opacity = '1';
-                    btn.innerHTML = '<i class="fa-solid fa-check me-2"></i> Exported';
-                    setTimeout(() => {
-                        btn.innerHTML = originalContent;
-                    }, 2500);
-                })
-                .catch(err => {
-                    console.error('Export error:', err);
-                    btn.classList.remove('disabled');
-                    btn.style.opacity = '1';
-                    btn.innerHTML = '<i class="fa-solid fa-xmark me-2"></i> Error';
-                    setTimeout(() => {
-                        btn.innerHTML = originalContent;
-                    }, 2500);
-                });
-        });
-    </script>
-</body>
-</html>
+    <!-- KPI 2: Monthly Orders -->
+    <div class="col-md-3">
+        <div class="analytics-card">
+            <span class="kpi-title">Completed Orders</span>
+            <div class="kpi-value">{{ monthly_orders_count }}</div>
+            <div class="kpi-meta">
+                <span class="kpi-indicator" style="background-color: #22c55e;"></span> {{ active_customers_count }} Active Customers
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI 3: Average Order Value (AOV) -->
+    <div class="col-md-3">
+        <div class="analytics-card">
+            <span class="kpi-title">Average Order Value</span>
+            <div class="kpi-value">$ {{ avg_order_value|floatformat:2 }}</div>
+            <div class="kpi-meta">
+                <span class="kpi-indicator"></span> Revenue per Ticket
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI 4: Pending Orders -->
+    <div class="col-md-3">
+        <div class="analytics-card">
+            <span class="kpi-title">Pending Orders</span>
+            <div class="kpi-value">{{ abandoned_carts_count }}</div>
+            <div class="kpi-meta">
+                <span class="kpi-indicator" style="background-color: var(--text-secondary);"></span> Awaiting Payment
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- SECTION B: Top 8 Best-Selling Products Table -->
+<div class="row g-3 mb-4">
+    <div class="col-12">
+        <div class="analytics-card">
+            <div class="section-title d-flex justify-content-between align-items-center">
+                <span>Top 8 Best-Selling Products</span>
+                {% if top_product_star %}
+                <span class="text-secondary" style="font-size: 10px; font-weight: normal; text-transform: none;">
+                    Leader: <strong class="text-light">{{ top_product_star.item__title }}</strong> ({{ top_product_star.total_units_sold }} units)
+                </span>
+                {% endif %}
+            </div>
+
+            <div class="table-responsive">
+                <table class="table-custom">
+                    <thead>
+                        <tr>
+                            <th style="width: 60px;" class="text-center">Rank</th>
+                            <th>Product</th>
+                            <th>Category</th>
+                            <th class="text-end">Units Sold</th>
+                            <th class="text-end">Revenue</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for prod in top_products %}
+                        <tr>
+                            <td class="text-center rank-num">
+                                {{ forloop.counter }}
+                            </td>
+                            <td>
+                                <span class="fw-medium text-light">{{ prod.item__title }}</span>
+                            </td>
+                            <td>
+                                <span class="text-secondary">
+                                    {{ prod.item__category__name|default:"Uncategorized" }}
+                                </span>
+                            </td>
+                            <td class="text-end text-light">
+                                {{ prod.total_units_sold }}
+                            </td>
+                            <td class="text-end text-light">
+                                $ {{ prod.total_revenue_generated|floatformat:2 }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-secondary">
+                                Not enough sales recorded.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

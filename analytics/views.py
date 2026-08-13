@@ -1,33 +1,72 @@
 """
 analytics/views.py
 
-Web Presentation Layer for the Analytics module.
-Contains exclusively the logic for receiving HTTP requests,
-permission control, and response rendering. Business logic and ETL
-are delegated to analytics.services.
+Web Presentation Layer & API Endpoints for the Analytics module.
+Contains distinct views for Dashboard, Forecast & Trends, and Data Simulator.
 """
 
+import json
 from django.views import View
 from django.shortcuts import render
+from django.http import JsonResponse, HttpResponseBadRequest
 from django.utils.decorators import method_decorator
 from django.contrib.admin.views.decorators import staff_member_required
 
-# Decoupled services imports
-from analytics.services import get_dashboard_kpis, export_sales_to_excel
+from analytics.services import (
+    get_dashboard_kpis,
+    export_sales_to_excel,
+    get_forecast_data,
+    get_simulator_config,
+    save_simulator_config,
+    start_async_dataset_generation,
+    get_generation_progress
+)
 
 
 @method_decorator(staff_member_required(login_url='login'), name='dispatch')
 class DashboardView(View):
     """
     Main Managerial Dashboard view.
-    Strictly restricted to admin users (staff / superusers).
-    Displays real-time KPIs and the Top 3 best-selling products.
+    Renders real-time KPIs and Top products.
     """
     template_name = 'analytics/dashboard.html'
 
     def get(self, request):
-        # Invoke decoupled data processing service
         context = get_dashboard_kpis()
+        return render(request, self.template_name, context)
+
+
+@method_decorator(staff_member_required(login_url='login'), name='dispatch')
+class ForecastView(View):
+    """
+    Forecast & Trends analytics view.
+    Renders time-series sales predictions, seasonality, and category distribution.
+    """
+    template_name = 'analytics/forecast.html'
+
+    def get(self, request):
+        forecast_data = get_forecast_data()
+        context = {
+            'forecast_data': forecast_data,
+            'forecast_data_json': json.dumps(forecast_data)
+        }
+        return render(request, self.template_name, context)
+
+
+@method_decorator(staff_member_required(login_url='login'), name='dispatch')
+class SimulatorView(View):
+    """
+    Synthetic Data Simulator view.
+    Renders sliders for JSON configuration attributes and dataset generator control.
+    """
+    template_name = 'analytics/simulator.html'
+
+    def get(self, request):
+        sim_config = get_simulator_config()
+        context = {
+            'simulator_config': sim_config,
+            'simulator_config_json': json.dumps(sim_config)
+        }
         return render(request, self.template_name, context)
 
 
@@ -35,10 +74,59 @@ class DashboardView(View):
 class ExportSalesExcelView(View):
     """
     ETL data export endpoint to Excel format (.xlsx).
-    Restricted to admins. Invokes the Pandas pipeline in services.py.
     """
-
     def get(self, request):
-        # Invoke the ETL pipeline in Pandas for automatic Excel download
         return export_sales_to_excel()
 
+
+@method_decorator(staff_member_required(login_url='login'), name='dispatch')
+class SimulatorConfigView(View):
+    """
+    API endpoint for getting and updating dataset generation configuration weights.
+    """
+    def get(self, request):
+        config = get_simulator_config()
+        return JsonResponse(config)
+
+    def post(self, request):
+        try:
+            body = json.loads(request.body.decode('utf-8'))
+            updated = save_simulator_config(body)
+            return JsonResponse({'status': 'success', 'config': updated})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+
+@method_decorator(staff_member_required(login_url='login'), name='dispatch')
+class GenerateDatasetView(View):
+    """
+    API endpoint for initiating asynchronous dataset generation with slider parameters.
+    """
+    def post(self, request):
+        try:
+            body = json.loads(request.body.decode('utf-8')) if request.body else {}
+            config = body.get('config')
+            seed = body.get('seed')
+            if seed is not None:
+                try:
+                    seed = int(seed)
+                except ValueError:
+                    seed = None
+
+            started = start_async_dataset_generation(config_override=config, seed=seed)
+            if started:
+                return JsonResponse({'status': 'started', 'message': 'Dataset generation engine initiated.'})
+            else:
+                return JsonResponse({'status': 'running', 'message': 'Dataset generation is already in progress.'}, status=409)
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+
+@method_decorator(staff_member_required(login_url='login'), name='dispatch')
+class GenerationProgressView(View):
+    """
+    API endpoint for polling live dataset generation progress status and step logs.
+    """
+    def get(self, request):
+        progress = get_generation_progress()
+        return JsonResponse(progress)

@@ -1,41 +1,76 @@
 """
 analytics/services.py
 
-Services and Data Processing Layer (Data Engineering & Business Logic).
-Strict separation of concerns: this module abstracts all complex ORM queries,
-statistical aggregations, and the ETL pipeline powered by openpyxl for BI exports.
-
-Designed with a modular architecture to support future asynchronous executions
-(Celery/Redis) and Machine Learning models (Market Basket Analysis, Demand Forecasting).
+Services and Data Processing Layer (Data Engineering, Business Logic & Data Simulator).
+Includes KPI calculations, Excel ETL pipeline, Forecast & Trends analytics engine,
+and the synthetic dataset generator engine with real-time status tracking and memory chunking.
 """
 
 import io
-from datetime import datetime
+import os
+import gc
+import json
+import math
+import random
+import time
+import threading
+from datetime import datetime, timedelta
 from openpyxl import Workbook
 
-from django.db.models import Sum, Count, F, Q, DecimalField, Case, When, Value, ExpressionWrapper
-from django.db.models.functions import Round
+from django.conf import settings
+from django.db import connection, transaction
+from django.db.models import Sum, Count, F, Q, DecimalField, Case, When, Value, ExpressionWrapper, Avg
+from django.db.models.functions import Round, TruncMonth
 from django.utils import timezone
 from django.http import HttpResponse
+from django.contrib.auth.models import User
+from faker import Faker
 
-# Importación de modelos desde la aplicación del e-commerce
-from product.models import Order, OrderItem, Item, OrderStatus
+from product.models import (
+    OrderItem, Order, Comments, Item, Category, Brand, Supplier, Profile,
+    OrderStatus, PaymentMethod
+)
+from analytics.data_ingestion import get_amazon_data
+
+CATEGORIES_LIST = [
+    "All_Beauty", "Amazon_Fashion", "Appliances", "Arts_Crafts_and_Sewing", "Automotive",
+    "Baby_Products", "Beauty_and_Personal_Care", "Books", "CDs_and_Vinyl", "Cell_Phones_and_Accessories",
+    "Clothing_Shoes_and_Jewelry", "Digital_Music", "Electronics", "Gift_Cards", "Grocery_and_Gourmet_Food",
+    "Handmade_Products", "Health_and_Household", "Health_and_Personal_Care", "Home_and_Kitchen", "Industrial_and_Scientific",
+    "Kindle_Store", "Magazine_Subscriptions", "Movies_and_TV", "Musical_Instruments", "Office_Products",
+    "Patio_Lawn_and_Garden", "Pet_Supplies", "Software", "Sports_and_Outdoors", "Subscription_Boxes",
+    "Tools_and_Home_Improvement", "Toys_and_Games", "Video_Games", "Unknown"
+]
+
+# Thread-safe dataset generation status tracker
+GENERATION_LOCK = threading.Lock()
+GENERATION_STATUS = {
+    "is_running": False,
+    "progress_pct": 0,
+    "current_step": "Idle",
+    "logs": [],
+    "error": None,
+    "completed_at": None,
+    "stats": {}
+}
+
+
+def is_production_environment() -> bool:
+    """
+    Detects if the application is running in Production / Cloud (e.g. Render).
+    Checks RENDER environment variable, PRODUCTION variable, or settings.DEBUG.
+    """
+    return bool(os.environ.get('RENDER') or os.environ.get('PRODUCTION') or not settings.DEBUG)
 
 
 def get_dashboard_kpis() -> dict:
     """
     Calculates key performance indicators (KPIs) in real-time for the Managerial Dashboard.
-    Uses optimized Django ORM queries (aggregate/annotate) to minimize
-    database load.
-
-    Returns:
-        dict: Structured dictionary with sales metrics, abandoned carts, and top products.
     """
     now = timezone.now()
     current_year = now.year
     current_month = now.month
 
-    # 1. Total Revenue of the current month (Paid/Shipped/Delivered orders)
     paid_statuses = [OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.DELIVERED]
     
     monthly_revenue_agg = Order.objects.filter(
@@ -47,12 +82,24 @@ def get_dashboard_kpis() -> dict:
     )
     monthly_revenue = monthly_revenue_agg['total_revenue'] or 0.0
 
-    # 2. Abandoned Carts count (Orders in PENDING status)
+    monthly_orders_count = Order.objects.filter(
+        status__in=paid_statuses,
+        ordered_date__year=current_year,
+        ordered_date__month=current_month
+    ).count()
+
+    avg_order_value = float(monthly_revenue) / float(monthly_orders_count) if monthly_orders_count > 0 else 0.0
+
+    active_customers_count = Order.objects.filter(
+        status__in=paid_statuses,
+        ordered_date__year=current_year,
+        ordered_date__month=current_month
+    ).values('user').distinct().count()
+
     abandoned_carts_count = Order.objects.filter(
         status=OrderStatus.PENDING
     ).count()
 
-    # 3. Top 3 Best-Selling Products (by quantity in completed orders)
     top_products_qs = OrderItem.objects.filter(
         order__status__in=paid_statuses
     ).values(
@@ -63,14 +110,16 @@ def get_dashboard_kpis() -> dict:
     ).annotate(
         total_units_sold=Sum('quantity'),
         total_revenue_generated=Sum('subtotal')
-    ).order_by('-total_units_sold')[:3]
+    ).order_by('-total_units_sold')[:8]
 
     top_products = list(top_products_qs)
 
-    # Structured return for the presentation layer (views.py)
     return {
         'current_month_name': now.strftime('%B %Y'),
         'monthly_revenue': float(monthly_revenue),
+        'monthly_orders_count': monthly_orders_count,
+        'avg_order_value': round(avg_order_value, 2),
+        'active_customers_count': active_customers_count,
         'abandoned_carts_count': abandoned_carts_count,
         'top_products': top_products,
         'top_product_star': top_products[0] if top_products else None,
@@ -79,17 +128,8 @@ def get_dashboard_kpis() -> dict:
 
 def export_sales_to_excel() -> HttpResponse:
     """
-    Extraction, Transformation, and Loading (ETL) pipeline using a SQL-First approach.
-    1. Extract & Transform: Performs mathematical calculations directly in the database engine
-       (PostgreSQL/SQLite) using Django annotations.
-    2. Load: Generates the Excel file (.xlsx) efficiently in memory using openpyxl in
-       write-only mode to prevent worker timeouts and OOM errors on Render.
-
-    Returns:
-        HttpResponse: Structured HTTP response for automatic Excel download.
+    ETL pipeline using openpyxl to export sales records to Excel format.
     """
-    # 1. EXTRACTION AND TRANSFORMATION (SQL-First)
-    # Calculate Total Cost, Net Profit, and Margin directly in the database engine
     cost_total_expr = ExpressionWrapper(
         F('unit_cost') * F('quantity'),
         output_field=DecimalField(max_digits=10, decimal_places=2)
@@ -100,7 +140,6 @@ def export_sales_to_excel() -> HttpResponse:
         output_field=DecimalField(max_digits=10, decimal_places=2)
     )
     
-    # Safe handling of division by zero for the margin
     margin_expr = Case(
         When(subtotal__gt=0, then=Round((net_profit_expr / F('subtotal')) * 100, 2)),
         default=Value(0.0),
@@ -127,13 +166,9 @@ def export_sales_to_excel() -> HttpResponse:
         'margin'
     )
 
-    # 2. LOAD
-    # openpyxl with write_only=True writes directly to the in-memory ZIP file,
-    # without building the entire document structure in Python memory.
     wb = Workbook(write_only=True)
     ws = wb.create_sheet(title='Sales_Report_ETL')
     
-    # Headers
     headers = [
         'Order ID', 'Order Date', 'Order Status', 'Payment Method', 'Customer',
         'Product', 'Category', 'Quantity', 'Historical Unit Price',
@@ -141,22 +176,14 @@ def export_sales_to_excel() -> HttpResponse:
     ]
     ws.append(headers)
 
-    # We use iterator to process in chunks of 2000 records,
-    # freeing up memory between each processed block.
     for row in sales_queryset.iterator(chunk_size=2000):
-        # Convert row tuple to list to modify null values / dates
         row_list = list(row)
-        
-        # Order Date: Remove timezone for Excel compatibility
         if row_list[1]:
             row_list[1] = row_list[1].replace(tzinfo=None)
-            
-        # Null values in categorical fields
         if row_list[4] is None:
             row_list[4] = 'Guest/Anonymous'
         if row_list[6] is None:
             row_list[6] = 'Uncategorized'
-            
         ws.append(row_list)
         
     excel_buffer = io.BytesIO()
@@ -173,27 +200,558 @@ def export_sales_to_excel() -> HttpResponse:
 
 
 # ==============================================================================
-# FUTURE EXTENSIONS & STUBS SECTION (Machine Learning & Asynchronous Tasks)
+# FORECAST & TRENDS ANALYTICS SERVICE
 # ==============================================================================
 
-class AdvancedAnalyticsService:
+def get_forecast_data() -> dict:
     """
-    Reserved class for future integration of Data Science algorithms,
-    Machine Learning, and background tasks (Celery / Redis / Scikit-learn).
+    Computes time-series sales trend, linear demand forecasting for the next 3 months,
+    category distribution, and cross-category market basket co-occurrences.
     """
+    paid_statuses = [OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.DELIVERED]
+    
+    monthly_sales = Order.objects.filter(
+        status__in=paid_statuses,
+        ordered_date__isnull=False
+    ).annotate(
+        month=TruncMonth('ordered_date')
+    ).values('month').annotate(
+        revenue=Sum('total'),
+        orders_count=Count('id')
+    ).order_by('month')
 
-    @staticmethod
-    def run_market_basket_analysis():
-        """
-        [FUTURE] Apriori / FP-Growth algorithm to detect frequent itemsets/purchasing patterns
-        (Product association in shopping carts).
-        """
-        pass
+    months_labels = []
+    historical_revenue = []
+    historical_orders = []
 
-    @staticmethod
-    def predict_sales_demand(periods_days: int = 30):
-        """
-        [FUTURE] Time-series forecasting algorithm (Prophet / ARIMA)
-        for inventory demand estimation.
-        """
-        pass
+    for entry in monthly_sales:
+        if entry['month']:
+            months_labels.append(entry['month'].strftime('%b %Y'))
+            historical_revenue.append(round(float(entry['revenue'] or 0.0), 2))
+            historical_orders.append(entry['orders_count'])
+
+    forecast_months = []
+    forecast_revenue = []
+    forecast_upper = []
+    forecast_lower = []
+
+    n = len(historical_revenue)
+    if n > 1:
+        x = list(range(n))
+        y = historical_revenue
+        sum_x = sum(x)
+        sum_y = sum(y)
+        sum_xy = sum(x[i] * y[i] for i in range(n))
+        sum_x2 = sum(x[i] ** 2 for i in range(n))
+
+        slope = (n * sum_xy - sum_x * sum_y) / max(1.0, (n * sum_x2 - sum_x ** 2))
+        intercept = (sum_y - slope * sum_x) / n
+
+        residuals = [y[i] - (slope * x[i] + intercept) for i in range(n)]
+        std_err = math.sqrt(sum(r ** 2 for r in residuals) / max(1, n - 2)) if n > 2 else sum(y) * 0.05
+
+        last_date = monthly_sales[n - 1]['month'] if n > 0 and monthly_sales[n - 1]['month'] else timezone.now()
+        
+        for step in range(1, 4):
+            future_date = last_date + timedelta(days=30 * step)
+            forecast_months.append(future_date.strftime('%b %Y (F)'))
+            
+            proj_val = max(0.0, slope * (n - 1 + step) + intercept)
+            margin = std_err * (1.0 + 0.15 * step)
+            
+            forecast_revenue.append(round(proj_val, 2))
+            forecast_upper.append(round(proj_val + margin, 2))
+            forecast_lower.append(round(max(0.0, proj_val - margin), 2))
+    else:
+        now = timezone.now()
+        for step in range(1, 4):
+            future_date = now + timedelta(days=30 * step)
+            forecast_months.append(future_date.strftime('%b %Y (F)'))
+            forecast_revenue.append(0.0)
+            forecast_upper.append(0.0)
+            forecast_lower.append(0.0)
+
+    cat_sales = OrderItem.objects.filter(
+        order__status__in=paid_statuses
+    ).values(
+        'item__category__name'
+    ).annotate(
+        total_revenue=Sum('subtotal'),
+        units_sold=Sum('quantity')
+    ).order_by('-total_revenue')[:8]
+
+    category_labels = [c['item__category__name'] or 'Uncategorized' for c in cat_sales]
+    category_revenues = [round(float(c['total_revenue'] or 0.0), 2) for c in cat_sales]
+
+    next_month_projected = forecast_revenue[0] if forecast_revenue else 0.0
+    last_revenue = historical_revenue[-1] if historical_revenue else 0.0
+    prev_revenue = historical_revenue[-2] if len(historical_revenue) > 1 else last_revenue
+    mom_growth = round(((last_revenue - prev_revenue) / max(1.0, prev_revenue)) * 100, 1)
+
+    avg_monthly_rev = sum(historical_revenue) / max(1, len(historical_revenue)) if historical_revenue else 1.0
+    max_rev = max(historical_revenue) if historical_revenue else 1.0
+    seasonality_index = round(max_rev / max(1.0, avg_monthly_rev), 2)
+
+    return {
+        'months_labels': months_labels,
+        'historical_revenue': historical_revenue,
+        'forecast_months': forecast_months,
+        'forecast_revenue': forecast_revenue,
+        'forecast_upper': forecast_upper,
+        'forecast_lower': forecast_lower,
+        'category_labels': category_labels,
+        'category_revenues': category_revenues,
+        'next_month_projected': next_month_projected,
+        'mom_growth': mom_growth,
+        'seasonality_index': seasonality_index,
+    }
+
+
+# ==============================================================================
+# DATA SIMULATOR & CONFIGURATION SERVICE
+# ==============================================================================
+
+def get_config_filepath():
+    base_dir = os.path.dirname(__file__)
+    return os.path.join(base_dir, 'data', 'weights_config.json')
+
+
+def get_simulator_config() -> dict:
+    """
+    Reads dataset generation weights and simulation parameters from weights_config.json.
+    """
+    filepath = get_config_filepath()
+    if os.path.exists(filepath):
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+                if 'simulation_params' not in config:
+                    config['simulation_params'] = {
+                        "num_users": 5000,
+                        "monthly_inflation": 0.04,
+                        "foreign_ratio": 0.20,
+                        "seed": 42
+                    }
+                return config
+        except Exception as e:
+            print(f"[Error] Reading weights_config.json: {e}")
+
+    return {
+        "simulation_params": {
+            "num_users": 5000,
+            "monthly_inflation": 0.04,
+            "foreign_ratio": 0.20,
+            "seed": 42
+        },
+        "product_tiers": {
+            "tier_1_best_sellers": {"percentage_of_catalog": 0.01, "sales_weight": 0.50},
+            "tier_2_steady_sellers": {"percentage_of_catalog": 0.09, "sales_weight": 0.30},
+            "tier_3_slow_sellers": {"percentage_of_catalog": 0.30, "sales_weight": 0.15},
+            "tier_4_long_tail": {"percentage_of_catalog": 0.60, "sales_weight": 0.05}
+        },
+        "category_weights": {cat: 0.5 for cat in CATEGORIES_LIST}
+    }
+
+
+def save_simulator_config(new_config: dict) -> dict:
+    """
+    Updates and saves the simulation parameters and weights to weights_config.json.
+    """
+    filepath = get_config_filepath()
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    
+    current_config = get_simulator_config()
+
+    if 'simulation_params' in new_config:
+        current_config['simulation_params'].update(new_config['simulation_params'])
+    if 'product_tiers' in new_config:
+        current_config['product_tiers'].update(new_config['product_tiers'])
+    if 'category_weights' in new_config:
+        current_config['category_weights'].update(new_config['category_weights'])
+
+    with open(filepath, 'w', encoding='utf-8') as f:
+        json.dump(current_config, f, ensure_ascii=False, indent=2)
+
+    return current_config
+
+
+def get_generation_progress() -> dict:
+    """
+    Returns a safe copy of current dataset generation status for frontend polling.
+    """
+    with GENERATION_LOCK:
+        return dict(GENERATION_STATUS)
+
+
+def update_progress(pct: int, step: str, log_msg: str = None, error: str = None):
+    with GENERATION_LOCK:
+        GENERATION_STATUS["progress_pct"] = pct
+        GENERATION_STATUS["current_step"] = step
+        if log_msg:
+            timestamp = datetime.now().strftime("%H:%M:%S")
+            GENERATION_STATUS["logs"].append(f"[{timestamp}] {log_msg}")
+        if error:
+            GENERATION_STATUS["error"] = error
+            GENERATION_STATUS["is_running"] = False
+
+
+def generate_dataset_pipeline(config_override: dict = None, seed: int = None, console_callback=None):
+    """
+    Core dataset generator engine based on Amazon Reviews 2023 metadata.
+    Includes adaptive server guardrails and memory-chunking insertions to keep RAM < 120 MB.
+    """
+    with GENERATION_LOCK:
+        if GENERATION_STATUS["is_running"]:
+            raise RuntimeError("Dataset generation is already in progress.")
+        GENERATION_STATUS["is_running"] = True
+        GENERATION_STATUS["progress_pct"] = 0
+        GENERATION_STATUS["current_step"] = "Initializing generation engine..."
+        GENERATION_STATUS["logs"] = []
+        GENERATION_STATUS["error"] = None
+        GENERATION_STATUS["completed_at"] = None
+
+    def log(msg):
+        if console_callback:
+            console_callback(msg)
+
+    try:
+        if config_override:
+            config = save_simulator_config(config_override)
+        else:
+            config = get_simulator_config()
+
+        sim_params = config.get("simulation_params", {})
+        num_users = int(sim_params.get("num_users", 5000))
+        monthly_inflation = float(sim_params.get("monthly_inflation", 0.04))
+        foreign_ratio = float(sim_params.get("foreign_ratio", 0.20))
+        
+        # Adaptive Server Guardrail Limit for Web / Production Environments
+        if is_production_environment() and num_users > 1000:
+            log(f"[Server Guardrail] Capping web user generation from {num_users} to 1,000 for server RAM optimization.")
+            num_users = 1000
+        
+        if seed is None:
+            seed = int(sim_params.get("seed", 42))
+
+        update_progress(5, "Setting up random seed and loading parameters", f"Engine started with Seed: {seed} (Users: {num_users})")
+        log(f"Generating data using seed: {seed}")
+        
+        random.seed(seed)
+        Faker.seed(seed)
+        fake = Faker(['es_ES', 'es_AR'])
+
+        data_dir = os.path.dirname(get_config_filepath())
+        
+        update_progress(10, "Ingesting Amazon Reviews dataset cache...", "Loading product catalog metadata...")
+        amazon_data = get_amazon_data(data_dir, limit_meta=65, limit_reviews=100)
+        products = amazon_data["products"]
+        reviews = amazon_data["reviews"]
+
+        update_progress(18, "Clearing previous database records...", "Purging old sales, items, users & profiles...")
+        log("1. Purging existing database records...")
+
+        with transaction.atomic():
+            OrderItem.objects.all().delete()
+            Order.objects.all().delete()
+            Comments.objects.all().delete()
+            Item.objects.all().delete()
+            Category.objects.all().delete()
+            Brand.objects.all().delete()
+            Supplier.objects.all().delete()
+            Profile.objects.all().delete()
+            User.objects.exclude(is_superuser=True).delete()
+
+        gc.collect()
+
+        update_progress(25, "Creating Categories & Suppliers...", f"Generating {len(CATEGORIES_LIST)} categories...")
+        Category.objects.bulk_create([Category(name=name) for name in CATEGORIES_LIST])
+        cats_db = {c.name: c for c in Category.objects.all()}
+        
+        unique_brands = sorted(list(set(p["brand"][:100] for p in products)))
+        if "Generic" not in unique_brands:
+            unique_brands.append("Generic")
+            
+        Brand.objects.bulk_create([Brand(name=name[:100]) for name in unique_brands])
+        brands_db = {b.name: b for b in Brand.objects.all()}
+        
+        num_suppliers = 50
+        countries_pool = ['Argentina'] * 7 + ['Chile', 'Brasil', 'USA', 'China']
+        Supplier.objects.bulk_create([Supplier(name=fake.company(), country=random.choice(countries_pool)) for _ in range(num_suppliers)])
+        suppliers_db = list(Supplier.objects.all())
+        
+        supplier_weights = [1.0 / (i**1.5) for i in range(1, num_suppliers + 1)]
+
+        update_progress(35, "Generating Catalog Items from Amazon metadata...", f"Processing {len(products)} products...")
+        item_objs = []
+        for idx, p in enumerate(products):
+            price = p["price"]
+            if price is None or price <= 0:
+                price = round(math.exp(random.gauss(8, 1.5)), 2)
+                price = max(100.0, min(price, 50000.0))
+                
+            cost = round(price * random.uniform(0.45, 0.80), 2)
+            cat = cats_db.get(p["category"], cats_db["Unknown"])
+            brand = brands_db.get(p["brand"][:100], brands_db["Generic"])
+            sup = random.choices(suppliers_db, weights=supplier_weights)[0]
+            
+            item_objs.append(Item(
+                title=p["title"][:100],
+                description=p["description"][:200] if p["description"] else "No description",
+                price=price,
+                cost=cost,
+                stock=random.randint(0, 500),
+                minimum_stock=random.randint(10, 50),
+                category=cat,
+                supplier=sup,
+                brand=brand,
+                slug=f"item-{idx}-{random.randint(1000, 9999)}",
+                is_active=random.choices([True, False], weights=[0.95, 0.05])[0]
+            ))
+            
+        Item.objects.bulk_create(item_objs, batch_size=500)
+        items_db = list(Item.objects.order_by('id'))
+        asin_to_item = {products[idx]["parent_asin"]: item for idx, item in enumerate(items_db)}
+
+        num_items = len(items_db)
+        tier_configs = config.get("product_tiers", {})
+        
+        t1_pct = float(tier_configs.get("tier_1_best_sellers", {}).get("percentage_of_catalog", 0.01))
+        t2_pct = float(tier_configs.get("tier_2_steady_sellers", {}).get("percentage_of_catalog", 0.09))
+        t3_pct = float(tier_configs.get("tier_3_slow_sellers", {}).get("percentage_of_catalog", 0.30))
+        
+        t1_count = int(num_items * t1_pct)
+        t2_count = int(num_items * t2_pct)
+        t3_count = int(num_items * t3_pct)
+        t4_count = num_items - t1_count - t2_count - t3_count
+        
+        t1_w = float(tier_configs.get("tier_1_best_sellers", {}).get("sales_weight", 0.50)) / max(1, t1_count)
+        t2_w = float(tier_configs.get("tier_2_steady_sellers", {}).get("sales_weight", 0.30)) / max(1, t2_count)
+        t3_w = float(tier_configs.get("tier_3_slow_sellers", {}).get("sales_weight", 0.15)) / max(1, t3_count)
+        t4_w = float(tier_configs.get("tier_4_long_tail", {}).get("sales_weight", 0.05)) / max(1, t4_count)
+        
+        items_sales_weights = []
+        for idx in range(num_items):
+            if idx < t1_count:
+                items_sales_weights.append(t1_w)
+            elif idx < t1_count + t2_count:
+                items_sales_weights.append(t2_w)
+            elif idx < t1_count + t2_count + t3_count:
+                items_sales_weights.append(t3_w)
+            else:
+                items_sales_weights.append(t4_w)
+
+        update_progress(50, f"Generating {num_users} Users & Profiles...", f"Creating user base with {foreign_ratio*100:.0f}% international ratio...")
+        user_objs = []
+        for i in range(num_users):
+            uname = f"user_{i}_{random.randint(10000,99999)}"
+            user_objs.append(User(
+                username=uname,
+                email=fake.email(),
+                first_name=fake.first_name()[:30],
+                last_name=fake.last_name()[:30]
+            ))
+            
+        User.objects.bulk_create(user_objs, batch_size=1000)
+        users_db = list(User.objects.exclude(is_superuser=True).order_by('id'))
+        
+        profile_objs = []
+        for user in users_db:
+            is_foreign = random.random() < foreign_ratio
+            if is_foreign:
+                country = random.choice(['Chile', 'Brasil', 'Uruguay', 'Peru', 'Mexico', 'USA', 'Spain'])
+                province = fake.state()
+            else:
+                country = 'Argentina'
+                province = random.choice(['Buenos Aires', 'CABA', 'Cordoba', 'Santa Fe', 'Mendoza'])
+                
+            profile_objs.append(Profile(
+                user=user,
+                phone=fake.phone_number()[:30],
+                address_line=fake.street_address()[:255],
+                city=fake.city()[:100],
+                province=province[:100],
+                zip_code=fake.postcode()[:20],
+                country=country[:100],
+                birth_date=fake.date_of_birth(minimum_age=18, maximum_age=80)
+            ))
+            
+        Profile.objects.bulk_create(profile_objs, batch_size=1000)
+        profile_dict = {p.user_id: p for p in profile_objs}
+
+        # MEMORY CHUNKING FOR ORDERS AND ORDERITEMS
+        update_progress(65, "Simulating Orders with Memory Chunking...", f"Inserting in streaming chunks of 500 orders...")
+        end_date = timezone.now()
+        user_order_counts = [int(random.paretovariate(2.5)) for _ in range(num_users)]
+        
+        total_orders_counter = 0
+        total_items_counter = 0
+        
+        chunk_orders = []
+        chunk_items_data = []
+        
+        def flush_order_chunk():
+            nonlocal chunk_orders, chunk_items_data, total_orders_counter, total_items_counter
+            if not chunk_orders:
+                return
+                
+            chunk_len = len(chunk_orders)
+            Order.objects.bulk_create(chunk_orders, batch_size=500)
+            
+            inserted_orders = list(Order.objects.order_by('-id')[:chunk_len][::-1])
+            
+            chunk_order_item_objs = []
+            for idx, order in enumerate(inserted_orders):
+                if idx < len(chunk_items_data):
+                    items_data = chunk_items_data[idx]
+                    for data in items_data:
+                        chunk_order_item_objs.append(OrderItem(
+                            order=order,
+                            item=data['item'],
+                            quantity=data['qty'],
+                            unit_price=data['price'],
+                            unit_cost=data['cost'],
+                            subtotal=data['subtotal']
+                        ))
+                        
+            OrderItem.objects.bulk_create(chunk_order_item_objs, batch_size=1000)
+            
+            total_orders_counter += chunk_len
+            total_items_counter += len(chunk_order_item_objs)
+            
+            chunk_orders.clear()
+            chunk_items_data.clear()
+            gc.collect()
+
+        for u_idx, user in enumerate(users_db):
+            orders_to_create = user_order_counts[u_idx]
+            profile = profile_dict.get(user.id)
+            is_intl = profile.is_international() if profile else False
+            
+            for _ in range(orders_to_create):
+                while True:
+                    days_ago = random.randint(0, 730)
+                    test_date = end_date - timedelta(days=days_ago)
+                    month = test_date.month
+                    weight = 1.0
+                    if month == 11: weight = 1.4
+                    elif month == 12: weight = 1.8
+                    elif month == 7: weight = 1.15
+                    elif month == 1: weight = 0.75
+                    
+                    if random.random() < weight / 1.8:
+                        order_date = test_date
+                        break
+                        
+                months_ago = days_ago / 30.0
+                inflation_factor = (1 + monthly_inflation) ** months_ago
+                
+                num_items_in_order = random.randint(1, 5)
+                selected_items = random.choices(items_db, weights=items_sales_weights, k=num_items_in_order)
+                
+                subtotal = 0.0
+                items_for_this_order = []
+                for itm in selected_items:
+                    qty = random.randint(1, 3)
+                    past_price = max(1.0, round(float(itm.price) / inflation_factor, 2))
+                    past_cost = max(0.5, round(float(itm.cost) / inflation_factor, 2))
+                    it_subtotal = round(past_price * qty, 2)
+                    subtotal += it_subtotal
+                    
+                    items_for_this_order.append({
+                        'item': itm,
+                        'qty': qty,
+                        'price': past_price,
+                        'cost': past_cost,
+                        'subtotal': it_subtotal
+                    })
+                
+                discount = 0.0
+                discount_code = None
+                if random.random() < 0.2:
+                    discount_code = random.choice(['DESC10', 'PROMO10', 'OFF500', 'DISCOUNT'])
+                    if discount_code in ['DESC10', 'PROMO10']:
+                        discount = round(subtotal * 0.10, 2)
+                    else:
+                        discount = min(500.00, subtotal)
+                        
+                shipping_cost = 2500.0 if is_intl else 500.0
+                total = max(0.0, subtotal + shipping_cost - discount)
+                
+                chunk_orders.append(Order(
+                    user=user,
+                    status=random.choices([OrderStatus.DELIVERED, OrderStatus.SHIPPED, OrderStatus.PAID, OrderStatus.CANCELED, OrderStatus.PENDING], weights=[0.6, 0.1, 0.1, 0.1, 0.1])[0],
+                    payment_method=random.choice(list(PaymentMethod)).value,
+                    discount_code=discount_code,
+                    discount=discount,
+                    shipping_cost=shipping_cost,
+                    total=total,
+                    ordered_date=order_date
+                ))
+                chunk_items_data.append(items_for_this_order)
+                
+                if len(chunk_orders) >= 500:
+                    flush_order_chunk()
+
+        # Flush remaining chunk
+        flush_order_chunk()
+
+        update_progress(92, "Generating Reviews & Comments...", f"Processing product review entries...")
+        comment_objs = []
+        used_pairs = set()
+        for rev in reviews:
+            item = asin_to_item.get(rev["parent_asin"])
+            if not item:
+                continue
+                
+            usr = random.choice(users_db)
+            pair = (usr.id, item.id)
+            if pair not in used_pairs:
+                used_pairs.add(pair)
+                comment_objs.append(Comments(
+                    user=usr,
+                    item=item,
+                    body=rev["text"][:1000] if rev["text"] else "No review content",
+                    rating=int(rev["rating"]),
+                    likes=random.randint(0, 100)
+                ))
+                
+        Comments.objects.bulk_create(comment_objs, batch_size=1000)
+        gc.collect()
+
+        summary_msg = f"Dataset generated: {len(items_db)} Items, {len(users_db)} Users, {total_orders_counter} Orders, {total_items_counter} OrderItems."
+        update_progress(100, "Dataset generation complete!", summary_msg)
+        log(summary_msg)
+
+        with GENERATION_LOCK:
+            GENERATION_STATUS["is_running"] = False
+            GENERATION_STATUS["completed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            GENERATION_STATUS["stats"] = {
+                "items": len(items_db),
+                "users": len(users_db),
+                "orders": total_orders_counter,
+                "order_items": total_items_counter,
+                "seed": seed
+            }
+
+    except Exception as e:
+        error_msg = f"Generation error: {str(e)}"
+        update_progress(0, "Error", error=error_msg)
+        log(f"[Error] {error_msg}")
+        raise e
+
+
+def start_async_dataset_generation(config_override: dict = None, seed: int = None) -> bool:
+    """
+    Launches dataset generation in a background thread for HTTP non-blocking processing.
+    """
+    with GENERATION_LOCK:
+        if GENERATION_STATUS["is_running"]:
+            return False
+
+    thread = threading.Thread(
+        target=generate_dataset_pipeline,
+        kwargs={"config_override": config_override, "seed": seed},
+        daemon=True
+    )
+    thread.start()
+    return True
