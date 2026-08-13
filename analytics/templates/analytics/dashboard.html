@@ -22,10 +22,10 @@
     <!-- KPI 1: Current Month Revenue -->
     <div class="col-md-3">
         <div class="analytics-card">
-            <span class="kpi-title">Revenue ({{ current_month_name }})</span>
+            <span class="kpi-title">Net Revenue ({{ current_month_name }})</span>
             <div class="kpi-value">$ {{ monthly_revenue|floatformat:2 }}</div>
             <div class="kpi-meta">
-                <span class="kpi-indicator"></span> Active Monthly Sales
+                <span class="kpi-indicator"></span> Successful Orders Only
             </div>
         </div>
     </div>
@@ -33,7 +33,7 @@
     <!-- KPI 2: Monthly Orders -->
     <div class="col-md-3">
         <div class="analytics-card">
-            <span class="kpi-title">Completed Orders</span>
+            <span class="kpi-title">Completed Orders ({{ current_month_name }})</span>
             <div class="kpi-value">{{ monthly_orders_count }}</div>
             <div class="kpi-meta">
                 <span class="kpi-indicator" style="background-color: #22c55e;"></span> {{ active_customers_count }} Active Customers
@@ -44,7 +44,7 @@
     <!-- KPI 3: Average Order Value (AOV) -->
     <div class="col-md-3">
         <div class="analytics-card">
-            <span class="kpi-title">Average Order Value</span>
+            <span class="kpi-title">Average Order Value ({{ current_month_name }})</span>
             <div class="kpi-value">$ {{ avg_order_value|floatformat:2 }}</div>
             <div class="kpi-meta">
                 <span class="kpi-indicator"></span> Revenue per Ticket
@@ -55,7 +55,7 @@
     <!-- KPI 4: Pending Orders -->
     <div class="col-md-3">
         <div class="analytics-card">
-            <span class="kpi-title">Pending Orders</span>
+            <span class="kpi-title">Abandoned/Pending Orders (All-Time)</span>
             <div class="kpi-value">{{ abandoned_carts_count }}</div>
             <div class="kpi-meta">
                 <span class="kpi-indicator" style="background-color: var(--text-secondary);"></span> Awaiting Payment
@@ -70,7 +70,7 @@
     <div class="col-12">
         <div class="analytics-card">
             <div class="section-title d-flex justify-content-between align-items-center">
-                <span>Top 8 Best-Selling Products</span>
+                <span>Top 8 Best-Selling Products (All-Time Historical)</span>
                 {% if top_product_star %}
                 <span class="text-secondary" style="font-size: 10px; font-weight: normal; text-transform: none;">
                     Leader: <strong class="text-light">{{ top_product_star.item__title }}</strong> ({{ top_product_star.total_units_sold }} units)
@@ -119,6 +119,25 @@
                         {% endfor %}
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SECTION C: Power BI Integration -->
+<div class="row g-3 mb-4">
+    <div class="col-12">
+        <div class="analytics-card">
+            <div class="section-title">
+                <span>Power BI Reports Integration</span>
+                <p class="text-secondary mb-0 ms-3" style="font-size: 11px; font-weight: normal; text-transform: none;">Embed your Power BI dashboard URLs or iframe code below.</p>
+            </div>
+            <div class="pbi-container" style="background: var(--bg-primary); border: 1px dashed var(--border-color); border-radius: 8px; height: 600px; display: flex; align-items: center; justify-content: center;">
+                <div class="text-center">
+                    <i class="fa-solid fa-chart-pie text-secondary mb-3" style="font-size: 32px;"></i>
+                    <h6 class="text-secondary">Power BI Workspace</h6>
+                    <p class="text-secondary" style="font-size: 12px;">Replace this container's HTML with your Power BI embed iframe.</p>
+                </div>
             </div>
         </div>
     </div>

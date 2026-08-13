@@ -61,7 +61,8 @@ def run_exhaustive_audit():
     print(f"\n5. PRICING & DISCOUNTS LOGIC:")
     invalid_totals = 0
     invalid_discounts = 0
-    sample_orders = Order.objects.all()[:1000]
+    sample_orders = list(Order.objects.prefetch_related('items').all()[:1000])
+    print(f"Sampled {len(sample_orders)} orders with prefetch_related for total/subtotal verification...")
     for o in sample_orders:
         subtotal_sum = sum(oi.subtotal for oi in o.items.all())
         expected_total = max(0.0, float(subtotal_sum) + float(o.shipping_cost) - float(o.discount))
@@ -73,7 +74,6 @@ def run_exhaustive_audit():
             if abs(float(o.discount) - expected_discount) > 0.05:
                 invalid_discounts += 1
                 
-    print(f"Sampled 1000 orders for total/subtotal verification.")
     print(f"Orders with invalid Total formula: {invalid_totals} -> {'PASS' if invalid_totals == 0 else 'FAIL'}")
     print(f"Orders with invalid Discount formula: {invalid_discounts} -> {'PASS' if invalid_discounts == 0 else 'FAIL'}")
     
