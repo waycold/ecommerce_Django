@@ -12,6 +12,7 @@ dj-database-url==2.1.0
 
 # --- Environment & Configuration ---
 python-dotenv==1.2.2
+python-decouple==3.8
 
 # --- Data Processing & Export ---
 pandas==2.2.0
@@ -27,3 +28,6 @@ datasets==2.21.0
 # --- Production & Deployment ---
 gunicorn==21.2.0
 whitenoise==6.6.0
+
+# --- Artificial Intelligence ---
+google-genai>=0.1.0

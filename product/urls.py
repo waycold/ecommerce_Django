@@ -19,12 +19,14 @@ from product.views import (
     agregar_imagen,
     create_product,
     edit_product,
+    ai_chat_view,
 )
 
 app_name = 'product'
 
 urlpatterns = [
     path('', HomeView.as_view(), name='home'),
+    path('api/chat/', ai_chat_view, name='ai_chat'),
     path('logout/', log_out),
     path('signup/', sign_up),
     path('login/', log_in),

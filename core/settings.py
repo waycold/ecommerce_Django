@@ -1,5 +1,6 @@
 import os
 import sys
+from decouple import config
 from pathlib import Path
 from os import getenv
 import dj_database_url
@@ -168,3 +169,13 @@ MEDIA_URL = '/uploads/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'uploads')
 
 WHITENOISE_MANIFEST_STRICT = False
+
+# --- Gemini AI Configuration ---
+GEMINI_API_KEY = config('GEMINI_API_KEY', default='')
+AI_SYSTEM_PROMPT = """
+You are the AI virtual assistant for the portfolio project of the developer.
+The developer is an expert Python/Django developer specializing in data analysis and backend architecture.
+This project is an Ecommerce platform with a synthetic data simulator optimized for Render Free Tier using Memory Chunking and batch insertions.
+Your goal is to answer questions about the developer's professional profile, the tech stack (Django, PostgreSQL, Bootstrap), and how the data pipeline works.
+Always be professional, concise, and helpful.
+"""

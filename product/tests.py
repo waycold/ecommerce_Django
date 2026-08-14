@@ -168,4 +168,15 @@ class ModelsRefactorTestCase(TestCase):
             )
 
 
+class AIChatTestCase(TestCase):
+    def test_ai_chat_endpoint_missing_sdk(self):
+        # Even without the API key, the endpoint should be reachable and return 500 error 
+        # specifically about the missing config rather than crashing entirely, or if missing body, return 400
+        response = self.client.post('/api/chat/', data={'message': ''}, content_type='application/json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('error', response.json())
 
+    def test_ai_chat_invalid_method(self):
+        # GET should not be allowed
+        response = self.client.get('/api/chat/')
+        self.assertEqual(response.status_code, 405)
