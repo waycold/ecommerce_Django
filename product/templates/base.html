@@ -40,6 +40,15 @@
         background-color: #1C2331;
         color: #ffffff;
       }
+      footer.page-footer a {
+        color: rgba(255, 255, 255, 0.6) !important;
+        transition: color 0.2s ease-in-out;
+        font-weight: 500;
+      }
+      footer.page-footer a:hover {
+        color: #ffffff !important;
+        text-decoration: none;
+      }
     </style>
   </head>
 
@@ -138,8 +147,13 @@
     </div>
 
     <!-- Global Footer -->
-    <footer class="page-footer text-center font-small mt-auto py-3">
-      <div class="footer-copyright">
+    <footer class="page-footer text-center font-small mt-auto py-4">
+      <div class="mb-2">
+        <a href="#" target="_blank" class="mx-3" title="CV / Web"><i class="fas fa-globe mr-1"></i> CV / Web</a>
+        <a href="#" target="_blank" class="mx-3" title="GitHub"><i class="fab fa-github mr-1"></i> GitHub</a>
+        <a href="#" target="_blank" class="mx-3" title="LinkedIn"><i class="fab fa-linkedin-in mr-1"></i> LinkedIn</a>
+      </div>
+      <div class="footer-copyright" style="color: rgba(255, 255, 255, 0.4);">
         © Store 2026 - All rights reserved
       </div>
     </footer>

@@ -485,7 +485,7 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
         brands_db = {b.name: b for b in Brand.objects.all()}
         
         num_suppliers = 50
-        countries_pool = ['Argentina'] * 7 + ['Chile', 'Brasil', 'USA', 'China']
+        countries_pool = ['United States'] * 6 + ['Canada', 'United Kingdom', 'Germany', 'China', 'Japan']
         Supplier.objects.bulk_create([Supplier(name=fake.company(), country=random.choice(countries_pool)) for _ in range(num_suppliers)])
         suppliers_db = list(Supplier.objects.all())
         
@@ -562,18 +562,30 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
         log(f"4. Generating Users & Profiles...")
         end_date = timezone.now()
         user_objs = []
+        username_to_gender = {}
         for i in range(num_users):
             uname = f"user_{i}_{random.randint(10000,99999)}"
             # User registration date prior to simulation horizon (730-900 days ago)
             user_joined = end_date - timedelta(days=random.randint(730, 900), hours=random.randint(0, 23))
+            
+            # Determine gender and generate matching first name
+            gender = random.choices(['M', 'F', 'O'], weights=[0.48, 0.48, 0.04])[0]
+            if gender == 'M':
+                first_name = fake.first_name_male()[:30]
+            elif gender == 'F':
+                first_name = fake.first_name_female()[:30]
+            else:
+                first_name = fake.first_name()[:30]
+                
             u = User(
                 username=uname,
                 email=fake.email(),
-                first_name=fake.first_name()[:30],
+                first_name=first_name,
                 last_name=fake.last_name()[:30],
                 date_joined=user_joined
             )
             user_objs.append(u)
+            username_to_gender[uname] = gender
             
         User.objects.bulk_create(user_objs, batch_size=1000)
         users_db = list(User.objects.exclude(is_superuser=True).order_by('id'))
@@ -582,12 +594,13 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
         for user in users_db:
             is_foreign = random.random() < foreign_ratio
             if is_foreign:
-                country = random.choice(['Chile', 'Brasil', 'Uruguay', 'Peru', 'Mexico', 'USA', 'Spain'])
+                country = random.choice(['Canada', 'United Kingdom', 'Germany', 'Australia', 'Japan', 'Argentina', 'Brazil'])
                 province = fake.state()
             else:
-                country = 'Argentina'
-                province = random.choice(['Buenos Aires', 'CABA', 'Cordoba', 'Santa Fe', 'Mendoza'])
+                country = 'United States'
+                province = random.choice(['California', 'New York', 'Texas', 'Florida', 'Illinois'])
                 
+            gender = username_to_gender.get(user.username)
             profile_objs.append(Profile(
                 user=user,
                 phone=fake.phone_number()[:30],
@@ -596,7 +609,8 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
                 province=province[:100],
                 zip_code=fake.postcode()[:20],
                 country=country[:100],
-                birth_date=fake.date_of_birth(minimum_age=18, maximum_age=80)
+                birth_date=fake.date_of_birth(minimum_age=18, maximum_age=80),
+                gender=gender
             ))
             
         Profile.objects.bulk_create(profile_objs, batch_size=1000)

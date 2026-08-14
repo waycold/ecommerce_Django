@@ -119,8 +119,9 @@ class Profile(models.Model):
     city = models.CharField(max_length=100, null=True, blank=True)
     province = models.CharField(max_length=100, null=True, blank=True)
     zip_code = models.CharField(max_length=20, null=True, blank=True)
-    country = models.CharField(max_length=100, null=True, blank=True, default='Argentina')
+    country = models.CharField(max_length=100, null=True, blank=True, default='United States')
     birth_date = models.DateField(null=True, blank=True)
+    gender = models.CharField(max_length=1, choices=(('M', 'Male'), ('F', 'Female'), ('O', 'Other')), null=True, blank=True)
 
     def __str__(self):
         return self.user.username if self.user else "Profile"
@@ -128,7 +129,7 @@ class Profile(models.Model):
     def is_international(self):
         if not self.country:
             return False
-        return self.country.strip().lower() not in ['argentina', 'ar']
+        return self.country.strip().lower() not in ['united states', 'usa', 'us']
 
     def get_profile_url(self):
         return reverse("product:edit_profile", kwargs={'username': self.user.username})

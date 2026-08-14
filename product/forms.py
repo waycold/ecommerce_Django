@@ -10,7 +10,7 @@ class profile_edit_form(forms.ModelForm):
 
     class Meta:
         model = Profile
-        fields = ['phone', 'description', 'address_line', 'city', 'province', 'zip_code', 'country', 'birth_date']
+        fields = ['phone', 'description', 'address_line', 'city', 'province', 'zip_code', 'country', 'birth_date', 'gender']
         widgets = {
             'phone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Phone number'}),
             'address_line': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Street address, Apt, Suite'}),
@@ -19,6 +19,7 @@ class profile_edit_form(forms.ModelForm):
             'zip_code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Postal Code'}),
             'country': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Country'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Bio / Description'}),
+            'gender': forms.Select(attrs={'class': 'form-control'}),
         }
 
 

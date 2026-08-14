@@ -42,7 +42,7 @@ class ModelsRefactorTestCase(TestCase):
             supplier=self.supplier
         )
         self.user = User.objects.create_user(username="testbuyer", password="password123")
-        self.profile = Profile.objects.create(user=self.user, phone="11223344", city="Buenos Aires")
+        self.profile = Profile.objects.create(user=self.user, phone="11223344", city="New York")
 
     def test_item_creation(self):
         self.assertEqual(self.item.category.name, "CPU")
@@ -93,19 +93,19 @@ class ModelsRefactorTestCase(TestCase):
 
     def test_profile_fields(self):
         from datetime import date
-        self.profile.address_line = "Av. Corrientes 1234"
-        self.profile.city = "Buenos Aires"
-        self.profile.province = "CABA"
-        self.profile.zip_code = "C1043"
-        self.profile.country = "Argentina"
+        self.profile.address_line = "5th Ave 100"
+        self.profile.city = "New York"
+        self.profile.province = "NY"
+        self.profile.zip_code = "10001"
+        self.profile.country = "United States"
         self.profile.birth_date = date(1995, 5, 20)
         self.profile.save()
 
-        self.assertEqual(self.profile.address_line, "Av. Corrientes 1234")
-        self.assertEqual(self.profile.city, "Buenos Aires")
-        self.assertEqual(self.profile.province, "CABA")
-        self.assertEqual(self.profile.zip_code, "C1043")
-        self.assertEqual(self.profile.country, "Argentina")
+        self.assertEqual(self.profile.address_line, "5th Ave 100")
+        self.assertEqual(self.profile.city, "New York")
+        self.assertEqual(self.profile.province, "NY")
+        self.assertEqual(self.profile.zip_code, "10001")
+        self.assertEqual(self.profile.country, "United States")
         self.assertFalse(self.profile.is_international())
         self.assertEqual(self.profile.birth_date, date(1995, 5, 20))
 
@@ -113,12 +113,12 @@ class ModelsRefactorTestCase(TestCase):
         order = Order.objects.create(user=self.user, status=OrderStatus.PENDING)
         order_item = OrderItem.objects.create(order=order, item=self.item, quantity=1)
 
-        # Default country (Argentina) -> domestic shipping $500.00
+        # Default country (United States) -> domestic shipping $500.00
         self.assertEqual(order.recalculate_shipping_cost(), 500.00)
         self.assertEqual(order.calculate_total(), 950.00) # 450 + 500
 
         # Change profile country to Spain -> international shipping $2500.00
-        self.profile.country = "España"
+        self.profile.country = "Spain"
         self.profile.save()
 
         self.assertTrue(self.profile.is_international())

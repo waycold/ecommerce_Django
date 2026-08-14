@@ -33,6 +33,16 @@
             <input type="date" name="birth_date" id="id_birth_date" class="form-control sober-input" value="{{ form.birth_date.value|date:'Y-m-d'|default:'' }}">
           </div>
 
+          <div class="form-group mb-3">
+            <label for="id_gender" class="small text-muted font-weight-bold">Gender</label>
+            <select name="gender" id="id_gender" class="form-control sober-input">
+              <option value="" {% if not form.gender.value %}selected{% endif %}>Not specified</option>
+              <option value="M" {% if form.gender.value == "M" %}selected{% endif %}>Male</option>
+              <option value="F" {% if form.gender.value == "F" %}selected{% endif %}>Female</option>
+              <option value="O" {% if form.gender.value == "O" %}selected{% endif %}>Other</option>
+            </select>
+          </div>
+
           <div class="form-group mb-4">
             <label for="id_description" class="small text-muted font-weight-bold">Bio / Description</label>
             <textarea name="description" id="id_description" rows="3" class="form-control sober-input" placeholder="Tell us a bit about yourself...">{{ form.description.value|default:'' }}</textarea>
@@ -70,8 +80,8 @@
 
             <div class="col-md-6 form-group mb-3">
               <label for="id_country" class="small text-muted font-weight-bold">Country</label>
-              <input type="text" name="country" id="id_country" class="form-control sober-input" value="{{ form.country.value|default:'Argentina' }}" placeholder="Country">
-              <small class="form-text text-muted" style="font-size: 11px;">Orders outside Argentina apply international shipping rates.</small>
+              <input type="text" name="country" id="id_country" class="form-control sober-input" value="{{ form.country.value|default:'United States' }}" placeholder="Country">
+              <small class="form-text text-muted" style="font-size: 11px;">Orders outside the United States apply international shipping rates.</small>
             </div>
           </div>
 

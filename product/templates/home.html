@@ -2,6 +2,57 @@
 
 {% block content %}
 
+<style>
+  @media (max-width: 991.98px) {
+    /* Prevent horizontal overflow on navbar collapse */
+    .navbar-collapse {
+      overflow-x: hidden !important;
+      width: 100% !important;
+    }
+    /* Ensure categories wrapper fits perfectly */
+    .navbar-collapse .d-flex {
+      width: 100% !important;
+      max-width: 100% !important;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+    }
+    #categoryScrollWrapper {
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch;
+      width: 100% !important;
+    }
+    #categoryScrollWrapper::-webkit-scrollbar {
+      display: none;
+    }
+    #categoryScrollWrapper {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    /* Stack search form nicely on mobile collapse */
+    .navbar-collapse form {
+      width: 100% !important;
+      margin-top: 12px !important;
+      margin-bottom: 8px !important;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+    }
+    .navbar-collapse form .md-form {
+      width: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    .navbar-collapse form input {
+      width: 100% !important;
+      margin-right: 0 !important;
+      padding-bottom: 5px !important;
+    }
+  }
+</style>
+
 <main style="display: flex; flex-direction: column;">
   <div class="container mt-3 mb-5">
     <!-- Navbar Categories & Search Bar (Overflow Protected with Navigation Arrows) -->
@@ -16,7 +67,7 @@
         <!-- Scrollable Category Pill List with Arrows -->
         <div class="d-flex align-items-center mr-auto overflow-hidden position-relative w-100 pr-lg-3" style="max-width: 600px;">
           <!-- Left Arrow -->
-          <button class="btn btn-link text-white p-1 m-0 mr-1" type="button" style="box-shadow: none; border: none; background: transparent; cursor: pointer;" onclick="scrollCategories(-120)">
+          <button class="btn btn-link text-white p-1 m-0 mr-1 d-none d-lg-inline-block" type="button" style="box-shadow: none; border: none; background: transparent; cursor: pointer;" onclick="scrollCategories(-120)">
             <i class="fas fa-chevron-left"></i>
           </button>
           
@@ -35,7 +86,7 @@
           </div>
 
           <!-- Right Arrow -->
-          <button class="btn btn-link text-white p-1 m-0 ml-1" type="button" style="box-shadow: none; border: none; background: transparent; cursor: pointer;" onclick="scrollCategories(120)">
+          <button class="btn btn-link text-white p-1 m-0 ml-1 d-none d-lg-inline-block" type="button" style="box-shadow: none; border: none; background: transparent; cursor: pointer;" onclick="scrollCategories(120)">
             <i class="fas fa-chevron-right"></i>
           </button>
         </div>

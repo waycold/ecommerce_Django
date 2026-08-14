@@ -2,7 +2,7 @@
   "simulation_params": {
     "num_users": 5000,
     "monthly_inflation": 0.04,
-    "foreign_ratio": 0.2,
+    "foreign_ratio": 0.4,
     "seed": 141119
   },
   "product_tiers": {

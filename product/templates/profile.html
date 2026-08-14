@@ -64,6 +64,21 @@
               {% endif %}
             </span>
           </div>
+
+          <div class="list-group-item px-0 py-2 border-0 d-flex justify-content-between align-items-center">
+            <span class="text-muted small font-weight-bold">Gender</span>
+            <span class="font-weight-bold text-dark">
+              {% if user_profile.gender == 'M' %}
+                Male
+              {% elif user_profile.gender == 'F' %}
+                Female
+              {% elif user_profile.gender == 'O' %}
+                Other
+              {% else %}
+                Not specified
+              {% endif %}
+            </span>
+          </div>
         </div>
 
         <hr class="my-3">
@@ -97,7 +112,7 @@
           <div class="list-group-item px-0 py-2 border-0 d-flex justify-content-between align-items-center">
             <span class="text-muted small font-weight-bold">Country</span>
             <span class="font-weight-bold text-dark">
-              {{ user_profile.country|default:"Argentina" }}
+              {{ user_profile.country|default:"United States" }}
               {% if user_profile.is_international %}
                 <span class="badge badge-warning ml-1" style="font-size: 10px;">International</span>
               {% else %}
