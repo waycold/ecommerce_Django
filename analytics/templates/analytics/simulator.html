@@ -22,10 +22,10 @@
 <div class="alert alert-dark border-secondary d-flex align-items-center gap-3 mb-4" style="background-color: var(--bg-secondary); border-color: var(--border-color) !important;">
     <i class="fa-solid fa-server text-warning fs-5"></i>
     <div style="font-size: 11px;">
-        <span class="fw-bold text-light">Guardrail de Recursos de Servidor (Render Free Tier):</span>
+        <span class="fw-bold text-light">Server Resource Guardrail (Render Free Tier):</span>
         <span class="text-secondary">
-            La generación desde la interfaz Web está optimizada con <strong>Memory Chunking</strong> e inserciones por lotes. En entornos de producción (Cloud/Render) la generación Web se limita automáticamente a un máximo de <strong>1,000 usuarios</strong> para asegurar consumo de RAM &lt; 120 MB. 
-            Para simulación masiva (10,000+ usuarios y 30,000+ órdenes), ejecuta en tu terminal local:
+            Web-based generation is heavily optimized with <strong>Memory Chunking</strong> and batch insertions. However, in production environments (Cloud/Render), web generation is automatically capped at a maximum of <strong>1,000 users</strong> to ensure RAM consumption remains &lt; 120 MB. 
+            For massive-scale simulation (10,000+ users and 30,000+ orders), run this locally in your terminal:
         </span>
         <code class="text-info ms-1" style="font-size: 11px;">python manage.py generate_data --seed 42</code>
     </div>
