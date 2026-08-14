@@ -171,7 +171,7 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'uploads')
 WHITENOISE_MANIFEST_STRICT = False
 
 # --- Gemini AI Configuration ---
-GEMINI_API_KEY = config('GEMINI_API_KEY', default='')
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', config('GEMINI_API_KEY', default=''))
 AI_SYSTEM_PROMPT = """
 You are the AI virtual assistant for the portfolio project of the developer.
 The developer is an expert Python/Django developer specializing in data analysis and backend architecture.
