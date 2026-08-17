@@ -25,6 +25,15 @@ class ProfileTestCase(TestCase):
         login_success = self.client.login(username=self.username, password=self.password)
         self.assertTrue(login_success)
 
+    def test_default_profile_image(self):
+        from product.utils import get_profile_image_url
+        # Anonymous user
+        from django.contrib.auth.models import AnonymousUser
+        self.assertIn('default-avatar.svg', get_profile_image_url(AnonymousUser()))
+        # Authenticated user without custom image
+        self.assertIn('default-avatar.svg', get_profile_image_url(self.test_user))
+
+
 
 class ModelsRefactorTestCase(TestCase):
     def setUp(self):

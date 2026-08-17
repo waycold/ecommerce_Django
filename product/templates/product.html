@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block content %}
 
 <main class="mt-4 pt-4" style="min-height: 100vh;">
@@ -95,7 +96,7 @@
             <form action="" method="post" class="mb-5 custom-form">
               {% csrf_token %}
               <div class="d-flex align-items-start">
-                <img src="{{ profile_image_url }}" alt="{{ user.username }}" class="rounded-circle mr-3 border" width="48" height="48" style="object-fit: cover;">
+                <img src="{{ profile_image_url }}" alt="{{ user.username }}" class="rounded-circle mr-3 border" width="48" height="48" style="object-fit: cover;" onerror="this.onerror=null;this.src='{% static 'img/default-avatar.svg' %}';">
                 <div class="w-100">
                   <!-- Star Rating Selector (hidden input updated by JS) -->
                   <div class="mb-3 d-flex align-items-center">
@@ -127,9 +128,9 @@
             {% for c in comments %}
             <div class="media mb-3 p-3 rounded bg-light border" style="border-radius: 6px !important;">
               {% if c.user.profile.image %}
-              <img src="/uploads/{{ c.user.profile.image }}" class="rounded-circle mr-3 border" width="44" height="44" style="object-fit: cover;" alt="{{ c.user.username }}">
+              <img src="/uploads/{{ c.user.profile.image }}" class="rounded-circle mr-3 border" width="44" height="44" style="object-fit: cover;" alt="{{ c.user.username }}" onerror="this.onerror=null;this.src='{% static 'img/default-avatar.svg' %}';">
               {% else %}
-              <img src="/uploads/profile_image/default.jpg" class="rounded-circle mr-3 border" width="44" height="44" style="object-fit: cover;" alt="{{ c.user.username }}">
+              <img src="{% static 'img/default-avatar.svg' %}" class="rounded-circle mr-3 border" width="44" height="44" style="object-fit: cover;" alt="{{ c.user.username }}">
               {% endif %}
               <div class="media-body">
                 <div class="d-flex justify-content-between align-items-center mb-1">

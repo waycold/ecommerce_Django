@@ -1,14 +1,9 @@
-from product.models import Profile
 from django import template
-
+from product.utils import get_profile_image_url
 
 register = template.Library()
 
+
 @register.simple_tag()
 def image_user_tag(user):
-    return user
-    # if user == Profile.username:
-    #     return Profile.image
-
-
-
+    return get_profile_image_url(user)

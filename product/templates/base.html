@@ -9,7 +9,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
     <meta http-equiv="x-ua-compatible" content="ie=edge" />
     <title>Store</title>
-    <link rel="shortcut icon" href="/uploads/favicon.png" />
+    <link rel="shortcut icon" href="{% static 'img/favicon.png' %}" />
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.11.2/css/all.css" />
     <!-- Bootstrap core CSS -->
@@ -112,7 +112,7 @@
             </li>
             <li class="nav-item ml-2">
               <a href="/profile" class="d-inline-block">
-                <img src="{{ profile_image_url }}" alt="Profile" style="border-radius: 50%; height: 32px; width: 32px; object-fit: cover;" class="border">
+                <img src="{{ profile_image_url }}" alt="Profile" style="border-radius: 50%; height: 32px; width: 32px; object-fit: cover;" class="border" onerror="this.onerror=null;this.src='{% static 'img/default-avatar.svg' %}';">
               </a>
             </li>
             {% else %}

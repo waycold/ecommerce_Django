@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block content %}
 
 <div class="container my-4">
@@ -11,9 +12,9 @@
           <div class="d-flex align-items-center">
             <div class="position-relative mr-3">
               {% if user_profile.image %}
-              <img src="/uploads/{{ user_profile.image }}" alt="{{ user_profile.user|default:user.username }}" style="width: 72px; height: 72px; border-radius: 50%; object-fit: cover;" class="border">
+              <img src="/uploads/{{ user_profile.image }}" alt="{{ user_profile.user|default:user.username }}" style="width: 72px; height: 72px; border-radius: 50%; object-fit: cover;" class="border" onerror="this.onerror=null;this.src='{% static 'img/default-avatar.svg' %}';">
               {% else %}
-              <img src="/uploads/profile_image/default.jpg" alt="{{ user.username }}" style="width: 72px; height: 72px; border-radius: 50%; object-fit: cover;" class="border">
+              <img src="{% static 'img/default-avatar.svg' %}" alt="{{ user.username }}" style="width: 72px; height: 72px; border-radius: 50%; object-fit: cover;" class="border">
               {% endif %}
             </div>
             <div>
