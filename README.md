@@ -40,7 +40,7 @@ This project is architected to demonstrate end-to-end backend engineering, scala
                   ┌──────────────────────────────────────────────┐
                   │           NEON.TECH POSTGRESQL CLOUD         │
                   │  ┌────────────────────────────────────────┐  │
-                  │  │      Serverless PostgreSQL Instance     │  │
+                  │  │      Serverless PostgreSQL Instance    │  │
                   │  │      • High Availability & Auto-scaling│  │
                   │  │      • 3NF Relational Data Model       │  │
                   │  │      • ACID Transactional Guarantees   │  │

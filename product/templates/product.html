@@ -61,6 +61,21 @@
             </a>
           </div>
 
+          <div>
+            <button type="button" class="btn btn-outline-primary btn-sm my-2" onclick="consultarProducto('{{ object.title|escapejs }}', '{{ object.price }}')">
+              <i class="fas fa-robot mr-1"></i> Preguntar a la IA sobre este producto
+            </button>
+            <script>
+              function consultarProducto(nombre, precio) {
+                if (window.AiChatWidget) {
+                  window.AiChatWidget.open();
+                  window.AiChatWidget.setAgent('ecommerce');
+                  window.AiChatWidget.sendMessage('Hola, me interesa el producto "' + nombre + '" (Precio: $' + precio + '). ¿Podrías darme más detalles, recomendaciones y disponibilidad?');
+                }
+              }
+            </script>
+          </div>
+
           {% if user.is_superuser %}
           <div class="mt-4 pt-3 border-top">
             <h6 class="font-weight-bold text-muted mb-2 small text-uppercase" style="font-size: 11px;"><i class="fas fa-cog mr-1"></i> Admin Options</h6>

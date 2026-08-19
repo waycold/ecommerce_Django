@@ -71,6 +71,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'product.context_processors.profile_image',
+                'product.context_processors.user_jwt_token',
             ],
         },
     },
