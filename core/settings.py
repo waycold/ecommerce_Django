@@ -54,6 +54,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'core.middleware.InternalSecretMiddleware',
 ]
 
 ROOT_URLCONF = 'core.urls'
@@ -81,7 +82,7 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
 
-if 'test' in sys.argv:
+if 'test' in sys.argv or any('pytest' in str(arg) for arg in sys.argv):
     # Use SQLite for fast, clean, and isolated unit tests
     DATABASES = {
         'default': {
@@ -136,7 +137,7 @@ STATIC_URL = '/product/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Enable WhiteNoise's Gzip and permanent caching support for static files
-if 'test' in sys.argv:
+if 'test' in sys.argv or any('pytest' in str(arg) for arg in sys.argv):
     STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 else:
     STATICFILES_STORAGE = 'core.settings.CustomCompressedManifestStaticFilesStorage'
@@ -170,12 +171,8 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'uploads')
 
 WHITENOISE_MANIFEST_STRICT = False
 
-# --- Gemini AI Configuration ---
-GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', config('GEMINI_API_KEY', default=''))
-AI_SYSTEM_PROMPT = """
-You are the AI virtual assistant for the portfolio project of the developer.
-The developer is an expert Python/Django developer specializing in data analysis and backend architecture.
-This project is an Ecommerce platform with a synthetic data simulator optimized for Render Free Tier using Memory Chunking and batch insertions.
-Your goal is to answer questions about the developer's professional profile, the tech stack (Django, PostgreSQL, Bootstrap), and how the data pipeline works.
-Always be professional, concise, and helpful.
-"""
+# --- Internal Microservice Security ---
+INTERNAL_API_SECRET = os.environ.get(
+    'INTERNAL_API_SECRET',
+    config('INTERNAL_API_SECRET', default='django-insecure-internal-microservice-secret')
+)

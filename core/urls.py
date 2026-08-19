@@ -9,6 +9,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/login/', log_in, name='login'),
     path('analytics/', include('analytics.urls', namespace='analytics')),
+    path('api/v1/internal/', include('core.internal_urls')),
     path('', include('product.urls', namespace='product')),
     re_path(r'^uploads/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
 ]

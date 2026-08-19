@@ -1,6 +1,7 @@
 # --- Core Framework & APIs ---
 Django==4.1.2
 djangorestframework==3.14.0
+PyJWT==2.13.0
 asgiref==3.5.2
 sqlparse==0.4.3
 pytz==2022.6
@@ -28,6 +29,4 @@ datasets==2.21.0
 # --- Production & Deployment ---
 gunicorn==21.2.0
 whitenoise==6.6.0
-
-# --- Artificial Intelligence ---
-google-genai>=0.1.0
+
