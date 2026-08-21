@@ -1,0 +1,1443 @@
+{% extends 'analytics/base_analytics.html' %}
+{% load static %}
+
+{% block title %}AI Copilot | Analytics Portal{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* AI Copilot Custom Dark Theme Layout */
+    .copilot-container {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 160px);
+        min-height: 600px;
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        overflow: hidden;
+    }
+
+    .copilot-header {
+        background-color: var(--bg-secondary);
+        border-bottom: 1px solid var(--border-color);
+        padding: 14px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-shrink: 0;
+    }
+
+    .copilot-body {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+    }
+
+    /* Left: Chat Feed Area */
+    .chat-main-column {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid var(--border-color);
+        background-color: var(--bg-primary);
+        min-width: 0;
+        height: 100%;
+    }
+
+    .chat-history {
+        flex: 1;
+        padding: 20px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        scroll-behavior: smooth;
+    }
+
+    .chat-history::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .chat-history::-webkit-scrollbar-thumb {
+        background: #1e293b;
+        border-radius: 4px;
+    }
+
+    .chat-history::-webkit-scrollbar-thumb:hover {
+        background: #334155;
+    }
+
+    /* Right: Telemetry & Sidebar */
+    .telemetry-sidebar {
+        width: 320px;
+        flex-shrink: 0;
+        background-color: var(--bg-secondary);
+        padding: 18px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    @media (max-width: 991px) {
+        .copilot-container {
+            height: auto;
+            min-height: auto;
+        }
+        .copilot-body {
+            flex-direction: column;
+        }
+        .chat-main-column {
+            border-right: none;
+            border-bottom: 1px solid var(--border-color);
+            height: 520px;
+        }
+        .telemetry-sidebar {
+            width: 100%;
+        }
+    }
+
+    /* Message Bubbles */
+    .message-row {
+        display: flex;
+        gap: 12px;
+        max-width: 90%;
+        animation: fadeInMsg 0.2s ease-out;
+    }
+
+    @keyframes fadeInMsg {
+        from { opacity: 0; transform: translateY(6px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .message-row.user {
+        align-self: flex-end;
+        flex-direction: row-reverse;
+    }
+
+    .message-row.bot {
+        align-self: flex-start;
+    }
+
+    .avatar-icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        flex-shrink: 0;
+    }
+
+    .avatar-bot {
+        background: rgba(59, 130, 246, 0.15);
+        color: var(--accent);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+
+    .avatar-user {
+        background: #1e293b;
+        color: #94a3b8;
+        border: 1px solid var(--border-color);
+    }
+
+    .message-content {
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 12px 16px;
+        color: var(--text-primary);
+        font-size: 13px;
+        line-height: 1.6;
+        word-break: break-word;
+        min-width: 80px;
+    }
+
+    .message-row.user .message-content {
+        background-color: rgba(59, 130, 246, 0.12);
+        border-color: rgba(59, 130, 246, 0.35);
+        color: #e2e8f0;
+    }
+
+    .message-row.bot .message-content {
+        background-color: var(--bg-secondary);
+        border-color: var(--border-color);
+    }
+
+    .message-row.error .message-content {
+        background-color: rgba(239, 68, 68, 0.1);
+        border-color: rgba(239, 68, 68, 0.3);
+        color: #fca5a5;
+    }
+
+    .message-meta {
+        font-size: 10px;
+        color: var(--text-secondary);
+        margin-top: 4px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .message-row.user .message-meta {
+        justify-content: flex-end;
+    }
+
+    /* Prompt Starters Header Box */
+    .prompt-starters-section {
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border-color);
+        padding: 12px 20px;
+        flex-shrink: 0;
+    }
+
+    .prompt-starters-title {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-secondary);
+        font-weight: 600;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .prompt-starters-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .btn-starter {
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        color: #cbd5e1;
+        font-size: 11.5px;
+        padding: 5px 11px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        text-align: left;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .btn-starter:hover {
+        background-color: #1e293b;
+        color: var(--text-primary);
+        border-color: var(--accent);
+    }
+
+    .btn-starter i {
+        color: var(--accent);
+        font-size: 10px;
+    }
+
+    /* Chat Input Area */
+    .chat-input-area {
+        background-color: var(--bg-secondary);
+        border-top: 1px solid var(--border-color);
+        padding: 14px 20px;
+        flex-shrink: 0;
+    }
+
+    .input-wrapper {
+        display: flex;
+        gap: 10px;
+        align-items: flex-end;
+    }
+
+    .chat-textarea {
+        flex: 1;
+        background-color: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        padding: 10px 14px;
+        color: var(--text-primary);
+        font-size: 13px;
+        font-family: inherit;
+        resize: none;
+        max-height: 120px;
+        min-height: 42px;
+        outline: none;
+        line-height: 1.4;
+        transition: border-color 0.15s ease;
+    }
+
+    .chat-textarea:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px var(--accent);
+    }
+
+    .chat-textarea:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .btn-send {
+        background-color: var(--accent);
+        border: none;
+        color: #ffffff;
+        font-size: 13px;
+        font-weight: 500;
+        padding: 10px 18px;
+        border-radius: 4px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: background-color 0.15s ease;
+        height: 42px;
+    }
+
+    .btn-send:hover:not(:disabled) {
+        background-color: var(--accent-dim);
+    }
+
+    .btn-send:disabled {
+        background-color: #334155;
+        color: #94a3b8;
+        cursor: not-allowed;
+        opacity: 0.7;
+    }
+
+    .input-hint {
+        font-size: 10.5px;
+        color: var(--text-secondary);
+        margin-top: 6px;
+    }
+
+    /* Markdown Formatted Elements */
+    .message-content p {
+        margin-bottom: 8px;
+    }
+    .message-content p:last-child {
+        margin-bottom: 0;
+    }
+
+    .message-content strong {
+        font-weight: 600;
+        color: #f1f5f9;
+    }
+
+    .message-content em {
+        font-style: italic;
+        color: #cbd5e1;
+    }
+
+    .message-content ul, .message-content ol {
+        margin: 6px 0 6px 20px;
+        padding-left: 0;
+    }
+
+    .message-content li {
+        margin-bottom: 3px;
+    }
+
+    .message-content a {
+        color: var(--accent);
+        text-decoration: underline;
+    }
+
+    .message-content a:hover {
+        color: #60a5fa;
+    }
+
+    .message-content code.inline-code {
+        background-color: #1e293b;
+        color: #38bdf8;
+        padding: 2px 5px;
+        border-radius: 3px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 11.5px;
+    }
+
+    .message-content .code-block-wrapper {
+        margin: 10px 0;
+        background-color: #08090a;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .message-content .code-block-header {
+        background-color: #111317;
+        padding: 4px 10px;
+        font-size: 10px;
+        font-family: monospace;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .message-content .copy-code-btn {
+        background: transparent;
+        border: 1px solid #334155;
+        color: #cbd5e1;
+        font-size: 9px;
+        padding: 2px 6px;
+        border-radius: 3px;
+        cursor: pointer;
+    }
+
+    .message-content .copy-code-btn:hover {
+        background-color: #1e293b;
+        color: #ffffff;
+    }
+
+    .message-content pre {
+        margin: 0;
+        padding: 10px 12px;
+        overflow-x: auto;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 11.5px;
+        color: #e2e8f0;
+        line-height: 1.45;
+    }
+
+    /* Markdown Table Custom Styling with Horizontal/Vertical Scrolling */
+    .message-content .table-responsive {
+        margin: 12px 0;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 380px;
+        background-color: var(--bg-card);
+    }
+
+    .message-content .table-responsive::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+
+    .message-content .table-responsive::-webkit-scrollbar-thumb {
+        background: #334155;
+        border-radius: 3px;
+    }
+
+    .message-content .table-custom {
+        width: 100%;
+        margin-bottom: 0;
+        font-size: 12px;
+        border-collapse: collapse;
+        white-space: nowrap;
+    }
+
+    .message-content .table-custom th {
+        background-color: #111317;
+        color: #94a3b8;
+        font-weight: 600;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--border-color);
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+
+    .message-content .table-custom td {
+        padding: 7px 12px;
+        border-bottom: 1px solid #1a1e27;
+        color: #cbd5e1;
+    }
+
+    .message-content .table-custom tr:last-child td {
+        border-bottom: none;
+    }
+
+    .message-content .table-custom tr:hover td {
+        background-color: #161920;
+        color: #ffffff;
+    }
+
+    /* Streaming Cursor & Typing Indicator */
+    .streaming-cursor {
+        display: inline-block;
+        width: 6px;
+        height: 13px;
+        background-color: var(--accent);
+        vertical-align: -1px;
+        margin-left: 3px;
+        animation: streamBlink 0.8s infinite;
+    }
+
+    @keyframes streamBlink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0; }
+    }
+
+    .typing-dots {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 10px;
+    }
+
+    .typing-dots span {
+        width: 5px;
+        height: 5px;
+        background-color: var(--text-secondary);
+        border-radius: 50%;
+        animation: typingB 1.4s infinite ease-in-out both;
+    }
+
+    .typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+    .typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+    .typing-dots span:nth-child(3) { animation-delay: 0; }
+
+    @keyframes typingB {
+        0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
+        40% { transform: scale(1); opacity: 1; }
+    }
+
+    /* Telemetry Cards */
+    .telemetry-card {
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        padding: 14px;
+    }
+
+    .telemetry-title {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-secondary);
+        font-weight: 600;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .telemetry-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 11.5px;
+        padding: 6px 0;
+        border-bottom: 1px solid #161922;
+    }
+
+    .telemetry-item:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+
+    .telemetry-label {
+        color: var(--text-secondary);
+    }
+
+    .telemetry-val {
+        color: var(--text-primary);
+        font-family: monospace;
+        font-weight: 500;
+    }
+
+    .status-badge-online {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 10px;
+        color: #4ade80;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .status-dot {
+        width: 7px;
+        height: 7px;
+        background-color: #22c55e;
+        border-radius: 50%;
+        box-shadow: 0 0 8px #22c55e;
+    }
+
+    .status-dot.streaming {
+        background-color: #38bdf8;
+        box-shadow: 0 0 8px #38bdf8;
+        animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.3); opacity: 0.6; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Page Title & Header Bar -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h4 class="fw-bold mb-1 text-light d-flex align-items-center gap-2">
+            <i class="fa-solid fa-robot text-primary"></i> AI Analytics Assistant & Managerial AI Agent
+        </h4>
+        <p class="text-secondary mb-0" style="font-size: 11px;">
+            Executive AI Copilot & Business Intelligence connected to transactional sales and forecast models.
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        <button type="button" class="btn-minimal" id="clearChatBtn" title="Reiniciar sesión de conversación">
+            <i class="fa-solid fa-rotate-left me-1"></i> Limpiar Conversación
+        </button>
+        <a href="{% url 'analytics:dashboard' %}" class="btn-minimal">
+            <i class="fa-solid fa-chart-line me-1"></i> Dashboard
+        </a>
+    </div>
+</div>
+
+<!-- Main Copilot Interface Container -->
+<div class="copilot-container">
+
+    <!-- Top Status Header -->
+    <div class="copilot-header">
+        <div class="d-flex align-items-center gap-3">
+            <div class="avatar-icon avatar-bot">
+                <i class="fa-solid fa-brain"></i>
+            </div>
+            <div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="fw-semibold text-light" style="font-size: 13px;">AI Analytics Assistant</span>
+                    <span class="badge-restricted" style="font-size: 9px; padding: 2px 6px;">agent: analytics</span>
+                </div>
+                <div class="text-secondary" style="font-size: 10.5px;">Multi-turn Managerial AI Agent & Copilot</div>
+            </div>
+        </div>
+        <div class="d-flex align-items-center gap-3">
+            <div class="status-badge-online" id="gatewayStatusBadge">
+                <span class="status-dot" id="gatewayStatusDot"></span>
+                <span id="gatewayStatusText">Gateway Ready</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Copilot Body: Left Chat, Right Telemetry -->
+    <div class="copilot-body">
+
+        <!-- Left Chat Column -->
+        <div class="chat-main-column">
+
+            <!-- Prompt Starters / Preguntas Sugeridas Rápidas -->
+            <div class="prompt-starters-section">
+                <div class="prompt-starters-title">
+                    <i class="fa-regular fa-lightbulb text-primary"></i> Preguntas Sugeridas de Negocio
+                </div>
+                <div class="prompt-starters-grid">
+                    <button type="button" class="btn-starter" data-prompt="¿Cuáles son los KPIs del mes actual?">
+                        <i class="fa-solid fa-chart-pie"></i> ¿Cuáles son los KPIs del mes actual?
+                    </button>
+                    <button type="button" class="btn-starter" data-prompt="¿Cuáles son los 5 productos más vendidos?">
+                        <i class="fa-solid fa-ranking-star"></i> ¿Cuáles son los 5 productos más vendidos?
+                    </button>
+                    <button type="button" class="btn-starter" data-prompt="Muéstrame la distribución de ventas por categoría en una tabla">
+                        <i class="fa-solid fa-table"></i> Muéstrame la distribución de ventas por categoría en una tabla
+                    </button>
+                    <button type="button" class="btn-starter" data-prompt="¿Cuál es la proyección de demanda para el próximo trimestre?">
+                        <i class="fa-solid fa-arrow-trend-up"></i> ¿Cuál es la proyección de demanda para el próximo trimestre?
+                    </button>
+                </div>
+            </div>
+
+            <!-- Chat History Feed -->
+            <div class="chat-history" id="chatHistoryFeed">
+                <!-- Messages will be dynamically rendered here -->
+            </div>
+
+            <!-- Chat Input Area -->
+            <div class="chat-input-area">
+                <div class="input-wrapper">
+                    <textarea
+                        class="chat-textarea"
+                        id="chatUserInput"
+                        rows="1"
+                        placeholder="Pregúntale al AI Copilot sobre ventas, proyecciones, productos o métricas..."
+                        autocomplete="off"
+                    ></textarea>
+                    <button type="button" class="btn-send" id="chatSendBtn" disabled>
+                        <span>Enviar</span>
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
+                <div class="d-flex justify-content-between align-items-center input-hint">
+                    <span><i class="fa-solid fa-keyboard me-1"></i> Presiona <strong>Enter</strong> para enviar, <strong>Shift + Enter</strong> para nueva línea</span>
+                    <span id="charCount">0 caracteres</span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Telemetry & Metrics Panel -->
+        <div class="telemetry-sidebar">
+            
+            <!-- Live Performance Metrics Card -->
+            <div class="telemetry-card">
+                <div class="telemetry-title">
+                    <span><i class="fa-solid fa-gauge-high text-primary me-1"></i> Rendimiento en Vivo</span>
+                    <span class="badge bg-dark border border-secondary text-secondary" style="font-size: 8px;">LIVE</span>
+                </div>
+                <div class="telemetry-item">
+                    <span class="telemetry-label">Latencia Última Consulta</span>
+                    <span class="telemetry-val text-primary" id="telemetryLatency">-- ms</span>
+                </div>
+                <div class="telemetry-item">
+                    <span class="telemetry-label">Modelo Activo</span>
+                    <span class="telemetry-val" id="telemetryModel">agent-router / claude-3-5</span>
+                </div>
+                <div class="telemetry-item">
+                    <span class="telemetry-label">Agente ID</span>
+                    <span class="telemetry-val text-info">analytics</span>
+                </div>
+                <div class="telemetry-item">
+                    <span class="telemetry-label">Protocolo</span>
+                    <span class="telemetry-val">SSE Stream (HTTP/2)</span>
+                </div>
+                <div class="telemetry-item">
+                    <span class="telemetry-label">Turnos en Sesión</span>
+                    <span class="telemetry-val" id="telemetryTurns">0</span>
+                </div>
+            </div>
+
+            <!-- Session Details Card -->
+            <div class="telemetry-card">
+                <div class="telemetry-title">
+                    <span><i class="fa-solid fa-fingerprint text-primary me-1"></i> Sesión y Contexto</span>
+                </div>
+                <div class="telemetry-item">
+                    <span class="telemetry-label">ID de Sesión</span>
+                    <span class="telemetry-val" id="telemetrySessionId" style="font-size: 10px;" title="Copiar ID de sesión">sess_...</span>
+                </div>
+                <div class="telemetry-item">
+                    <span class="telemetry-label">Estado Auth</span>
+                    <span class="telemetry-val">
+                        {% if user_jwt_token %}
+                        <span class="text-success"><i class="fa-solid fa-shield-check me-1"></i> JWT Activo</span>
+                        {% else %}
+                        <span class="text-secondary"><i class="fa-solid fa-user-secret me-1"></i> Staff Session</span>
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Corporate Guidance Card -->
+            <div class="telemetry-card">
+                <div class="telemetry-title">
+                    <span><i class="fa-solid fa-circle-info text-primary me-1"></i> Capacidades BI</span>
+                </div>
+                <p class="text-secondary mb-2" style="font-size: 11px; line-height: 1.4;">
+                    El agente <strong>analytics</strong> tiene acceso directo a métricas de ventas en tiempo real, histórico de pedidos, desglose por categorías y predicciones de demanda.
+                </p>
+                <div style="font-size: 10.5px; color: #94a3b8;">
+                    <div><i class="fa-solid fa-check text-success me-1"></i> Soporte de tablas Markdown con scroll</div>
+                    <div><i class="fa-solid fa-check text-success me-1"></i> Respuestas en streaming SSE en vivo</div>
+                    <div><i class="fa-solid fa-check text-success me-1"></i> Memoria conversacional multi-turno</div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    'use strict';
+
+    // 1. Configuration & Endpoints
+    const GATEWAY_URL = 'https://ai-agent-gateway-sued.onrender.com';
+    const STREAM_ENDPOINT = 'https://ai-agent-gateway-sued.onrender.com/api/v1/chat/stream';
+    const FALLBACK_ENDPOINT = 'https://ai-agent-gateway-sued.onrender.com/api/v1/chat';
+    const AGENT_ID = 'analytics';
+    const USER_TOKEN = '{{ user_jwt_token|default:"" }}';
+    const STORAGE_SESSION_KEY = 'analytics_chat_session_id';
+    const STORAGE_HISTORY_PREFIX = 'analytics_chat_history_';
+
+    const DEFAULT_WELCOME_MSG = 
+        '¡Hola! 👋 Soy tu **AI Copilot Corporativo de Analytics & BI**.\n\n' +
+        'Tengo acceso en tiempo real a los datos de facturación, volumen de pedidos, ranking de productos y proyecciones de demanda.\n\n' +
+        'Puedes solicitarme análisis de métricas, comparativas mensuales o generar tablas ejecutivas con la información de tu negocio.';
+
+    // 2. DOM Elements
+    const chatFeed = document.getElementById('chatHistoryFeed');
+    const userInput = document.getElementById('chatUserInput');
+    const sendBtn = document.getElementById('chatSendBtn');
+    const clearBtn = document.getElementById('clearChatBtn');
+    const charCount = document.getElementById('charCount');
+    const statusDot = document.getElementById('gatewayStatusDot');
+    const statusText = document.getElementById('gatewayStatusText');
+    const statusBadge = document.getElementById('gatewayStatusBadge');
+    const telemetryLatency = document.getElementById('telemetryLatency');
+    const telemetryModel = document.getElementById('telemetryModel');
+    const telemetryTurns = document.getElementById('telemetryTurns');
+    const telemetrySessionId = document.getElementById('telemetrySessionId');
+    const starterButtons = document.querySelectorAll('.btn-starter');
+
+    // 3. State Management
+    let isStreaming = false;
+    let sessionId = getOrCreateSessionId();
+    let messageHistory = [];
+
+    function generateSessionId() {
+        return 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 10);
+    }
+
+    function getOrCreateSessionId() {
+        let sid = sessionStorage.getItem(STORAGE_SESSION_KEY);
+        if (!sid) {
+            sid = generateSessionId();
+            sessionStorage.setItem(STORAGE_SESSION_KEY, sid);
+        }
+        return sid;
+    }
+
+    function getHistoryKey(sid) {
+        return STORAGE_HISTORY_PREFIX + sid;
+    }
+
+    function loadSavedHistory(sid) {
+        try {
+            const raw = sessionStorage.getItem(getHistoryKey(sid));
+            return raw ? JSON.parse(raw) : null;
+        } catch (e) {
+            console.warn('[AnalyticsChat] Error loading history:', e);
+            return null;
+        }
+    }
+
+    function saveHistory(sid, history) {
+        try {
+            sessionStorage.setItem(getHistoryKey(sid), JSON.stringify(history));
+        } catch (e) {
+            console.warn('[AnalyticsChat] Error saving history:', e);
+        }
+    }
+
+    // 4. Markdown Parser with Markdown Table Support
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function parseMarkdown(rawText) {
+        if (!rawText) return '';
+
+        // Step 1: Extract Fenced Code Blocks
+        const codeBlocks = [];
+        let text = rawText.replace(/```([a-zA-Z0-9_-]*)\n?([\s\S]*?)```/g, function(_, lang, code) {
+            const idx = codeBlocks.length;
+            codeBlocks.push({ lang: lang.trim() || 'code', code: code.replace(/\n$/, '') });
+            return '@@CODEBLOCK_' + idx + '@@';
+        });
+
+        // Step 2: Extract Inline Code
+        const inlineCodes = [];
+        text = text.replace(/`([^`\n]+)`/g, function(_, code) {
+            const idx = inlineCodes.length;
+            inlineCodes.push(code);
+            return '@@INLINECODE_' + idx + '@@';
+        });
+
+        // Step 3: Markdown Tables Parsing
+        // Recognizes table blocks with header, separator row (|---|---|), and rows
+        text = text.replace(/((?:^[ \t]*\|.+?\|[ \t]*(?:\n|$)){2,})/gm, function(tableBlock) {
+            const lines = tableBlock.trim().split('\n').map(l => l.trim()).filter(Boolean);
+            if (lines.length < 2) return tableBlock;
+
+            // Check if line 1 or line 2 is the separator (|---|---|)
+            let headerIndex = 0;
+            let separatorIndex = 1;
+            
+            const isSeparator = function(line) {
+                return /^\|[ :\-|\t]+\|$/.test(line) && line.includes('-');
+            };
+
+            if (!isSeparator(lines[1])) {
+                if (isSeparator(lines[0])) {
+                    return tableBlock;
+                }
+                return tableBlock;
+            }
+
+            const headerLine = lines[0];
+            const sepLine = lines[1];
+            const dataLines = lines.slice(2);
+
+            // Parse Alignments from separator
+            const sepCells = sepLine.split('|').slice(1, -1);
+            const alignments = sepCells.map(function(c) {
+                const cell = c.trim();
+                const left = cell.startsWith(':');
+                const right = cell.endsWith(':');
+                if (left && right) return 'text-center';
+                if (right) return 'text-end';
+                return 'text-start';
+            });
+
+            // Parse Header
+            const headers = headerLine.split('|').slice(1, -1).map(h => h.trim());
+            let headerHtml = '<thead><tr>';
+            headers.forEach(function(h, idx) {
+                const alignClass = alignments[idx] || 'text-start';
+                headerHtml += '<th class="' + alignClass + '">' + escapeHtml(h) + '</th>';
+            });
+            headerHtml += '</tr></thead>';
+
+            // Parse Body Rows
+            let bodyHtml = '<tbody>';
+            dataLines.forEach(function(rowLine) {
+                if (!rowLine.includes('|')) return;
+                const cells = rowLine.split('|').slice(1, -1).map(c => c.trim());
+                bodyHtml += '<tr>';
+                cells.forEach(function(cellContent, idx) {
+                    const alignClass = alignments[idx] || 'text-start';
+                    bodyHtml += '<td class="' + alignClass + '">' + escapeHtml(cellContent) + '</td>';
+                });
+                bodyHtml += '</tr>';
+            });
+            bodyHtml += '</tbody>';
+
+            return '<div class="table-responsive"><table class="table-custom">' + headerHtml + bodyHtml + '</table></div>';
+        });
+
+        // Step 4: Escape remaining plain text (outside preserved tags)
+        const htmlParts = [];
+        text = text.replace(/(<div class="table-responsive">[\s\S]*?<\/div>)/g, function(_, match) {
+            const idx = htmlParts.length;
+            htmlParts.push(match);
+            return '@@HTMLPART_' + idx + '@@';
+        });
+
+        text = escapeHtml(text);
+
+        // Step 5: Markdown Links [label](url)
+        text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/g, function(_, label, url) {
+            return '<a href="' + encodeURI(url.trim()) + '" target="_blank" rel="noopener noreferrer">' + label + ' <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px;"></i></a>';
+        });
+
+        // Step 6: Bold & Italics
+        text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        text = text.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+        text = text.replace(/(^|[^\*])\*([^*]+)\*([^\*]|$)/g, '$1<em>$2</em>$3');
+        text = text.replace(/(^|[^_])_([^_]+)_([^_]|$)/g, '$1<em>$2</em>$3');
+
+        // Step 7: Bullet Lists
+        text = text.replace(/((?:^(?:-|\*)\s+.+(?:\n|$))+)/gm, function(match) {
+            const items = match.trim().split('\n').map(l => l.replace(/^(?:-|\*)\s+/, '').trim()).filter(Boolean);
+            return '<ul class="my-2">' + items.map(it => '<li>' + it + '</li>').join('') + '</ul>';
+        });
+
+        // Step 8: Numbered Lists
+        text = text.replace(/((?:^\d+\.\s+.+(?:\n|$))+)/gm, function(match) {
+            const items = match.trim().split('\n').map(l => l.replace(/^\d+\.\s+/, '').trim()).filter(Boolean);
+            return '<ol class="my-2">' + items.map(it => '<li>' + it + '</li>').join('') + '</ol>';
+        });
+
+        // Step 9: Paragraphs & Breaks
+        text = text.replace(/\n\n+/g, '</p><p>');
+        text = text.replace(/\n/g, '<br>');
+        if (!text.startsWith('<div') && !text.startsWith('<ul') && !text.startsWith('<ol') && !text.startsWith('<p')) {
+            text = '<p>' + text + '</p>';
+        }
+
+        // Step 10: Reinsert HTML parts (tables)
+        text = text.replace(/@@HTMLPART_(\d+)@@/g, function(_, id) {
+            return htmlParts[Number(id)] || '';
+        });
+
+        // Step 11: Reinsert Code Blocks
+        text = text.replace(/@@CODEBLOCK_(\d+)@@/g, function(_, id) {
+            const block = codeBlocks[Number(id)];
+            if (!block) return '';
+            const safeCode = escapeHtml(block.code);
+            return (
+                '<div class="code-block-wrapper">' +
+                '<div class="code-block-header">' +
+                    '<span><i class="fa-solid fa-code me-1"></i>' + escapeHtml(block.lang) + '</span>' +
+                    '<button type="button" class="copy-code-btn" data-code="' + encodeURIComponent(block.code) + '"><i class="fa-regular fa-copy me-1"></i>Copiar</button>' +
+                '</div>' +
+                '<pre><code>' + safeCode + '</code></pre>' +
+                '</div>'
+            );
+        });
+
+        // Step 12: Reinsert Inline Code
+        text = text.replace(/@@INLINECODE_(\d+)@@/g, function(_, id) {
+            return '<code class="inline-code">' + escapeHtml(inlineCodes[Number(id)] || '') + '</code>';
+        });
+
+        return text;
+    }
+
+    // 5. UI Helpers & DOM Renderers
+    function scrollToBottom(smooth) {
+        chatFeed.scrollTo({
+            top: chatFeed.scrollHeight,
+            behavior: smooth !== false ? 'smooth' : 'auto'
+        });
+    }
+
+    function formatTime(ts) {
+        const d = ts ? new Date(ts) : new Date();
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function appendMessageElement(role, textContent, isError, timestamp) {
+        const row = document.createElement('div');
+        row.className = 'message-row ' + role + (isError ? ' error' : '');
+
+        const timeStr = formatTime(timestamp);
+
+        if (role === 'user') {
+            row.innerHTML = `
+                <div class="avatar-icon avatar-user" title="Usuario">
+                    <i class="fa-solid fa-user"></i>
+                </div>
+                <div style="max-width: 80%;">
+                    <div class="message-content"></div>
+                    <div class="message-meta">${timeStr} · Tú</div>
+                </div>
+            `;
+            row.querySelector('.message-content').textContent = textContent;
+        } else {
+            row.innerHTML = `
+                <div class="avatar-icon avatar-bot" title="AI Copilot">
+                    <i class="fa-solid fa-robot"></i>
+                </div>
+                <div style="max-width: 85%; flex: 1;">
+                    <div class="message-content"></div>
+                    <div class="message-meta">
+                        <span>${timeStr} · AI Copilot</span>
+                        <span class="badge bg-secondary text-dark" style="font-size: 8px; padding: 1px 4px;">analytics</span>
+                    </div>
+                </div>
+            `;
+            row.querySelector('.message-content').innerHTML = parseMarkdown(textContent);
+        }
+
+        chatFeed.appendChild(row);
+        scrollToBottom(true);
+        return row;
+    }
+
+    function showTypingIndicator() {
+        removeTypingIndicator();
+        const row = document.createElement('div');
+        row.className = 'message-row bot';
+        row.id = 'copilotTypingRow';
+        row.innerHTML = `
+            <div class="avatar-icon avatar-bot">
+                <i class="fa-solid fa-robot"></i>
+            </div>
+            <div class="message-content" style="padding: 6px 12px;">
+                <div class="typing-dots">
+                    <span></span><span></span><span></span>
+                </div>
+            </div>
+        `;
+        chatFeed.appendChild(row);
+        scrollToBottom(true);
+    }
+
+    function removeTypingIndicator() {
+        const row = document.getElementById('copilotTypingRow');
+        if (row) row.remove();
+    }
+
+    function updateTelemetry(latencyMs, modelName) {
+        if (latencyMs !== undefined) {
+            telemetryLatency.textContent = latencyMs + ' ms';
+            telemetryLatency.style.color = latencyMs < 800 ? '#4ade80' : latencyMs < 2000 ? '#facc15' : '#f87171';
+        }
+        if (modelName) {
+            telemetryModel.textContent = modelName;
+        }
+        const userMsgCount = messageHistory.filter(m => m.role === 'user').length;
+        telemetryTurns.textContent = userMsgCount;
+        telemetrySessionId.textContent = sessionId.length > 16 ? sessionId.substring(0, 15) + '…' : sessionId;
+    }
+
+    function setGatewayStatus(status) {
+        if (status === 'streaming') {
+            statusDot.className = 'status-dot streaming';
+            statusText.textContent = 'Transmitiendo SSE...';
+            statusBadge.style.color = '#38bdf8';
+        } else if (status === 'ready') {
+            statusDot.className = 'status-dot';
+            statusText.textContent = 'Gateway Ready';
+            statusBadge.style.color = '#4ade80';
+        } else if (status === 'error') {
+            statusDot.className = 'status-dot';
+            statusDot.style.backgroundColor = '#ef4444';
+            statusDot.style.boxShadow = '0 0 8px #ef4444';
+            statusText.textContent = 'Gateway Error';
+            statusBadge.style.color = '#ef4444';
+        }
+    }
+
+    function initializeChat() {
+        chatFeed.innerHTML = '';
+        sessionId = getOrCreateSessionId();
+        const saved = loadSavedHistory(sessionId);
+
+        if (saved && Array.isArray(saved) && saved.length > 0) {
+            messageHistory = saved;
+            messageHistory.forEach(function(m) {
+                appendMessageElement(m.role, m.text, m.isError, m.timestamp);
+            });
+        } else {
+            messageHistory = [
+                {
+                    role: 'bot',
+                    text: DEFAULT_WELCOME_MSG,
+                    timestamp: Date.now()
+                }
+            ];
+            saveHistory(sessionId, messageHistory);
+            appendMessageElement('bot', DEFAULT_WELCOME_MSG, false, Date.now());
+        }
+
+        updateTelemetry();
+        setGatewayStatus('ready');
+    }
+
+    // 6. Streaming SSE & Backend Fetch Layer
+    async function sendMessage(text) {
+        const trimmed = (text || '').trim();
+        if (!trimmed || isStreaming) return;
+
+        // 1. Push user message
+        const userTs = Date.now();
+        messageHistory.push({
+            role: 'user',
+            text: trimmed,
+            timestamp: userTs
+        });
+        saveHistory(sessionId, messageHistory);
+        appendMessageElement('user', trimmed, false, userTs);
+
+        // 2. Lock UI
+        isStreaming = true;
+        userInput.value = '';
+        userInput.style.height = '42px';
+        userInput.disabled = true;
+        sendBtn.disabled = true;
+        charCount.textContent = '0 caracteres';
+        setGatewayStatus('streaming');
+        showTypingIndicator();
+
+        const startTime = performance.now();
+        let accumulatedText = '';
+        let streamSucceeded = false;
+        let botRow = null;
+        let botContentEl = null;
+
+        const payload = {
+            agent_id: AGENT_ID,
+            session_id: sessionId,
+            message: trimmed,
+            stream: true,
+            user_token: USER_TOKEN || null,
+            context: {
+                source: 'analytics_copilot',
+                page: window.location.pathname
+            }
+        };
+
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        if (USER_TOKEN) {
+            headers['Authorization'] = 'Bearer ' + USER_TOKEN;
+        }
+
+        // Attempt A: POST /api/v1/chat/stream
+        try {
+            const response = await fetch(STREAM_ENDPOINT, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok && response.body) {
+                removeTypingIndicator();
+
+                botRow = document.createElement('div');
+                botRow.className = 'message-row bot';
+                botRow.innerHTML = `
+                    <div class="avatar-icon avatar-bot"><i class="fa-solid fa-robot"></i></div>
+                    <div style="max-width: 85%; flex: 1;">
+                        <div class="message-content"><span class="streaming-cursor"></span></div>
+                        <div class="message-meta">
+                            <span>${formatTime(Date.now())} · AI Copilot</span>
+                            <span class="badge bg-secondary text-dark" style="font-size: 8px; padding: 1px 4px;">streaming</span>
+                        </div>
+                    </div>
+                `;
+                botContentEl = botRow.querySelector('.message-content');
+                chatFeed.appendChild(botRow);
+                scrollToBottom(true);
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let buffer = '';
+
+                while (true) {
+                    const chunkRes = await reader.read();
+                    if (chunkRes.done) break;
+
+                    buffer += decoder.decode(chunkRes.value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // keep remainder
+
+                    for (let j = 0; j < lines.length; j++) {
+                        const line = lines[j].trim();
+                        if (!line || line.startsWith(':')) continue;
+
+                        if (line.startsWith('data:')) {
+                            const dataStr = line.substring(5).trim();
+                            if (dataStr === '[DONE]') continue;
+
+                            try {
+                                const parsed = JSON.parse(dataStr);
+                                const token = parsed.text !== undefined ? parsed.text :
+                                              parsed.delta !== undefined ? parsed.delta :
+                                              parsed.content !== undefined ? parsed.content :
+                                              parsed.message !== undefined ? parsed.message :
+                                              parsed.token !== undefined ? parsed.token :
+                                              typeof parsed === 'string' ? parsed : '';
+                                if (token) {
+                                    accumulatedText += token;
+                                    botContentEl.innerHTML = parseMarkdown(accumulatedText) + '<span class="streaming-cursor"></span>';
+                                    scrollToBottom(true);
+                                }
+                            } catch (e) {
+                                accumulatedText += dataStr;
+                                botContentEl.innerHTML = parseMarkdown(accumulatedText) + '<span class="streaming-cursor"></span>';
+                                scrollToBottom(true);
+                            }
+                        } else if (!line.startsWith('event:')) {
+                            accumulatedText += line + ' ';
+                            botContentEl.innerHTML = parseMarkdown(accumulatedText) + '<span class="streaming-cursor"></span>';
+                            scrollToBottom(true);
+                        }
+                    }
+                }
+
+                if (buffer.trim()) {
+                    const lastLine = buffer.trim();
+                    if (lastLine.startsWith('data:')) {
+                        const lastData = lastLine.substring(5).trim();
+                        if (lastData !== '[DONE]') {
+                            try {
+                                const parsedLast = JSON.parse(lastData);
+                                const lastToken = parsedLast.text || parsedLast.delta || parsedLast.content || parsedLast.message || '';
+                                if (lastToken) accumulatedText += lastToken;
+                            } catch (e) {
+                                accumulatedText += lastData;
+                            }
+                        }
+                    } else if (!lastLine.startsWith('event:')) {
+                        accumulatedText += lastLine;
+                    }
+                }
+
+                if (accumulatedText.trim()) {
+                    streamSucceeded = true;
+                }
+            }
+        } catch (streamErr) {
+            console.warn('[AnalyticsChat] Stream request failed, switching to fallback:', streamErr);
+        }
+
+        // Attempt B: Fallback to POST /api/v1/chat
+        if (!streamSucceeded || !accumulatedText.trim()) {
+            try {
+                if (!botRow) {
+                    removeTypingIndicator();
+                    showTypingIndicator();
+                }
+
+                const fallbackPayload = Object.assign({}, payload, { stream: false });
+                const fallbackRes = await fetch(FALLBACK_ENDPOINT, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(fallbackPayload)
+                });
+
+                removeTypingIndicator();
+
+                if (!fallbackRes.ok) {
+                    throw new Error('HTTP status ' + fallbackRes.status);
+                }
+
+                const data = await fallbackRes.json();
+                accumulatedText = data.reply || data.response || data.message || data.text || data.content || (typeof data === 'string' ? data : 'Análisis completado.');
+
+                if (!botRow) {
+                    botRow = document.createElement('div');
+                    botRow.className = 'message-row bot';
+                    botRow.innerHTML = `
+                        <div class="avatar-icon avatar-bot"><i class="fa-solid fa-robot"></i></div>
+                        <div style="max-width: 85%; flex: 1;">
+                            <div class="message-content"></div>
+                            <div class="message-meta">
+                                <span>${formatTime(Date.now())} · AI Copilot</span>
+                                <span class="badge bg-secondary text-dark" style="font-size: 8px; padding: 1px 4px;">analytics</span>
+                            </div>
+                        </div>
+                    `;
+                    botContentEl = botRow.querySelector('.message-content');
+                    chatFeed.appendChild(botRow);
+                }
+            } catch (fallbackErr) {
+                removeTypingIndicator();
+                console.error('[AnalyticsChat] Fallback request also failed:', fallbackErr);
+                accumulatedText = '⚠️ **Error de conexión con el AI Gateway**: No se pudo procesar la consulta en este momento. Por favor verifica el estado del microservicio o intenta nuevamente.';
+
+                if (!botRow) {
+                    botRow = document.createElement('div');
+                    botRow.className = 'message-row bot error';
+                    botRow.innerHTML = `
+                        <div class="avatar-icon avatar-bot" style="background: rgba(239,68,68,0.2); color: #ef4444;"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                        <div style="max-width: 85%; flex: 1;">
+                            <div class="message-content"></div>
+                            <div class="message-meta text-danger">Error de Conexión</div>
+                        </div>
+                    `;
+                    botContentEl = botRow.querySelector('.message-content');
+                    chatFeed.appendChild(botRow);
+                } else {
+                    botRow.classList.add('error');
+                }
+                setGatewayStatus('error');
+            }
+        }
+
+        // Finalize Assistant Bubble
+        const elapsed = Math.round(performance.now() - startTime);
+        if (botContentEl) {
+            botContentEl.innerHTML = parseMarkdown(accumulatedText);
+        }
+
+        messageHistory.push({
+            role: 'bot',
+            text: accumulatedText,
+            timestamp: Date.now(),
+            isError: botRow && botRow.classList.contains('error')
+        });
+        saveHistory(sessionId, messageHistory);
+
+        // Update telemetry and reset UI
+        updateTelemetry(elapsed);
+        if (!botRow || !botRow.classList.contains('error')) {
+            setGatewayStatus('ready');
+        }
+
+        isStreaming = false;
+        userInput.disabled = false;
+        userInput.focus();
+        sendBtn.disabled = !userInput.value.trim();
+        scrollToBottom(true);
+    }
+
+    // 7. Event Listeners
+    userInput.addEventListener('input', function() {
+        // Auto-expand textarea
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+        const len = this.value.trim().length;
+        sendBtn.disabled = len === 0 || isStreaming;
+        charCount.textContent = len + ' caracteres';
+    });
+
+    userInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            const text = userInput.value.trim();
+            if (text && !isStreaming) {
+                sendMessage(text);
+            }
+        }
+    });
+
+    sendBtn.addEventListener('click', function() {
+        const text = userInput.value.trim();
+        if (text && !isStreaming) {
+            sendMessage(text);
+        }
+    });
+
+    // Clear Conversation Handler
+    clearBtn.addEventListener('click', function() {
+        if (confirm('¿Deseas reiniciar la conversación? Se vaciará el historial actual de la pantalla.')) {
+            sessionStorage.removeItem(getHistoryKey(sessionId));
+            sessionId = generateSessionId();
+            sessionStorage.setItem(STORAGE_SESSION_KEY, sessionId);
+            initializeChat();
+        }
+    });
+
+    // Prompt Starters Handlers
+    starterButtons.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const prompt = this.getAttribute('data-prompt');
+            if (prompt && !isStreaming) {
+                sendMessage(prompt);
+            }
+        });
+    });
+
+    // Copy Code Delegation
+    chatFeed.addEventListener('click', function(e) {
+        const copyBtn = e.target.closest ? e.target.closest('.copy-code-btn') : null;
+        if (copyBtn) {
+            const code = decodeURIComponent(copyBtn.getAttribute('data-code') || '');
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(code).then(function() {
+                    const originalHtml = copyBtn.innerHTML;
+                    copyBtn.innerHTML = '<i class="fa-solid fa-check text-success me-1"></i>Copiado';
+                    setTimeout(function() {
+                        copyBtn.innerHTML = originalHtml;
+                    }, 2000);
+                });
+            }
+        }
+    });
+
+    // Copy Session ID
+    telemetrySessionId.addEventListener('click', function() {
+        if (navigator.clipboard && sessionId) {
+            navigator.clipboard.writeText(sessionId).then(function() {
+                const original = telemetrySessionId.textContent;
+                telemetrySessionId.textContent = '¡Copiado!';
+                setTimeout(function() {
+                    telemetrySessionId.textContent = original;
+                }, 1500);
+            });
+        }
+    });
+
+    // Start Chat
+    initializeChat();
+
+})();
+</script>
+{% endblock %}

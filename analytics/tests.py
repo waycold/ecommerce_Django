@@ -100,3 +100,21 @@ class AnalyticsTestCase(TestCase):
         data = response.json()
         self.assertIn('progress_pct', data)
         self.assertIn('current_step', data)
+
+    def test_ai_chat_view_security_and_rendering(self):
+        # Anonymous redirect
+        res_anon = self.client.get('/analytics/chat/')
+        self.assertNotEqual(res_anon.status_code, 200)
+
+        # Normal user redirect
+        self.client.login(username="normaluser", password="password123")
+        res_user = self.client.get('/analytics/chat/')
+        self.assertNotEqual(res_user.status_code, 200)
+
+        # Staff user authorized
+        self.client.login(username="staffuser", password="password123")
+        res_staff = self.client.get('/analytics/chat/')
+        self.assertEqual(res_staff.status_code, 200)
+        self.assertContains(res_staff, "AI Analytics Assistant")
+        self.assertContains(res_staff, "Managerial AI Agent")
+

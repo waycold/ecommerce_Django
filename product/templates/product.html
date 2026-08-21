@@ -62,15 +62,15 @@
           </div>
 
           <div>
-            <button type="button" class="btn btn-outline-primary btn-sm my-2" onclick="consultarProducto('{{ object.title|escapejs }}', '{{ object.price }}')">
+            <button type="button" class="btn btn-outline-primary btn-sm my-2" onclick="consultarProducto('{{ object.title|escapejs }}')">
               <i class="fas fa-robot mr-1"></i> Preguntar a la IA sobre este producto
             </button>
             <script>
-              function consultarProducto(nombre, precio) {
+              function consultarProducto(nombre) {
                 if (window.AiChatWidget) {
                   window.AiChatWidget.open();
                   window.AiChatWidget.setAgent('ecommerce');
-                  window.AiChatWidget.sendMessage('Hola, me interesa el producto "' + nombre + '" (Precio: $' + precio + '). ¿Podrías darme más detalles, recomendaciones y disponibilidad?');
+                  window.AiChatWidget.sendMessage('Hola, me interesa el producto "' + nombre + '". ¿Podrías darme más detalles, recomendaciones y disponibilidad?');
                 }
               }
             </script>

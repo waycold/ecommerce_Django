@@ -301,6 +301,9 @@
                     <a href="{% url 'analytics:simulator' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'simulator' %}active{% endif %}">
                         Data Simulator
                     </a>
+                    <a href="{% url 'analytics:ai_chat' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'ai_chat' %}active{% endif %}">
+                        <i class="fa-solid fa-robot me-1 text-primary"></i> AI Copilot
+                    </a>
                 </div>
             </div>
             <div class="d-flex align-items-center gap-2">

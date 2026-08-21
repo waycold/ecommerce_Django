@@ -71,6 +71,18 @@ class SimulatorView(View):
 
 
 @method_decorator(staff_member_required(login_url='login'), name='dispatch')
+class AnalyticsChatView(View):
+    """
+    AI Managerial Chat view.
+    Renders conversational assistant interface for real-time analytics insights.
+    """
+    template_name = 'analytics/ai_chat.html'
+
+    def get(self, request):
+        return render(request, self.template_name)
+
+
+@method_decorator(staff_member_required(login_url='login'), name='dispatch')
 class ExportSalesExcelView(View):
     """
     ETL data export endpoint to Excel format (.xlsx).
@@ -130,3 +142,20 @@ class GenerationProgressView(View):
     def get(self, request):
         progress = get_generation_progress()
         return JsonResponse(progress)
+
+
+@method_decorator(staff_member_required(login_url='login'), name='dispatch')
+class AnalyticsChatView(View):
+    """
+    AI Copilot Chat view for Managerial Analytics & BI.
+    Renders corporate LLM chat interface with streaming SSE and KPI query assistance.
+    """
+    template_name = 'analytics/ai_chat.html'
+
+    def get(self, request):
+        return render(request, self.template_name)
+
+
+AiChatView = AnalyticsChatView
+
+

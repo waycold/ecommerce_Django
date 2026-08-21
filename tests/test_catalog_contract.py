@@ -420,3 +420,66 @@ class TestCatalogSearchContract:
         items_all = _extract_items(data_all)
         all_ids = {r['id'] for r in items_all}
         assert catalog_setup['item_inactive'].id not in all_ids
+
+    def test_catalog_search_with_price_prefix_and_punctuation(self, client, catalog_setup):
+        """
+        Queries containing price prefixes and punctuation (e.g. 'Gaming Laptop ROG Strix (Precio: $1499.99)')
+        are cleaned and match the expected item.
+        """
+        secret = settings.INTERNAL_API_SECRET
+        response = client.get(
+            f"{self.SEARCH_URL}?q=Gaming+Laptop+ROG+Strix+(Precio:+$1499.99)",
+            HTTP_X_INTERNAL_SECRET=secret
+        )
+        assert response.status_code == 200
+        data = response.json()
+        items = _extract_items(data)
+        assert len(items) >= 1
+        assert items[0]['id'] == catalog_setup['item_laptop'].id
+
+    def test_catalog_search_multi_token_across_fields(self, client, catalog_setup):
+        """
+        Queries with multiple tokens matching across title and brand (e.g. 'laptop rog asus')
+        successfully match the item and rank it at the top.
+        """
+        secret = settings.INTERNAL_API_SECRET
+        response = client.get(
+            f"{self.SEARCH_URL}?q=laptop+rog+asus",
+            HTTP_X_INTERNAL_SECRET=secret
+        )
+        assert response.status_code == 200
+        data = response.json()
+        items = _extract_items(data)
+        assert len(items) >= 1
+        assert items[0]['id'] == catalog_setup['item_laptop'].id
+
+    def test_catalog_search_stop_words_filtering(self, client, catalog_setup):
+        """
+        Queries containing Spanish or English stop words are filtered to significant keywords.
+        """
+        secret = settings.INTERNAL_API_SECRET
+        response = client.get(
+            f"{self.SEARCH_URL}?q=hola+me+interesa+el+producto+Mechanical+Keyboard+RGB",
+            HTTP_X_INTERNAL_SECRET=secret
+        )
+        assert response.status_code == 200
+        data = response.json()
+        items = _extract_items(data)
+        assert len(items) >= 1
+        assert items[0]['id'] == catalog_setup['item_keyboard'].id
+
+    def test_catalog_search_exact_match_priority(self, client, catalog_setup):
+        """
+        Exact title matches are ranked higher than partial description/token matches.
+        """
+        secret = settings.INTERNAL_API_SECRET
+        response = client.get(
+            f"{self.SEARCH_URL}?q=Mechanical+Keyboard+RGB",
+            HTTP_X_INTERNAL_SECRET=secret
+        )
+        assert response.status_code == 200
+        data = response.json()
+        items = _extract_items(data)
+        assert len(items) >= 1
+        assert items[0]['id'] == catalog_setup['item_keyboard'].id
+
