@@ -844,7 +844,7 @@
         let text = rawText.replace(/```([a-zA-Z0-9_-]*)\n?([\s\S]*?)```/g, function(_, lang, code) {
             const idx = codeBlocks.length;
             codeBlocks.push({ lang: lang.trim() || 'code', code: code.replace(/\n$/, '') });
-            return '@@CODEBLOCK_' + idx + '@@';
+            return '%%%CODEBLOCKPART' + idx + 'END%%%';
         });
 
         // Step 2: Extract Inline Code
@@ -852,33 +852,29 @@
         text = text.replace(/`([^`\n]+)`/g, function(_, code) {
             const idx = inlineCodes.length;
             inlineCodes.push(code);
-            return '@@INLINECODE_' + idx + '@@';
+            return '%%%INLINECODEPART' + idx + 'END%%%';
         });
 
         // Step 3: Markdown Tables Parsing
         // Recognizes table blocks with header, separator row (|---|---|), and rows
-        text = text.replace(/((?:^[ \t]*\|.+?\|[ \t]*(?:\n|$)){2,})/gm, function(tableBlock) {
-            const lines = tableBlock.trim().split('\n').map(l => l.trim()).filter(Boolean);
+        const tableBlocks = [];
+        text = text.replace(/((?:^[ \t]*\|.+?\|[ \t]*(?:\r?\n|$)){2,})/gm, function(tableBlock) {
+            const lines = tableBlock.trim().split(/\r?\n/).map(l => l.trim()).filter(Boolean);
             if (lines.length < 2) return tableBlock;
 
-            // Check if line 1 or line 2 is the separator (|---|---|)
-            let headerIndex = 0;
-            let separatorIndex = 1;
-            
-            const isSeparator = function(line) {
-                return /^\|[ :\-|\t]+\|$/.test(line) && line.includes('-');
-            };
-
-            if (!isSeparator(lines[1])) {
-                if (isSeparator(lines[0])) {
-                    return tableBlock;
+            // Find separator row (contains |---|)
+            let sepIdx = -1;
+            for (let i = 0; i < lines.length; i++) {
+                if (/^\|[ :\-|\t]+\|$/.test(lines[i]) && lines[i].includes('-')) {
+                    sepIdx = i;
+                    break;
                 }
-                return tableBlock;
             }
+            if (sepIdx < 1) return tableBlock; // Need at least 1 header line before separator
 
-            const headerLine = lines[0];
-            const sepLine = lines[1];
-            const dataLines = lines.slice(2);
+            const headerLines = lines.slice(0, sepIdx);
+            const sepLine = lines[sepIdx];
+            const dataLines = lines.slice(sepIdx + 1);
 
             // Parse Alignments from separator
             const sepCells = sepLine.split('|').slice(1, -1);
@@ -892,13 +888,19 @@
             });
 
             // Parse Header
-            const headers = headerLine.split('|').slice(1, -1).map(h => h.trim());
-            let headerHtml = '<thead><tr>';
-            headers.forEach(function(h, idx) {
-                const alignClass = alignments[idx] || 'text-start';
-                headerHtml += '<th class="' + alignClass + '">' + escapeHtml(h) + '</th>';
+            let headerHtml = '<thead>';
+            headerLines.forEach(function(hLine) {
+                const cells = hLine.split('|').slice(1, -1).map(c => c.trim());
+                headerHtml += '<tr>';
+                cells.forEach(function(h, idx) {
+                    const alignClass = alignments[idx] || 'text-start';
+                    let formattedHeader = escapeHtml(h);
+                    formattedHeader = formattedHeader.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+                    headerHtml += '<th class="' + alignClass + '">' + formattedHeader + '</th>';
+                });
+                headerHtml += '</tr>';
             });
-            headerHtml += '</tr></thead>';
+            headerHtml += '</thead>';
 
             // Parse Body Rows
             let bodyHtml = '<tbody>';
@@ -908,23 +910,27 @@
                 bodyHtml += '<tr>';
                 cells.forEach(function(cellContent, idx) {
                     const alignClass = alignments[idx] || 'text-start';
-                    bodyHtml += '<td class="' + alignClass + '">' + escapeHtml(cellContent) + '</td>';
+                    let formattedCell = escapeHtml(cellContent);
+                    // Format inline markdown inside cells
+                    formattedCell = formattedCell.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+                    formattedCell = formattedCell.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+                    formattedCell = formattedCell.replace(/(^|[^\*])\*([^*]+)\*([^\*]|$)/g, '$1<em>$2</em>$3');
+                    formattedCell = formattedCell.replace(/(^|[^_])_([^_]+)_([^_]|$)/g, '$1<em>$2</em>$3');
+                    formattedCell = formattedCell.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+                    formattedCell = formattedCell.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+                    bodyHtml += '<td class="' + alignClass + '">' + formattedCell + '</td>';
                 });
                 bodyHtml += '</tr>';
             });
             bodyHtml += '</tbody>';
 
-            return '<div class="table-responsive"><table class="table-custom">' + headerHtml + bodyHtml + '</table></div>';
+            const tableHtml = '<div class="table-responsive my-3"><table class="table-custom">' + headerHtml + bodyHtml + '</table></div>';
+            const idx = tableBlocks.length;
+            tableBlocks.push(tableHtml);
+            return '%%%HTMLTABLEPART' + idx + 'END%%%';
         });
 
-        // Step 4: Escape remaining plain text (outside preserved tags)
-        const htmlParts = [];
-        text = text.replace(/(<div class="table-responsive">[\s\S]*?<\/div>)/g, function(_, match) {
-            const idx = htmlParts.length;
-            htmlParts.push(match);
-            return '@@HTMLPART_' + idx + '@@';
-        });
-
+        // Step 4: Escape remaining plain text
         text = escapeHtml(text);
 
         // Step 5: Markdown Links [label](url)
@@ -957,13 +963,13 @@
             text = '<p>' + text + '</p>';
         }
 
-        // Step 10: Reinsert HTML parts (tables)
-        text = text.replace(/@@HTMLPART_(\d+)@@/g, function(_, id) {
-            return htmlParts[Number(id)] || '';
+        // Step 10: Reinsert HTML Table Blocks
+        text = text.replace(/%%%HTMLTABLEPART(\d+)END%%%/g, function(_, id) {
+            return tableBlocks[Number(id)] || '';
         });
 
         // Step 11: Reinsert Code Blocks
-        text = text.replace(/@@CODEBLOCK_(\d+)@@/g, function(_, id) {
+        text = text.replace(/%%%CODEBLOCKPART(\d+)END%%%/g, function(_, id) {
             const block = codeBlocks[Number(id)];
             if (!block) return '';
             const safeCode = escapeHtml(block.code);
@@ -979,7 +985,7 @@
         });
 
         // Step 12: Reinsert Inline Code
-        text = text.replace(/@@INLINECODE_(\d+)@@/g, function(_, id) {
+        text = text.replace(/%%%INLINECODEPART(\d+)END%%%/g, function(_, id) {
             return '<code class="inline-code">' + escapeHtml(inlineCodes[Number(id)] || '') + '</code>';
         });
 

@@ -133,7 +133,7 @@
     var text = raw.replace(/```([a-zA-Z0-9_-]*)\n?([\s\S]*?)```/g, function (_, lang, code) {
       var idx = codeBlocks.length;
       codeBlocks.push({ lang: lang.trim() || 'code', code: code.replace(/\n$/, '') });
-      return '@@CODEBLOCK_' + idx + '@@';
+      return '%%%CODEBLOCKPART' + idx + 'END%%%';
     });
 
     // Step 2: Extract inline code
@@ -141,25 +141,94 @@
     text = text.replace(/`([^`\n]+)`/g, function (_, code) {
       var idx = inlineCodes.length;
       inlineCodes.push(code);
-      return '@@INLINECODE_' + idx + '@@';
+      return '%%%INLINECODEPART' + idx + 'END%%%';
     });
 
-    // Step 3: Escape HTML characters
+    // Step 3: Markdown Tables Parsing
+    var tableBlocks = [];
+    text = text.replace(/((?:^[ \t]*\|.+?\|[ \t]*(?:\r?\n|$)){2,})/gm, function (tableBlock) {
+      var lines = tableBlock.trim().split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
+      if (lines.length < 2) return tableBlock;
+
+      var sepIdx = -1;
+      for (var i = 0; i < lines.length; i++) {
+        if (/^\|[ :\-|\t]+\|$/.test(lines[i]) && lines[i].includes('-')) {
+          sepIdx = i;
+          break;
+        }
+      }
+      if (sepIdx < 1) return tableBlock;
+
+      var headerLines = lines.slice(0, sepIdx);
+      var sepLine = lines[sepIdx];
+      var dataLines = lines.slice(sepIdx + 1);
+
+      var sepCells = sepLine.split('|').slice(1, -1);
+      var alignments = sepCells.map(function (c) {
+        var cell = c.trim();
+        var left = cell.startsWith(':');
+        var right = cell.endsWith(':');
+        if (left && right) return 'text-center';
+        if (right) return 'text-end';
+        return 'text-start';
+      });
+
+      var headerHtml = '<thead>';
+      headerLines.forEach(function (hLine) {
+        var cells = hLine.split('|').slice(1, -1).map(function (c) { return c.trim(); });
+        headerHtml += '<tr>';
+        cells.forEach(function (h, idx) {
+          var alignClass = alignments[idx] || 'text-start';
+          var formattedHeader = escapeHtml(h);
+          formattedHeader = formattedHeader.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+          headerHtml += '<th class="' + alignClass + '">' + formattedHeader + '</th>';
+        });
+        headerHtml += '</tr>';
+      });
+      headerHtml += '</thead>';
+
+      var bodyHtml = '<tbody>';
+      dataLines.forEach(function (rowLine) {
+        if (!rowLine.includes('|')) return;
+        var cells = rowLine.split('|').slice(1, -1).map(function (c) { return c.trim(); });
+        bodyHtml += '<tr>';
+        cells.forEach(function (cellContent, idx) {
+          var alignClass = alignments[idx] || 'text-start';
+          var formattedCell = escapeHtml(cellContent);
+          formattedCell = formattedCell.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+          formattedCell = formattedCell.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+          formattedCell = formattedCell.replace(/(^|[^\*])\*([^*]+)\*([^\*]|$)/g, '$1<em>$2</em>$3');
+          formattedCell = formattedCell.replace(/(^|[^_])_([^_]+)_([^_]|$)/g, '$1<em>$2</em>$3');
+          formattedCell = formattedCell.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+          formattedCell = formattedCell.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="chat-link">$1 ↗</a>');
+          bodyHtml += '<td class="' + alignClass + '">' + formattedCell + '</td>';
+        });
+        bodyHtml += '</tr>';
+      });
+      bodyHtml += '</tbody>';
+
+      var tableHtml = '<div class="table-responsive"><table class="chat-table">' + headerHtml + bodyHtml + '</table></div>';
+      var idx = tableBlocks.length;
+      tableBlocks.push(tableHtml);
+      return '%%%HTMLTABLEPART' + idx + 'END%%%';
+    });
+
+    // Step 4: Escape plain text
     text = escapeHtml(text);
 
-    // Step 4: Markdown Links [text](url)
+    // Step 5: Markdown Links [text](url)
     text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/g, function (_, label, url) {
       var safeUrl = encodeURI(url.trim());
       return '<a href="' + safeUrl + '" target="_blank" rel="noopener noreferrer" class="chat-link">' + label + ' ↗</a>';
     });
 
-    // Step 5: Bold and Italics
+    // Step 6: Bold and Italics
     text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     text = text.replace(/__([^_]+)__/g, '<strong>$1</strong>');
     text = text.replace(/(^|[^\*])\*([^*]+)\*([^\*]|$)/g, '$1<em>$2</em>$3');
     text = text.replace(/(^|[^_])_([^_]+)_([^_]|$)/g, '$1<em>$2</em>$3');
 
-    // Step 6: Bullet and Numbered Lists
+    // Step 7: Bullet and Numbered Lists
     text = text.replace(/((?:^(?:-|\*)\s+.+(?:\n|$))+)/gm, function (match) {
       var items = match
         .trim()
@@ -190,16 +259,22 @@
       return '<ol class="chat-list">' + items + '</ol>';
     });
 
-    // Step 7: Paragraphs & Newlines
+    // Step 8: Paragraphs & Newlines
     text = text.replace(/\n\n+/g, '</p><p>');
     text = text.replace(/\n/g, '<br>');
-    if (!text.startsWith('<ul') && !text.startsWith('<ol') && !text.startsWith('<p')) {
+    if (!text.startsWith('<div') && !text.startsWith('<ul') && !text.startsWith('<ol') && !text.startsWith('<p')) {
       text = '<p>' + text + '</p>';
     }
 
-    // Step 8: Reinsert code blocks
-    text = text.replace(/@@CODEBLOCK_(\d+)@@/g, function (_, id) {
+    // Step 9: Reinsert HTML table blocks
+    text = text.replace(/%%%HTMLTABLEPART(\d+)END%%%/g, function (_, id) {
+      return tableBlocks[Number(id)] || '';
+    });
+
+    // Step 10: Reinsert code blocks
+    text = text.replace(/%%%CODEBLOCKPART(\d+)END%%%/g, function (_, id) {
       var block = codeBlocks[Number(id)];
+      if (!block) return '';
       var safeCode = escapeHtml(block.code);
       return (
         '<div class="code-container">' +
@@ -209,9 +284,9 @@
       );
     });
 
-    // Step 9: Reinsert inline codes
-    text = text.replace(/@@INLINECODE_(\d+)@@/g, function (_, id) {
-      return '<code class="inline-code">' + escapeHtml(inlineCodes[Number(id)]) + '</code>';
+    // Step 11: Reinsert inline codes
+    text = text.replace(/%%%INLINECODEPART(\d+)END%%%/g, function (_, id) {
+      return '<code class="inline-code">' + escapeHtml(inlineCodes[Number(id)] || '') + '</code>';
     });
 
     return text;
@@ -564,6 +639,58 @@
     .chat-list li {
       margin-bottom: 4px;
     }
+
+    .table-responsive {
+      width: 100%;
+      overflow-x: auto;
+      margin: 8px 0;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .table-responsive::-webkit-scrollbar {
+      height: 5px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 3px;
+    }
+
+    .chat-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      text-align: left;
+    }
+
+    .chat-table th {
+      background: #f8fafc;
+      color: #334155;
+      font-weight: 600;
+      padding: 7px 10px;
+      border-bottom: 1px solid var(--border-color);
+      white-space: nowrap;
+    }
+
+    .chat-table td {
+      padding: 7px 10px;
+      border-bottom: 1px solid #f1f5f9;
+      color: #1e293b;
+    }
+
+    .chat-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .chat-table tr:hover {
+      background: #f8fafc;
+    }
+
+    .text-start { text-align: left; }
+    .text-center { text-align: center; }
+    .text-end { text-align: right; }
 
     .inline-code {
       background: #f1f5f9;
