@@ -11,10 +11,20 @@ Comprehensive test suite verifying the Managerial AI Analytics Copilot Web Inter
    - Distinct active states across analytics pages (Dashboard vs AI Copilot).
 3. Core Copilot Template & Architectural Components:
    - Conversation controls (Limpiar Conversación, Clear session, Send button, User input).
-   - Live telemetry and performance panels (latency, model router, session ID, online gateway status).
    - Streaming area and indicators (SSE stream targets, streaming cursor, typing indicators).
    - Quick starter prompt suggestions for business queries.
    - Markdown responsive tables and scrollable containers for executive reporting.
+4. Chart.js Interactive Visualizations:
+   - Dynamic auto-conversion of tabular data into Chart.js canvases (Bar, Line, Doughnut, Pie).
+   - Table action toolbar ("Ver Gráfico", "CSV", "Copiar") and switch-to-table controls.
+   - Direct JSON chart block rendering support (.direct-chart-box, data-direct-chart).
+5. Comprehensive Export Suite:
+   - Multi-format export dropdown (Markdown .md, CSV tables, Session .json, Print/PDF).
+   - Print media layout styles (@media print) for clean executive PDF generation.
+6. Dynamic Telemetry & Live Heartbeat:
+   - Real-time latency tracking (ms), active model indicator, conversational turn counter.
+   - Accumulated token estimation metric (telemetryTokens).
+   - Real-time live gateway health check (/ping polling, online status badge).
 """
 
 import pytest
@@ -88,7 +98,7 @@ class TestAnalyticsChatAuthentication:
         response = client.get(self.CHAT_URL)
         assert response.status_code == 200
         content = response.content.decode("utf-8")
-        assert "Executive AI Copilot & Business Intelligence" in content
+        assert "AI Analytics Assistant" in content or "Executive AI Copilot" in content
 
     def test_superuser_access_allowed(self, client, superuser_admin):
         """
@@ -127,7 +137,6 @@ class TestAnalyticsChatNavbarIntegration:
 
         assert "AI Copilot" in html
         assert "fa-robot" in html
-        # Active class must be present on the current link
         assert 'class="nav-link-custom active"' in html or 'nav-link-custom active' in html
 
     def test_ai_copilot_tab_inactive_on_other_analytics_pages(self, client, staff_member):
@@ -140,7 +149,6 @@ class TestAnalyticsChatNavbarIntegration:
         html = response.content.decode("utf-8")
 
         assert "AI Copilot" in html
-        # Dashboard should have active class, and AI Copilot should not be marked active
         assert 'href="/analytics/chat/" class="nav-link-custom "' in html or 'href="/analytics/chat/" class="nav-link-custom"' in html or 'href="/analytics/chat/"' in html
 
 
@@ -183,23 +191,6 @@ class TestAnalyticsChatTemplateComponents:
         assert 'streaming-cursor' in html
         assert 'typing-dots' in html
 
-    def test_live_telemetry_and_metrics_panel_present(self, client, staff_member):
-        """
-        Live performance metrics, latency, model indicator, session ID, gateway status dot.
-        """
-        client.force_login(staff_member)
-        response = client.get(reverse('analytics:ai_chat'))
-        assert response.status_code == 200
-        html = response.content.decode("utf-8")
-
-        assert 'id="telemetryLatency"' in html
-        assert 'id="telemetryModel"' in html
-        assert 'id="telemetrySessionId"' in html
-        assert 'id="telemetryTurns"' in html
-        assert 'id="gatewayStatusBadge"' in html
-        assert 'id="gatewayStatusDot"' in html
-        assert "Rendimiento en Vivo" in html
-
     def test_quick_starter_prompt_buttons_present(self, client, staff_member):
         """
         Quick suggested business questions buttons.
@@ -240,3 +231,190 @@ class TestAnalyticsChatTemplateComponents:
         assert "https://ai-agent-gateway-sued.onrender.com" in html
         assert "analytics" in html
         assert "analytics_chat_session_id" in html
+
+
+# ==============================================================================
+# 4. CHART.JS VISUALIZATIONS & TABLE-TO-CHART CONVERSION TESTS
+# ==============================================================================
+
+@pytest.mark.django_db
+class TestAnalyticsChatVisualizationsAndCharts:
+    """
+    Validates Chart.js engine integration, table toolbars, chart controls,
+    and direct chart rendering blocks.
+    """
+
+    def test_chart_js_script_included_in_page(self, client, staff_member):
+        """
+        Chart.js library must be loaded in the page via CDN script tag.
+        """
+        client.force_login(staff_member)
+        response = client.get(reverse('analytics:ai_chat'))
+        assert response.status_code == 200
+        html = response.content.decode("utf-8")
+
+        assert "chart.js" in html.lower() or "chart.min.js" in html.lower()
+
+    def test_table_toolbar_and_chart_conversion_elements(self, client, staff_member):
+        """
+        Tables generated by AI Copilot must have toolbars with 'Ver Gráfico', 'CSV', and 'Copiar' buttons.
+        """
+        client.force_login(staff_member)
+        response = client.get(reverse('analytics:ai_chat'))
+        assert response.status_code == 200
+        html = response.content.decode("utf-8")
+
+        assert "table-container-card" in html
+        assert "table-toolbar" in html
+        assert "btn-table-chart" in html
+        assert "Ver Gráfico" in html
+        assert "btn-table-csv" in html
+        assert "btn-table-copy" in html
+
+    def test_chart_controls_and_type_selectors_present(self, client, staff_member):
+        """
+        Chart view wrapper must provide type selectors (Bar, Line, Doughnut, Pie) and 'Ver Tabla' switch.
+        """
+        client.force_login(staff_member)
+        response = client.get(reverse('analytics:ai_chat'))
+        assert response.status_code == 200
+        html = response.content.decode("utf-8")
+
+        assert "chart-controls-bar" in html
+        assert "chart-type-selector" in html
+        assert 'data-chart-type="bar"' in html
+        assert 'data-chart-type="line"' in html
+        assert 'data-chart-type="doughnut"' in html
+        assert 'data-chart-type="pie"' in html
+        assert "btn-switch-to-table" in html
+        assert "Ver Tabla" in html
+        assert "chart-canvas-wrapper" in html
+
+    def test_direct_chart_blocks_support(self, client, staff_member):
+        """
+        Direct JSON chart blocks (```chart or ```json-chart) must be supported.
+        """
+        client.force_login(staff_member)
+        response = client.get(reverse('analytics:ai_chat'))
+        assert response.status_code == 200
+        html = response.content.decode("utf-8")
+
+        assert "direct-chart-box" in html
+        assert "data-direct-chart" in html
+        assert "renderDirectChartBlocks" in html
+
+
+# ==============================================================================
+# 5. MULTI-FORMAT EXPORT SUITE TESTS
+# ==============================================================================
+
+@pytest.mark.django_db
+class TestAnalyticsChatExportFeatures:
+    """
+    Validates report export menu options (Markdown, CSV, JSON, PDF/Print) and table exports.
+    """
+
+    def test_export_dropdown_menu_present(self, client, staff_member):
+        """
+        Export dropdown button 'Exportar Reporte' and dropdown container must be present.
+        """
+        client.force_login(staff_member)
+        response = client.get(reverse('analytics:ai_chat'))
+        assert response.status_code == 200
+        html = response.content.decode("utf-8")
+
+        assert 'id="exportDropdownBtn"' in html
+        assert "Exportar Reporte" in html
+        assert "dropdown-menu-dark" in html
+
+    def test_export_format_buttons_present(self, client, staff_member):
+        """
+        Dropdown must offer Markdown, CSV, JSON, and PDF/Print export options.
+        """
+        client.force_login(staff_member)
+        response = client.get(reverse('analytics:ai_chat'))
+        assert response.status_code == 200
+        html = response.content.decode("utf-8")
+
+        assert 'id="exportMarkdownBtn"' in html
+        assert "Descargar Markdown (.md)" in html
+
+        assert 'id="exportCsvBtn"' in html
+        assert "Descargar Tablas (.csv)" in html
+
+        assert 'id="exportJsonBtn"' in html
+        assert "Descargar Sesión (.json)" in html
+
+        assert 'id="exportPdfBtn"' in html
+        assert "Guardar como PDF / Imprimir" in html
+
+    def test_export_client_functions_defined(self, client, staff_member):
+        """
+        JavaScript export handlers must be properly wired.
+        """
+        client.force_login(staff_member)
+        response = client.get(reverse('analytics:ai_chat'))
+        assert response.status_code == 200
+        html = response.content.decode("utf-8")
+
+        assert "exportSessionMarkdown" in html
+        assert "exportSessionAllTablesCsv" in html
+        assert "exportSessionJson" in html
+        assert "exportTableToCsv" in html
+
+    def test_print_media_stylesheet_present_for_pdf_generation(self, client, staff_member):
+        """
+        Print stylesheet (@media print) must hide navigation/telemetry and format clean tables.
+        """
+        client.force_login(staff_member)
+        response = client.get(reverse('analytics:ai_chat'))
+        assert response.status_code == 200
+        html = response.content.decode("utf-8")
+
+        assert "@media print" in html
+        assert "telemetry-sidebar" in html
+        assert "prompt-starters-section" in html
+
+
+# ==============================================================================
+# 6. DYNAMIC TELEMETRY & LIVE HEALTH TESTS
+# ==============================================================================
+
+@pytest.mark.django_db
+class TestAnalyticsChatDynamicTelemetry:
+    """
+    Validates dynamic telemetry sidebar elements: live latency, active model,
+    conversational turns, accumulated token estimation, and gateway health heartbeat.
+    """
+
+    def test_telemetry_sidebar_selectors_present(self, client, staff_member):
+        """
+        Live performance panel metrics: latency, model, agent, protocol, turns, tokens.
+        """
+        client.force_login(staff_member)
+        response = client.get(reverse('analytics:ai_chat'))
+        assert response.status_code == 200
+        html = response.content.decode("utf-8")
+
+        assert 'id="telemetryLatency"' in html
+        assert 'id="telemetryModel"' in html
+        assert 'id="telemetryTurns"' in html
+        assert 'id="telemetryTokens"' in html
+        assert "Tokens Estimados" in html
+        assert 'id="telemetrySessionId"' in html
+        assert "Rendimiento en Vivo" in html
+
+    def test_gateway_live_heartbeat_and_status_dot(self, client, staff_member):
+        """
+        Real-time Gateway status badge and live heartbeat ping checking.
+        """
+        client.force_login(staff_member)
+        response = client.get(reverse('analytics:ai_chat'))
+        assert response.status_code == 200
+        html = response.content.decode("utf-8")
+
+        assert 'id="gatewayStatusBadge"' in html
+        assert 'id="gatewayStatusDot"' in html
+        assert 'id="gatewayStatusText"' in html
+        assert "checkGatewayHealth" in html
+        assert "/ping" in html

@@ -164,3 +164,23 @@ class TestAnalyticsAICopilotTemplateComponents:
         assert "agent_id" in html
         assert "analytics" in html
         assert "streaming-cursor" in html
+
+        # f) Dynamic Chart.js Integration
+        assert "btn-table-chart" in html
+        assert "Ver Gráfico" in html
+        assert "chart-type-selector" in html
+        assert "chart-canvas-wrapper" in html
+        assert "renderChartForTable" in html
+
+        # g) Export Module (Markdown, CSV, JSON, PDF)
+        assert "exportDropdownBtn" in html
+        assert "exportMarkdownBtn" in html
+        assert "exportCsvBtn" in html
+        assert "exportJsonBtn" in html
+        assert "exportPdfBtn" in html
+        assert "@media print" in html
+
+        # h) Dynamic Telemetry & Gateway Heartbeat
+        assert "telemetryTokens" in html
+        assert "checkGatewayHealth" in html
+

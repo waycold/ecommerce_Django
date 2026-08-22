@@ -116,5 +116,6 @@ class AnalyticsTestCase(TestCase):
         res_staff = self.client.get('/analytics/chat/')
         self.assertEqual(res_staff.status_code, 200)
         self.assertContains(res_staff, "AI Analytics Assistant")
-        self.assertContains(res_staff, "Managerial AI Agent")
+        self.assertIn('user_jwt_token', res_staff.context)
+        self.assertIsNotNone(res_staff.context['user_jwt_token'])
 

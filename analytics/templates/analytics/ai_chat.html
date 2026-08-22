@@ -9,8 +9,8 @@
     .copilot-container {
         display: flex;
         flex-direction: column;
-        height: calc(100vh - 160px);
-        min-height: 600px;
+        height: calc(100vh - 155px);
+        min-height: 620px;
         background-color: var(--bg-card);
         border: 1px solid var(--border-color);
         border-radius: 6px;
@@ -20,7 +20,7 @@
     .copilot-header {
         background-color: var(--bg-secondary);
         border-bottom: 1px solid var(--border-color);
-        padding: 14px 20px;
+        padding: 12px 20px;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -56,6 +56,7 @@
 
     .chat-history::-webkit-scrollbar {
         width: 6px;
+        height: 6px;
     }
 
     .chat-history::-webkit-scrollbar-thumb {
@@ -72,11 +73,11 @@
         width: 320px;
         flex-shrink: 0;
         background-color: var(--bg-secondary);
-        padding: 18px;
+        padding: 16px;
         overflow-y: auto;
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 14px;
     }
 
     @media (max-width: 991px) {
@@ -90,7 +91,7 @@
         .chat-main-column {
             border-right: none;
             border-bottom: 1px solid var(--border-color);
-            height: 520px;
+            height: 540px;
         }
         .telemetry-sidebar {
             width: 100%;
@@ -101,7 +102,7 @@
     .message-row {
         display: flex;
         gap: 12px;
-        max-width: 90%;
+        max-width: 92%;
         animation: fadeInMsg 0.2s ease-out;
     }
 
@@ -117,6 +118,7 @@
 
     .message-row.bot {
         align-self: flex-start;
+        width: 100%;
     }
 
     .avatar-icon {
@@ -188,7 +190,7 @@
     .prompt-starters-section {
         background: var(--bg-secondary);
         border-bottom: 1px solid var(--border-color);
-        padding: 12px 20px;
+        padding: 10px 18px;
         flex-shrink: 0;
     }
 
@@ -214,7 +216,7 @@
         background-color: var(--bg-card);
         border: 1px solid var(--border-color);
         color: #cbd5e1;
-        font-size: 11.5px;
+        font-size: 11px;
         padding: 5px 11px;
         border-radius: 4px;
         cursor: pointer;
@@ -240,7 +242,7 @@
     .chat-input-area {
         background-color: var(--bg-secondary);
         border-top: 1px solid var(--border-color);
-        padding: 14px 20px;
+        padding: 12px 18px;
         flex-shrink: 0;
     }
 
@@ -255,13 +257,13 @@
         background-color: var(--bg-primary);
         border: 1px solid var(--border-color);
         border-radius: 4px;
-        padding: 10px 14px;
+        padding: 9px 14px;
         color: var(--text-primary);
         font-size: 13px;
         font-family: inherit;
         resize: none;
         max-height: 120px;
-        min-height: 42px;
+        min-height: 40px;
         outline: none;
         line-height: 1.4;
         transition: border-color 0.15s ease;
@@ -283,14 +285,14 @@
         color: #ffffff;
         font-size: 13px;
         font-weight: 500;
-        padding: 10px 18px;
+        padding: 9px 18px;
         border-radius: 4px;
         cursor: pointer;
         display: inline-flex;
         align-items: center;
         gap: 6px;
         transition: background-color 0.15s ease;
-        height: 42px;
+        height: 40px;
     }
 
     .btn-send:hover:not(:disabled) {
@@ -401,14 +403,80 @@
         line-height: 1.45;
     }
 
-    /* Markdown Table Custom Styling with Horizontal/Vertical Scrolling */
-    .message-content .table-responsive {
+    /* Table Container with Interactive Toolbar & Scroll */
+    .table-container-card {
         margin: 12px 0;
+        background-color: var(--bg-card);
         border: 1px solid var(--border-color);
+        border-radius: 6px;
+        overflow: hidden;
+    }
+
+    .table-toolbar {
+        background-color: #13161c;
+        border-bottom: 1px solid var(--border-color);
+        padding: 6px 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .table-toolbar-title {
+        font-size: 11px;
+        font-weight: 600;
+        color: #94a3b8;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .table-toolbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .btn-table-action {
+        background-color: #1e222b;
+        border: 1px solid #2d3340;
+        color: #cbd5e1;
+        font-size: 11px;
+        font-weight: 500;
+        padding: 3px 8px;
         border-radius: 4px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        transition: all 0.15s ease;
+    }
+
+    .btn-table-action:hover {
+        background-color: #272d3b;
+        border-color: var(--accent);
+        color: #ffffff;
+    }
+
+    .btn-table-action.btn-table-chart {
+        background-color: rgba(59, 130, 246, 0.15);
+        border-color: rgba(59, 130, 246, 0.4);
+        color: #60a5fa;
+    }
+
+    .btn-table-action.btn-table-chart:hover {
+        background-color: var(--accent);
+        color: #ffffff;
+    }
+
+    .message-content .table-responsive {
+        margin: 0;
+        border: none;
+        border-radius: 0;
         overflow-x: auto;
         overflow-y: auto;
-        max-height: 380px;
+        max-height: 360px;
         background-color: var(--bg-card);
     }
 
@@ -459,6 +527,71 @@
         color: #ffffff;
     }
 
+    /* Chart Container in Chat Bubble */
+    .chart-view-content {
+        padding: 12px;
+        background-color: #0b0d10;
+    }
+
+    .chart-controls-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .chart-type-selector .btn {
+        font-size: 10.5px;
+        padding: 2px 8px;
+        border-color: #2d3340;
+        color: #94a3b8;
+    }
+
+    .chart-type-selector .btn:hover {
+        background-color: #1e222b;
+        color: #ffffff;
+    }
+
+    .chart-type-selector .btn.active {
+        background-color: var(--accent);
+        border-color: var(--accent);
+        color: #ffffff;
+    }
+
+    .btn-switch-to-table {
+        font-size: 10.5px;
+        padding: 3px 9px;
+        color: #cbd5e1;
+        border-color: #2d3340;
+    }
+
+    .btn-switch-to-table:hover {
+        background-color: #1e222b;
+        color: #ffffff;
+        border-color: var(--accent);
+    }
+
+    .chart-canvas-wrapper {
+        position: relative;
+        height: 260px;
+        width: 100%;
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        padding: 8px;
+    }
+
+    /* Direct JSON Chart Block Container */
+    .direct-chart-box {
+        margin: 12px 0;
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 12px;
+    }
+
     /* Streaming Cursor & Typing Indicator */
     .streaming-cursor {
         display: inline-block;
@@ -504,7 +637,7 @@
         background-color: var(--bg-card);
         border: 1px solid var(--border-color);
         border-radius: 4px;
-        padding: 14px;
+        padding: 12px 14px;
     }
 
     .telemetry-title {
@@ -513,7 +646,7 @@
         letter-spacing: 0.05em;
         color: var(--text-secondary);
         font-weight: 600;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -524,7 +657,7 @@
         justify-content: space-between;
         align-items: center;
         font-size: 11.5px;
-        padding: 6px 0;
+        padding: 5px 0;
         border-bottom: 1px solid #161922;
     }
 
@@ -546,12 +679,10 @@
     .status-badge-online {
         display: inline-flex;
         align-items: center;
-        gap: 5px;
-        font-size: 10px;
+        gap: 6px;
+        font-size: 11px;
         color: #4ade80;
         font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
     }
 
     .status-dot {
@@ -560,18 +691,118 @@
         background-color: #22c55e;
         border-radius: 50%;
         box-shadow: 0 0 8px #22c55e;
+        display: inline-block;
     }
 
     .status-dot.streaming {
         background-color: #38bdf8;
         box-shadow: 0 0 8px #38bdf8;
-        animation: pulse 1s infinite;
+        animation: pulseStream 1s infinite;
     }
 
-    @keyframes pulse {
+    @keyframes pulseStream {
         0% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(1.3); opacity: 0.6; }
+        50% { transform: scale(1.35); opacity: 0.6; }
         100% { transform: scale(1); opacity: 1; }
+    }
+
+    /* Export Dropdown Custom Styling */
+    .dropdown-menu-dark {
+        background-color: #111317;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    .dropdown-menu-dark .dropdown-item {
+        font-size: 12px;
+        color: #cbd5e1;
+        padding: 8px 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .dropdown-menu-dark .dropdown-item:hover {
+        background-color: #1e293b;
+        color: #ffffff;
+    }
+
+    .dropdown-menu-dark .dropdown-divider {
+        border-color: var(--border-color);
+    }
+
+    /* Print Media Styles for Executive PDF Report */
+    @media print {
+        body {
+            background: #ffffff !important;
+            color: #0f172a !important;
+            font-size: 12pt !important;
+        }
+        .navbar-custom, 
+        .telemetry-sidebar, 
+        .copilot-header, 
+        .prompt-starters-section,
+        .chat-input-area, 
+        #ai-chat-widget-root, 
+        .btn-minimal, 
+        .badge-restricted,
+        .table-toolbar,
+        .chart-controls-bar,
+        .dropdown {
+            display: none !important;
+        }
+        .copilot-container {
+            border: none !important;
+            height: auto !important;
+            background: transparent !important;
+        }
+        .copilot-body {
+            display: block !important;
+        }
+        .chat-main-column {
+            border: none !important;
+            background: transparent !important;
+            height: auto !important;
+        }
+        .chat-history {
+            overflow: visible !important;
+            height: auto !important;
+            padding: 0 !important;
+        }
+        .message-row {
+            max-width: 100% !important;
+            margin-bottom: 20px !important;
+            page-break-inside: avoid;
+        }
+        .message-content {
+            background: #ffffff !important;
+            color: #0f172a !important;
+            border: 1px solid #cbd5e1 !important;
+            box-shadow: none !important;
+            padding: 12px !important;
+        }
+        .message-row.user .message-content {
+            background: #f8fafc !important;
+            border: 1px solid #cbd5e1 !important;
+            color: #0f172a !important;
+        }
+        .table-custom {
+            color: #0f172a !important;
+            border: 1px solid #cbd5e1 !important;
+        }
+        .table-custom th {
+            background: #f1f5f9 !important;
+            color: #0f172a !important;
+            border-bottom: 2px solid #94a3b8 !important;
+        }
+        .table-custom td {
+            border-bottom: 1px solid #e2e8f0 !important;
+            color: #1e293b !important;
+        }
+        .chart-canvas-wrapper {
+            border: 1px solid #cbd5e1 !important;
+            background: #ffffff !important;
+        }
     }
 </style>
 {% endblock %}
@@ -587,7 +818,37 @@
             Executive AI Copilot & Business Intelligence connected to transactional sales and forecast models.
         </p>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 align-items-center">
+        <!-- Export Report Dropdown -->
+        <div class="dropdown">
+            <button class="btn-minimal dropdown-toggle" type="button" id="exportDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fa-solid fa-file-export me-1 text-primary"></i> Exportar Reporte
+            </button>
+            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end" aria-labelledby="exportDropdownBtn">
+                <li>
+                    <a class="dropdown-item" href="#" id="exportMarkdownBtn">
+                        <i class="fa-brands fa-markdown text-info"></i> Descargar Markdown (.md)
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="#" id="exportCsvBtn">
+                        <i class="fa-solid fa-file-csv text-success"></i> Descargar Tablas (.csv)
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="#" id="exportJsonBtn">
+                        <i class="fa-solid fa-code text-warning"></i> Descargar Sesión (.json)
+                    </a>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <a class="dropdown-item" href="#" id="exportPdfBtn">
+                        <i class="fa-solid fa-print text-danger"></i> Guardar como PDF / Imprimir
+                    </a>
+                </li>
+            </ul>
+        </div>
+
         <button type="button" class="btn-minimal" id="clearChatBtn" title="Reiniciar sesión de conversación">
             <i class="fa-solid fa-rotate-left me-1"></i> Limpiar Conversación
         </button>
@@ -617,7 +878,7 @@
         <div class="d-flex align-items-center gap-3">
             <div class="status-badge-online" id="gatewayStatusBadge">
                 <span class="status-dot" id="gatewayStatusDot"></span>
-                <span id="gatewayStatusText">Gateway Ready</span>
+                <span id="gatewayStatusText">Comprobando Gateway...</span>
             </div>
         </div>
     </div>
@@ -692,7 +953,7 @@
                 </div>
                 <div class="telemetry-item">
                     <span class="telemetry-label">Modelo Activo</span>
-                    <span class="telemetry-val" id="telemetryModel">agent-router / claude-3-5</span>
+                    <span class="telemetry-val" id="telemetryModel">gemini-3.7-flash</span>
                 </div>
                 <div class="telemetry-item">
                     <span class="telemetry-label">Agente ID</span>
@@ -706,6 +967,10 @@
                     <span class="telemetry-label">Turnos en Sesión</span>
                     <span class="telemetry-val" id="telemetryTurns">0</span>
                 </div>
+                <div class="telemetry-item">
+                    <span class="telemetry-label">Tokens Estimados</span>
+                    <span class="telemetry-val" id="telemetryTokens">0</span>
+                </div>
             </div>
 
             <!-- Session Details Card -->
@@ -715,7 +980,7 @@
                 </div>
                 <div class="telemetry-item">
                     <span class="telemetry-label">ID de Sesión</span>
-                    <span class="telemetry-val" id="telemetrySessionId" style="font-size: 10px;" title="Copiar ID de sesión">sess_...</span>
+                    <span class="telemetry-val" id="telemetrySessionId" style="font-size: 10px; cursor: pointer;" title="Haga clic para copiar">sess_...</span>
                 </div>
                 <div class="telemetry-item">
                     <span class="telemetry-label">Estado Auth</span>
@@ -732,15 +997,15 @@
             <!-- Corporate Guidance Card -->
             <div class="telemetry-card">
                 <div class="telemetry-title">
-                    <span><i class="fa-solid fa-circle-info text-primary me-1"></i> Capacidades BI</span>
+                    <span><i class="fa-solid fa-chart-pie text-primary me-1"></i> Visualizaciones BI</span>
                 </div>
                 <p class="text-secondary mb-2" style="font-size: 11px; line-height: 1.4;">
-                    El agente <strong>analytics</strong> tiene acceso directo a métricas de ventas en tiempo real, histórico de pedidos, desglose por categorías y predicciones de demanda.
+                    Genera gráficos instantáneos con <strong>Chart.js</strong> a partir de cualquier tabla de datos o exporta reportes en múltiples formatos.
                 </p>
                 <div style="font-size: 10.5px; color: #94a3b8;">
-                    <div><i class="fa-solid fa-check text-success me-1"></i> Soporte de tablas Markdown con scroll</div>
-                    <div><i class="fa-solid fa-check text-success me-1"></i> Respuestas en streaming SSE en vivo</div>
-                    <div><i class="fa-solid fa-check text-success me-1"></i> Memoria conversacional multi-turno</div>
+                    <div><i class="fa-solid fa-chart-column text-primary me-1"></i> Gráficos de barras, líneas, dona y pastel</div>
+                    <div><i class="fa-solid fa-file-csv text-success me-1"></i> Exportación directa a CSV y Markdown</div>
+                    <div><i class="fa-solid fa-bolt text-warning me-1"></i> Respuestas en streaming SSE en vivo</div>
                 </div>
             </div>
 
@@ -765,10 +1030,21 @@
     const STORAGE_SESSION_KEY = 'analytics_chat_session_id';
     const STORAGE_HISTORY_PREFIX = 'analytics_chat_history_';
 
+    const CORPORATE_PALETTE = [
+        '#3b82f6', // Accent Blue
+        '#10b981', // Emerald Green
+        '#f59e0b', // Amber
+        '#8b5cf6', // Violet
+        '#ec4899', // Pink
+        '#06b6d4', // Cyan
+        '#f97316', // Orange
+        '#a855f7'  // Purple
+    ];
+
     const DEFAULT_WELCOME_MSG = 
         '¡Hola! 👋 Soy tu **AI Copilot Corporativo de Analytics & BI**.\n\n' +
         'Tengo acceso en tiempo real a los datos de facturación, volumen de pedidos, ranking de productos y proyecciones de demanda.\n\n' +
-        'Puedes solicitarme análisis de métricas, comparativas mensuales o generar tablas ejecutivas con la información de tu negocio.';
+        'Puedes solicitarme análisis de métricas, comparativas mensuales o generar tablas ejecutivas con la información de tu negocio. Además, cada tabla generada cuenta con herramientas para **renderizar gráficos interactivos** y exportar datos a CSV.';
 
     // 2. DOM Elements
     const chatFeed = document.getElementById('chatHistoryFeed');
@@ -782,13 +1058,22 @@
     const telemetryLatency = document.getElementById('telemetryLatency');
     const telemetryModel = document.getElementById('telemetryModel');
     const telemetryTurns = document.getElementById('telemetryTurns');
+    const telemetryTokens = document.getElementById('telemetryTokens');
     const telemetrySessionId = document.getElementById('telemetrySessionId');
     const starterButtons = document.querySelectorAll('.btn-starter');
+
+    // Export buttons
+    const exportMarkdownBtn = document.getElementById('exportMarkdownBtn');
+    const exportCsvBtn = document.getElementById('exportCsvBtn');
+    const exportJsonBtn = document.getElementById('exportJsonBtn');
+    const exportPdfBtn = document.getElementById('exportPdfBtn');
 
     // 3. State Management
     let isStreaming = false;
     let sessionId = getOrCreateSessionId();
     let messageHistory = [];
+    let tableCounter = 0;
+    const activeCharts = {}; // Map of tableId -> Chart instance
 
     function generateSessionId() {
         return 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 10);
@@ -825,7 +1110,7 @@
         }
     }
 
-    // 4. Markdown Parser with Markdown Table Support
+    // 4. Markdown Parser with Interactive Table & Direct Chart Blocks Support
     function escapeHtml(str) {
         if (!str) return '';
         return str
@@ -839,42 +1124,46 @@
     function parseMarkdown(rawText) {
         if (!rawText) return '';
 
-        // Step 1: Extract Fenced Code Blocks
-        const codeBlocks = [];
-        let text = rawText.replace(/```([a-zA-Z0-9_-]*)\n?([\s\S]*?)```/g, function(_, lang, code) {
-            const idx = codeBlocks.length;
-            codeBlocks.push({ lang: lang.trim() || 'code', code: code.replace(/\n$/, '') });
-            return '%%%CODEBLOCKPART' + idx + 'END%%%';
+        // Step 1: Extract direct chart / json-chart blocks
+        const chartBlocks = [];
+        let text = rawText.replace(/```(?:chart|json-chart)\n?([\s\S]*?)```/g, function(_, jsonContent) {
+            const idx = chartBlocks.length;
+            chartBlocks.push(jsonContent.trim());
+            return '@@DIRECTCHART_' + idx + '@@';
         });
 
-        // Step 2: Extract Inline Code
+        // Step 2: Extract Fenced Code Blocks
+        const codeBlocks = [];
+        text = text.replace(/```([a-zA-Z0-9_-]*)\n?([\s\S]*?)```/g, function(_, lang, code) {
+            const idx = codeBlocks.length;
+            codeBlocks.push({ lang: lang.trim() || 'code', code: code.replace(/\n$/, '') });
+            return '@@CODEBLOCK_' + idx + '@@';
+        });
+
+        // Step 3: Extract Inline Code
         const inlineCodes = [];
         text = text.replace(/`([^`\n]+)`/g, function(_, code) {
             const idx = inlineCodes.length;
             inlineCodes.push(code);
-            return '%%%INLINECODEPART' + idx + 'END%%%';
+            return '@@INLINECODE_' + idx + '@@';
         });
 
-        // Step 3: Markdown Tables Parsing
-        // Recognizes table blocks with header, separator row (|---|---|), and rows
-        const tableBlocks = [];
-        text = text.replace(/((?:^[ \t]*\|.+?\|[ \t]*(?:\r?\n|$)){2,})/gm, function(tableBlock) {
-            const lines = tableBlock.trim().split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        // Step 4: Markdown Tables Parsing with Interactive Toolbar & Chart Wrapper
+        text = text.replace(/((?:^[ \t]*\|.+?\|[ \t]*(?:\n|$)){2,})/gm, function(tableBlock) {
+            const lines = tableBlock.trim().split('\n').map(l => l.trim()).filter(Boolean);
             if (lines.length < 2) return tableBlock;
 
-            // Find separator row (contains |---|)
-            let sepIdx = -1;
-            for (let i = 0; i < lines.length; i++) {
-                if (/^\|[ :\-|\t]+\|$/.test(lines[i]) && lines[i].includes('-')) {
-                    sepIdx = i;
-                    break;
-                }
-            }
-            if (sepIdx < 1) return tableBlock; // Need at least 1 header line before separator
+            const isSeparator = function(line) {
+                return /^\|[ :\-|\t]+\|$/.test(line) && line.includes('-');
+            };
 
-            const headerLines = lines.slice(0, sepIdx);
-            const sepLine = lines[sepIdx];
-            const dataLines = lines.slice(sepIdx + 1);
+            if (!isSeparator(lines[1])) {
+                return tableBlock;
+            }
+
+            const headerLine = lines[0];
+            const sepLine = lines[1];
+            const dataLines = lines.slice(2);
 
             // Parse Alignments from separator
             const sepCells = sepLine.split('|').slice(1, -1);
@@ -888,19 +1177,13 @@
             });
 
             // Parse Header
-            let headerHtml = '<thead>';
-            headerLines.forEach(function(hLine) {
-                const cells = hLine.split('|').slice(1, -1).map(c => c.trim());
-                headerHtml += '<tr>';
-                cells.forEach(function(h, idx) {
-                    const alignClass = alignments[idx] || 'text-start';
-                    let formattedHeader = escapeHtml(h);
-                    formattedHeader = formattedHeader.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-                    headerHtml += '<th class="' + alignClass + '">' + formattedHeader + '</th>';
-                });
-                headerHtml += '</tr>';
+            const headers = headerLine.split('|').slice(1, -1).map(h => h.trim());
+            let headerHtml = '<thead><tr>';
+            headers.forEach(function(h, idx) {
+                const alignClass = alignments[idx] || 'text-start';
+                headerHtml += '<th class="' + alignClass + '">' + escapeHtml(h) + '</th>';
             });
-            headerHtml += '</thead>';
+            headerHtml += '</tr></thead>';
 
             // Parse Body Rows
             let bodyHtml = '<tbody>';
@@ -910,47 +1193,94 @@
                 bodyHtml += '<tr>';
                 cells.forEach(function(cellContent, idx) {
                     const alignClass = alignments[idx] || 'text-start';
-                    let formattedCell = escapeHtml(cellContent);
-                    // Format inline markdown inside cells
-                    formattedCell = formattedCell.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-                    formattedCell = formattedCell.replace(/__([^_]+)__/g, '<strong>$1</strong>');
-                    formattedCell = formattedCell.replace(/(^|[^\*])\*([^*]+)\*([^\*]|$)/g, '$1<em>$2</em>$3');
-                    formattedCell = formattedCell.replace(/(^|[^_])_([^_]+)_([^_]|$)/g, '$1<em>$2</em>$3');
-                    formattedCell = formattedCell.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
-                    formattedCell = formattedCell.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
-                    bodyHtml += '<td class="' + alignClass + '">' + formattedCell + '</td>';
+                    bodyHtml += '<td class="' + alignClass + '">' + escapeHtml(cellContent) + '</td>';
                 });
                 bodyHtml += '</tr>';
             });
             bodyHtml += '</tbody>';
 
-            const tableHtml = '<div class="table-responsive my-3"><table class="table-custom">' + headerHtml + bodyHtml + '</table></div>';
-            const idx = tableBlocks.length;
-            tableBlocks.push(tableHtml);
-            return '%%%HTMLTABLEPART' + idx + 'END%%%';
+            tableCounter++;
+            const tId = 'tbl_' + tableCounter + '_' + Math.random().toString(36).substring(2, 7);
+
+            // Construct Full Table Container with Toolbar and Hidden Chart Canvas
+            return (
+                '<div class="table-container-card" id="card_' + tId + '">' +
+                    '<div class="table-toolbar">' +
+                        '<span class="table-toolbar-title"><i class="fa-solid fa-table me-1"></i> Tabla de Datos</span>' +
+                        '<div class="table-toolbar-actions">' +
+                            '<button type="button" class="btn-table-action btn-table-chart" data-table-id="' + tId + '" title="Generar gráfico interactivo con Chart.js">' +
+                                '<i class="fa-solid fa-chart-column me-1"></i> Ver Gráfico' +
+                            '</button>' +
+                            '<button type="button" class="btn-table-action btn-table-csv" data-table-id="' + tId + '" title="Exportar datos a CSV">' +
+                                '<i class="fa-solid fa-file-csv me-1"></i> CSV' +
+                            '</button>' +
+                            '<button type="button" class="btn-table-action btn-table-copy" data-table-id="' + tId + '" title="Copiar tabla al portapapeles">' +
+                                '<i class="fa-regular fa-copy me-1"></i> Copiar' +
+                            '</button>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="table-view-content" id="table_view_' + tId + '">' +
+                        '<div class="table-responsive">' +
+                            '<table class="table-custom" id="' + tId + '">' +
+                                headerHtml + bodyHtml +
+                            '</table>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="chart-view-content d-none" id="chart_view_' + tId + '">' +
+                        '<div class="chart-controls-bar">' +
+                            '<div class="chart-type-selector btn-group btn-group-sm" role="group">' +
+                                '<button type="button" class="btn btn-outline-primary btn-sm active" data-chart-type="bar" data-table-id="' + tId + '">' +
+                                    '<i class="fa-solid fa-chart-column"></i> Barras' +
+                                '</button>' +
+                                '<button type="button" class="btn btn-outline-primary btn-sm" data-chart-type="line" data-table-id="' + tId + '">' +
+                                    '<i class="fa-solid fa-chart-line"></i> Líneas' +
+                                '</button>' +
+                                '<button type="button" class="btn btn-outline-primary btn-sm" data-chart-type="doughnut" data-table-id="' + tId + '">' +
+                                    '<i class="fa-solid fa-circle-notch"></i> Dona' +
+                                '</button>' +
+                                '<button type="button" class="btn btn-outline-primary btn-sm" data-chart-type="pie" data-table-id="' + tId + '">' +
+                                    '<i class="fa-solid fa-chart-pie"></i> Pastel' +
+                                '</button>' +
+                            '</div>' +
+                            '<button type="button" class="btn btn-sm btn-switch-to-table" data-table-id="' + tId + '">' +
+                                '<i class="fa-solid fa-table me-1"></i> Ver Tabla' +
+                            '</button>' +
+                        '</div>' +
+                        '<div class="chart-canvas-wrapper">' +
+                            '<canvas id="canvas_' + tId + '"></canvas>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>'
+            );
         });
 
-        // Step 4: Escape remaining plain text
+        // Step 5: Preserve generated HTML containers
+        const htmlParts = [];
+        text = text.replace(/(<div class="table-container-card"[\s\S]*?<\/div>\s*<\/div>\s*<\/div>)/g, function(_, match) {
+            const idx = htmlParts.length;
+            htmlParts.push(match);
+            return '@@HTMLPART_' + idx + '@@';
+        });
+
         text = escapeHtml(text);
 
-        // Step 5: Markdown Links [label](url)
+        // Step 6: Markdown Links [label](url)
         text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/g, function(_, label, url) {
             return '<a href="' + encodeURI(url.trim()) + '" target="_blank" rel="noopener noreferrer">' + label + ' <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px;"></i></a>';
         });
 
-        // Step 6: Bold & Italics
+        // Step 7: Bold & Italics
         text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
         text = text.replace(/__([^_]+)__/g, '<strong>$1</strong>');
         text = text.replace(/(^|[^\*])\*([^*]+)\*([^\*]|$)/g, '$1<em>$2</em>$3');
         text = text.replace(/(^|[^_])_([^_]+)_([^_]|$)/g, '$1<em>$2</em>$3');
 
-        // Step 7: Bullet Lists
+        // Step 8: Bullet & Numbered Lists
         text = text.replace(/((?:^(?:-|\*)\s+.+(?:\n|$))+)/gm, function(match) {
             const items = match.trim().split('\n').map(l => l.replace(/^(?:-|\*)\s+/, '').trim()).filter(Boolean);
             return '<ul class="my-2">' + items.map(it => '<li>' + it + '</li>').join('') + '</ul>';
         });
 
-        // Step 8: Numbered Lists
         text = text.replace(/((?:^\d+\.\s+.+(?:\n|$))+)/gm, function(match) {
             const items = match.trim().split('\n').map(l => l.replace(/^\d+\.\s+/, '').trim()).filter(Boolean);
             return '<ol class="my-2">' + items.map(it => '<li>' + it + '</li>').join('') + '</ol>';
@@ -963,13 +1293,30 @@
             text = '<p>' + text + '</p>';
         }
 
-        // Step 10: Reinsert HTML Table Blocks
-        text = text.replace(/%%%HTMLTABLEPART(\d+)END%%%/g, function(_, id) {
-            return tableBlocks[Number(id)] || '';
+        // Step 10: Reinsert HTML Table containers
+        text = text.replace(/@@HTMLPART_(\d+)@@/g, function(_, id) {
+            return htmlParts[Number(id)] || '';
         });
 
-        // Step 11: Reinsert Code Blocks
-        text = text.replace(/%%%CODEBLOCKPART(\d+)END%%%/g, function(_, id) {
+        // Step 11: Reinsert Direct Chart Blocks
+        text = text.replace(/@@DIRECTCHART_(\d+)@@/g, function(_, id) {
+            const rawJson = chartBlocks[Number(id)];
+            tableCounter++;
+            const directChartId = 'dchart_' + tableCounter;
+            return (
+                '<div class="direct-chart-box" id="box_' + directChartId + '">' +
+                    '<div class="d-flex justify-content-between align-items-center mb-2">' +
+                        '<span class="fw-semibold text-primary" style="font-size: 11px;"><i class="fa-solid fa-chart-pie me-1"></i> Gráfico JSON Directo</span>' +
+                    '</div>' +
+                    '<div class="chart-canvas-wrapper" style="height: 260px;">' +
+                        '<canvas id="canvas_' + directChartId + '" data-direct-chart="' + encodeURIComponent(rawJson) + '"></canvas>' +
+                    '</div>' +
+                '</div>'
+            );
+        });
+
+        // Step 12: Reinsert Code Blocks
+        text = text.replace(/@@CODEBLOCK_(\d+)@@/g, function(_, id) {
             const block = codeBlocks[Number(id)];
             if (!block) return '';
             const safeCode = escapeHtml(block.code);
@@ -984,15 +1331,312 @@
             );
         });
 
-        // Step 12: Reinsert Inline Code
-        text = text.replace(/%%%INLINECODEPART(\d+)END%%%/g, function(_, id) {
+        // Step 13: Reinsert Inline Code
+        text = text.replace(/@@INLINECODE_(\d+)@@/g, function(_, id) {
             return '<code class="inline-code">' + escapeHtml(inlineCodes[Number(id)] || '') + '</code>';
         });
 
         return text;
     }
 
-    // 5. UI Helpers & DOM Renderers
+    // 5. Chart.js Dynamic Rendering Engine
+    function extractDataFromTable(tableEl) {
+        if (!tableEl) return null;
+
+        const ths = Array.from(tableEl.querySelectorAll('thead th')).map(th => th.textContent.trim());
+        const trs = Array.from(tableEl.querySelectorAll('tbody tr'));
+        if (ths.length === 0 || trs.length === 0) return null;
+
+        const rows = trs.map(tr => {
+            return Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim());
+        });
+
+        // Column detection: check which columns are numeric
+        const colTypes = ths.map((_, colIdx) => {
+            let numericCount = 0;
+            let totalValid = 0;
+            rows.forEach(r => {
+                const val = r[colIdx];
+                if (val !== undefined && val !== '') {
+                    totalValid++;
+                    const clean = val.replace(/[\$,€,%, ]/g, '').replace(/,/g, '');
+                    if (!isNaN(parseFloat(clean)) && isFinite(clean)) {
+                        numericCount++;
+                    }
+                }
+            });
+            return (totalValid > 0 && numericCount / totalValid >= 0.7) ? 'numeric' : 'category';
+        });
+
+        // Identify label column: first category column, or column 0
+        let labelColIdx = colTypes.indexOf('category');
+        if (labelColIdx === -1) labelColIdx = 0;
+
+        // Identify numeric columns for datasets
+        const numColIndices = [];
+        colTypes.forEach((type, idx) => {
+            if (type === 'numeric' && idx !== labelColIdx) {
+                numColIndices.push(idx);
+            }
+        });
+
+        // If no other numeric columns, use second column if exists
+        if (numColIndices.length === 0 && ths.length > 1) {
+            numColIndices.push(1);
+        }
+
+        const labels = rows.map(r => r[labelColIdx] || 'Item');
+
+        const datasets = numColIndices.map((colIdx, dsIdx) => {
+            const label = ths[colIdx] || `Columna ${colIdx + 1}`;
+            const data = rows.map(r => {
+                const raw = r[colIdx] || '0';
+                const clean = raw.replace(/[\$,€,%, ]/g, '');
+                const num = parseFloat(clean);
+                return isNaN(num) ? 0 : num;
+            });
+
+            const baseColor = CORPORATE_PALETTE[dsIdx % CORPORATE_PALETTE.length];
+
+            return {
+                label: label,
+                data: data,
+                backgroundColor: CORPORATE_PALETTE.slice(0, data.length),
+                borderColor: baseColor,
+                borderWidth: 1.5,
+                borderRadius: 4
+            };
+        });
+
+        return {
+            labels: labels,
+            datasets: datasets
+        };
+    }
+
+    function renderChartForTable(tableId, chartType = 'bar') {
+        if (typeof Chart === 'undefined') {
+            console.error('[AnalyticsChat] Chart.js is not loaded.');
+            return;
+        }
+
+        const tableEl = document.getElementById(tableId);
+        const canvasEl = document.getElementById('canvas_' + tableId);
+        const tableViewEl = document.getElementById('table_view_' + tableId);
+        const chartViewEl = document.getElementById('chart_view_' + tableId);
+
+        if (!tableEl || !canvasEl || !tableViewEl || !chartViewEl) return;
+
+        const tableData = extractDataFromTable(tableEl);
+        if (!tableData || tableData.datasets.length === 0) {
+            alert('No se detectaron suficientes datos numéricos en la tabla para generar un gráfico.');
+            return;
+        }
+
+        // Switch visibility
+        tableViewEl.classList.add('d-none');
+        chartViewEl.classList.remove('d-none');
+
+        // Destroy previous chart if exists
+        if (activeCharts[tableId]) {
+            activeCharts[tableId].destroy();
+        }
+
+        const isCircular = chartType === 'pie' || chartType === 'doughnut';
+
+        const chartConfig = {
+            type: chartType,
+            data: {
+                labels: tableData.labels,
+                datasets: isCircular ? [
+                    {
+                        label: tableData.datasets[0].label,
+                        data: tableData.datasets[0].data,
+                        backgroundColor: CORPORATE_PALETTE.slice(0, tableData.labels.length),
+                        borderColor: '#111317',
+                        borderWidth: 2
+                    }
+                ] : tableData.datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            color: '#cbd5e1',
+                            font: { size: 11, family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto' }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: '#111317',
+                        titleColor: '#f8fafc',
+                        bodyColor: '#cbd5e1',
+                        borderColor: '#1e222b',
+                        borderWidth: 1,
+                        padding: 10,
+                        boxPadding: 4
+                    }
+                },
+                scales: isCircular ? {} : {
+                    x: {
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: { color: '#94a3b8', font: { size: 10 } }
+                    },
+                    y: {
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: { color: '#94a3b8', font: { size: 10 } }
+                    }
+                }
+            }
+        };
+
+        const ctx = canvasEl.getContext('2d');
+        activeCharts[tableId] = new Chart(ctx, chartConfig);
+    }
+
+    function renderDirectChartBlocks() {
+        if (typeof Chart === 'undefined') return;
+        const directCanvases = document.querySelectorAll('canvas[data-direct-chart]');
+        directCanvases.forEach(canvas => {
+            if (canvas.getAttribute('data-rendered')) return;
+            canvas.setAttribute('data-rendered', 'true');
+
+            try {
+                const rawJson = decodeURIComponent(canvas.getAttribute('data-direct-chart'));
+                const config = JSON.parse(rawJson);
+                const ctx = canvas.getContext('2d');
+                new Chart(ctx, config);
+            } catch (e) {
+                console.warn('[AnalyticsChat] Error parsing direct chart JSON:', e);
+            }
+        });
+    }
+
+    // 6. CSV & Copy Table Helpers
+    function exportTableToCsv(tableId) {
+        const table = document.getElementById(tableId);
+        if (!table) return;
+
+        let csv = [];
+        const rows = table.querySelectorAll('tr');
+        rows.forEach(row => {
+            const cols = row.querySelectorAll('th, td');
+            const rowData = Array.from(cols).map(c => {
+                let text = c.textContent.trim().replace(/"/g, '""');
+                return '"' + text + '"';
+            });
+            csv.push(rowData.join(','));
+        });
+
+        const blob = new Blob(['\uFEFF' + csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `tabla_analytics_${new Date().toISOString().slice(0, 10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function copyTableToClipboard(tableId, btnEl) {
+        const table = document.getElementById(tableId);
+        if (!table || !navigator.clipboard) return;
+
+        let tsv = [];
+        const rows = table.querySelectorAll('tr');
+        rows.forEach(row => {
+            const cols = row.querySelectorAll('th, td');
+            const rowData = Array.from(cols).map(c => c.textContent.trim());
+            tsv.push(rowData.join('\t'));
+        });
+
+        navigator.clipboard.writeText(tsv.join('\n')).then(() => {
+            const original = btnEl.innerHTML;
+            btnEl.innerHTML = '<i class="fa-solid fa-check text-success me-1"></i> Copiado';
+            setTimeout(() => { btnEl.innerHTML = original; }, 2000);
+        });
+    }
+
+    // 7. Full Session Export Handlers (Markdown, CSV, JSON, PDF)
+    function exportSessionMarkdown() {
+        if (!messageHistory || messageHistory.length === 0) {
+            alert('No hay mensajes en la sesión actual para exportar.');
+            return;
+        }
+
+        let md = `# Reporte Ejecutivo de AI Copilot & Business Intelligence\n\n`;
+        md += `- **Fecha de Exportación:** ${new Date().toLocaleString()}\n`;
+        md += `- **ID de Sesión:** \`${sessionId}\`\n`;
+        md += `- **Agente:** \`${AGENT_ID}\`\n`;
+        md += `- **Total de Turnos:** ${messageHistory.filter(m => m.role === 'user').length}\n\n`;
+        md += `---\n\n`;
+
+        messageHistory.forEach((msg, idx) => {
+            const roleName = msg.role === 'user' ? '👤 Usuario' : '🤖 AI Copilot (Analytics)';
+            const timeStr = new Date(msg.timestamp || Date.now()).toLocaleTimeString();
+            md += `### ${roleName} (${timeStr})\n\n`;
+            md += `${msg.text}\n\n`;
+            md += `---\n\n`;
+        });
+
+        const blob = new Blob([md], { type: 'text/markdown;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `reporte_ai_copilot_${sessionId.slice(0, 8)}_${new Date().toISOString().slice(0, 10)}.md`;
+        link.click();
+    }
+
+    function exportSessionAllTablesCsv() {
+        const tables = document.querySelectorAll('.chat-history table.table-custom');
+        if (tables.length === 0) {
+            alert('No se encontraron tablas de datos en la conversación actual.');
+            return;
+        }
+
+        let combinedCsv = [];
+        tables.forEach((tbl, idx) => {
+            combinedCsv.push(`"=== TABLA ${idx + 1} ==="`);
+            const rows = tbl.querySelectorAll('tr');
+            rows.forEach(r => {
+                const cols = r.querySelectorAll('th, td');
+                const line = Array.from(cols).map(c => `"${c.textContent.trim().replace(/"/g, '""')}"`).join(',');
+                combinedCsv.push(line);
+            });
+            combinedCsv.push('\n');
+        });
+
+        const blob = new Blob(['\uFEFF' + combinedCsv.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `tablas_consolidadas_copilot_${new Date().toISOString().slice(0, 10)}.csv`;
+        link.click();
+    }
+
+    function exportSessionJson() {
+        const payload = {
+            export_timestamp: new Date().toISOString(),
+            session_id: sessionId,
+            agent: AGENT_ID,
+            turns_count: messageHistory.filter(m => m.role === 'user').length,
+            telemetry: {
+                model: telemetryModel.textContent,
+                last_latency: telemetryLatency.textContent,
+                tokens_est: telemetryTokens.textContent
+            },
+            history: messageHistory
+        };
+
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `historial_ai_copilot_${sessionId.slice(0, 8)}.json`;
+        link.click();
+    }
+
+    // 8. UI Helpers & DOM Renderers
     function scrollToBottom(smooth) {
         chatFeed.scrollTo({
             top: chatFeed.scrollHeight,
@@ -1024,13 +1668,13 @@
             row.querySelector('.message-content').textContent = textContent;
         } else {
             row.innerHTML = `
-                <div class="avatar-icon avatar-bot" title="AI Copilot">
+                <div class="avatar-icon avatar-bot" title="AI Analytics Assistant">
                     <i class="fa-solid fa-robot"></i>
                 </div>
-                <div style="max-width: 85%; flex: 1;">
+                <div style="max-width: 88%; flex: 1;">
                     <div class="message-content"></div>
                     <div class="message-meta">
-                        <span>${timeStr} · AI Copilot</span>
+                        <span>${timeStr} · AI Analytics Assistant</span>
                         <span class="badge bg-secondary text-dark" style="font-size: 8px; padding: 1px 4px;">analytics</span>
                     </div>
                 </div>
@@ -1039,6 +1683,7 @@
         }
 
         chatFeed.appendChild(row);
+        renderDirectChartBlocks();
         scrollToBottom(true);
         return row;
     }
@@ -1078,24 +1723,48 @@
         const userMsgCount = messageHistory.filter(m => m.role === 'user').length;
         telemetryTurns.textContent = userMsgCount;
         telemetrySessionId.textContent = sessionId.length > 16 ? sessionId.substring(0, 15) + '…' : sessionId;
+
+        // Estimate accumulated tokens
+        let totalWords = 0;
+        messageHistory.forEach(m => {
+            totalWords += (m.text || '').split(/\s+/).filter(Boolean).length;
+        });
+        const estTokens = Math.round(totalWords * 1.3);
+        telemetryTokens.textContent = estTokens.toLocaleString();
     }
 
-    function setGatewayStatus(status) {
-        if (status === 'streaming') {
-            statusDot.className = 'status-dot streaming';
-            statusText.textContent = 'Transmitiendo SSE...';
-            statusBadge.style.color = '#38bdf8';
-        } else if (status === 'ready') {
-            statusDot.className = 'status-dot';
-            statusText.textContent = 'Gateway Ready';
-            statusBadge.style.color = '#4ade80';
-        } else if (status === 'error') {
-            statusDot.className = 'status-dot';
-            statusDot.style.backgroundColor = '#ef4444';
-            statusDot.style.boxShadow = '0 0 8px #ef4444';
-            statusText.textContent = 'Gateway Error';
-            statusBadge.style.color = '#ef4444';
+    // 9. Real-time Gateway Health Check & Heartbeat
+    async function checkGatewayHealth() {
+        const pingStart = performance.now();
+        try {
+            const res = await fetch(GATEWAY_URL + '/ping', { method: 'GET', mode: 'cors' });
+            const pingMs = Math.round(performance.now() - pingStart);
+            if (res.ok || res.status === 404 || res.status === 200) {
+                if (!isStreaming) {
+                    statusDot.className = 'status-dot';
+                    statusDot.style.backgroundColor = '#22c55e';
+                    statusDot.style.boxShadow = '0 0 8px #22c55e';
+                    statusText.textContent = `Online (${pingMs} ms)`;
+                    statusBadge.style.color = '#4ade80';
+                }
+            } else {
+                throw new Error('Gateway returned status ' + res.status);
+            }
+        } catch (err) {
+            if (!isStreaming) {
+                statusDot.className = 'status-dot';
+                statusDot.style.backgroundColor = '#ef4444';
+                statusDot.style.boxShadow = '0 0 8px #ef4444';
+                statusText.textContent = 'Desconectado';
+                statusBadge.style.color = '#ef4444';
+            }
         }
+    }
+
+    function setStreamingStatus() {
+        statusDot.className = 'status-dot streaming';
+        statusText.textContent = 'Transmitiendo SSE...';
+        statusBadge.style.color = '#38bdf8';
     }
 
     function initializeChat() {
@@ -1121,10 +1790,12 @@
         }
 
         updateTelemetry();
-        setGatewayStatus('ready');
+        checkGatewayHealth();
+        // Check health every 30 seconds
+        setInterval(checkGatewayHealth, 30000);
     }
 
-    // 6. Streaming SSE & Backend Fetch Layer
+    // 10. Streaming SSE & Backend Fetch Layer
     async function sendMessage(text) {
         const trimmed = (text || '').trim();
         if (!trimmed || isStreaming) return;
@@ -1142,11 +1813,11 @@
         // 2. Lock UI
         isStreaming = true;
         userInput.value = '';
-        userInput.style.height = '42px';
+        userInput.style.height = '40px';
         userInput.disabled = true;
         sendBtn.disabled = true;
         charCount.textContent = '0 caracteres';
-        setGatewayStatus('streaming');
+        setStreamingStatus();
         showTypingIndicator();
 
         const startTime = performance.now();
@@ -1189,10 +1860,10 @@
                 botRow.className = 'message-row bot';
                 botRow.innerHTML = `
                     <div class="avatar-icon avatar-bot"><i class="fa-solid fa-robot"></i></div>
-                    <div style="max-width: 85%; flex: 1;">
+                    <div style="max-width: 88%; flex: 1;">
                         <div class="message-content"><span class="streaming-cursor"></span></div>
                         <div class="message-meta">
-                            <span>${formatTime(Date.now())} · AI Copilot</span>
+                            <span>${formatTime(Date.now())} · AI Analytics Assistant</span>
                             <span class="badge bg-secondary text-dark" style="font-size: 8px; padding: 1px 4px;">streaming</span>
                         </div>
                     </div>
@@ -1302,10 +1973,10 @@
                     botRow.className = 'message-row bot';
                     botRow.innerHTML = `
                         <div class="avatar-icon avatar-bot"><i class="fa-solid fa-robot"></i></div>
-                        <div style="max-width: 85%; flex: 1;">
+                        <div style="max-width: 88%; flex: 1;">
                             <div class="message-content"></div>
                             <div class="message-meta">
-                                <span>${formatTime(Date.now())} · AI Copilot</span>
+                                <span>${formatTime(Date.now())} · AI Analytics Assistant</span>
                                 <span class="badge bg-secondary text-dark" style="font-size: 8px; padding: 1px 4px;">analytics</span>
                             </div>
                         </div>
@@ -1323,7 +1994,7 @@
                     botRow.className = 'message-row bot error';
                     botRow.innerHTML = `
                         <div class="avatar-icon avatar-bot" style="background: rgba(239,68,68,0.2); color: #ef4444;"><i class="fa-solid fa-triangle-exclamation"></i></div>
-                        <div style="max-width: 85%; flex: 1;">
+                        <div style="max-width: 88%; flex: 1;">
                             <div class="message-content"></div>
                             <div class="message-meta text-danger">Error de Conexión</div>
                         </div>
@@ -1333,7 +2004,6 @@
                 } else {
                     botRow.classList.add('error');
                 }
-                setGatewayStatus('error');
             }
         }
 
@@ -1341,6 +2011,7 @@
         const elapsed = Math.round(performance.now() - startTime);
         if (botContentEl) {
             botContentEl.innerHTML = parseMarkdown(accumulatedText);
+            renderDirectChartBlocks();
         }
 
         messageHistory.push({
@@ -1353,9 +2024,7 @@
 
         // Update telemetry and reset UI
         updateTelemetry(elapsed);
-        if (!botRow || !botRow.classList.contains('error')) {
-            setGatewayStatus('ready');
-        }
+        checkGatewayHealth();
 
         isStreaming = false;
         userInput.disabled = false;
@@ -1364,9 +2033,78 @@
         scrollToBottom(true);
     }
 
-    // 7. Event Listeners
+    // 11. Event Delegation for Tables & Charts
+    chatFeed.addEventListener('click', function(e) {
+        const target = e.target;
+
+        // A: Click on "Ver Gráfico"
+        const chartBtn = target.closest ? target.closest('.btn-table-chart') : null;
+        if (chartBtn) {
+            const tableId = chartBtn.getAttribute('data-table-id');
+            renderChartForTable(tableId, 'bar');
+            return;
+        }
+
+        // B: Switch chart type buttons (Bar, Line, Doughnut, Pie)
+        const typeBtn = target.closest ? target.closest('.chart-type-selector button') : null;
+        if (typeBtn) {
+            const tableId = typeBtn.getAttribute('data-table-id');
+            const chartType = typeBtn.getAttribute('data-chart-type');
+            const parent = typeBtn.closest('.chart-type-selector');
+            if (parent) {
+                parent.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+                typeBtn.classList.add('active');
+            }
+            renderChartForTable(tableId, chartType);
+            return;
+        }
+
+        // C: Switch back to Table View
+        const switchTableBtn = target.closest ? target.closest('.btn-switch-to-table') : null;
+        if (switchTableBtn) {
+            const tableId = switchTableBtn.getAttribute('data-table-id');
+            const tableViewEl = document.getElementById('table_view_' + tableId);
+            const chartViewEl = document.getElementById('chart_view_' + tableId);
+            if (tableViewEl && chartViewEl) {
+                chartViewEl.classList.add('d-none');
+                tableViewEl.classList.remove('d-none');
+            }
+            return;
+        }
+
+        // D: Export CSV for specific table
+        const csvBtn = target.closest ? target.closest('.btn-table-csv') : null;
+        if (csvBtn) {
+            const tableId = csvBtn.getAttribute('data-table-id');
+            exportTableToCsv(tableId);
+            return;
+        }
+
+        // E: Copy specific table
+        const copyTableBtn = target.closest ? target.closest('.btn-table-copy') : null;
+        if (copyTableBtn) {
+            const tableId = copyTableBtn.getAttribute('data-table-id');
+            copyTableToClipboard(tableId, copyTableBtn);
+            return;
+        }
+
+        // F: Copy Code Block
+        const copyCodeBtn = target.closest ? target.closest('.copy-code-btn') : null;
+        if (copyCodeBtn) {
+            const code = decodeURIComponent(copyCodeBtn.getAttribute('data-code') || '');
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(code).then(function() {
+                    const originalHtml = copyCodeBtn.innerHTML;
+                    copyCodeBtn.innerHTML = '<i class="fa-solid fa-check text-success me-1"></i>Copiado';
+                    setTimeout(function() { copyCodeBtn.innerHTML = originalHtml; }, 2000);
+                });
+            }
+            return;
+        }
+    });
+
+    // 12. Input & Control Event Listeners
     userInput.addEventListener('input', function() {
-        // Auto-expand textarea
         this.style.height = 'auto';
         this.style.height = Math.min(this.scrollHeight, 120) + 'px';
         const len = this.value.trim().length;
@@ -1394,6 +2132,10 @@
     // Clear Conversation Handler
     clearBtn.addEventListener('click', function() {
         if (confirm('¿Deseas reiniciar la conversación? Se vaciará el historial actual de la pantalla.')) {
+            // Destroy all active charts
+            Object.keys(activeCharts).forEach(k => {
+                if (activeCharts[k]) activeCharts[k].destroy();
+            });
             sessionStorage.removeItem(getHistoryKey(sessionId));
             sessionId = generateSessionId();
             sessionStorage.setItem(STORAGE_SESSION_KEY, sessionId);
@@ -1411,21 +2153,25 @@
         });
     });
 
-    // Copy Code Delegation
-    chatFeed.addEventListener('click', function(e) {
-        const copyBtn = e.target.closest ? e.target.closest('.copy-code-btn') : null;
-        if (copyBtn) {
-            const code = decodeURIComponent(copyBtn.getAttribute('data-code') || '');
-            if (navigator.clipboard) {
-                navigator.clipboard.writeText(code).then(function() {
-                    const originalHtml = copyBtn.innerHTML;
-                    copyBtn.innerHTML = '<i class="fa-solid fa-check text-success me-1"></i>Copiado';
-                    setTimeout(function() {
-                        copyBtn.innerHTML = originalHtml;
-                    }, 2000);
-                });
-            }
-        }
+    // Export Options Listeners
+    exportMarkdownBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        exportSessionMarkdown();
+    });
+
+    exportCsvBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        exportSessionAllTablesCsv();
+    });
+
+    exportJsonBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        exportSessionJson();
+    });
+
+    exportPdfBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        window.print();
     });
 
     // Copy Session ID
