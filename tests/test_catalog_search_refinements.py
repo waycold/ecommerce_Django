@@ -13,9 +13,8 @@ Comprehensive test suite verifying enhanced catalog search functionality:
 from decimal import Decimal
 import pytest
 from django.conf import settings
-from django.urls import reverse
-from product.models import Brand, Category, Item, Supplier
-from product.services import normalize_and_tokenize_query, search_catalog_service
+from apps.catalog.models import Brand, Category, Item, Supplier
+from apps.catalog.services import normalize_and_tokenize_query, search_catalog_service
 
 
 @pytest.fixture

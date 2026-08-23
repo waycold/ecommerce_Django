@@ -1,34 +1,56 @@
-# Python
+# Python Bytecode & Cache
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+
+# Virtual Environments
 venv/
 env/
 .venv/
+ENV/
 
-# Django
+# Django Runtime Files
 *.log
 db.sqlite3
+*.sqlite3
 db.sqlite3-journal
+media/
 uploads/
 staticfiles/
 
-# Environment
+# Environment Variables & Secrets
 .env
-.env.local
+.env.*
+*.env
+!.env.example
 
-# IDE
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# IDE & Editor Specific
 .idea/
 .vscode/
 *.swp
 *.swo
+*~
+.impeccable/
 
-# OS
+# OS Specific
 .DS_Store
 Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
 
-# Cloud & Tools
+# Cloud, Scratch & Temporary Files
 .ebextensions/
 *.sqbpro
+analytics/scratch/
+apps/analytics/scratch/
+audit_dataset.py
+scratch/

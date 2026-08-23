@@ -3,7 +3,8 @@ import pytest
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.utils import timezone
-from product.models import Brand, Category, Item, Order, OrderItem, OrderStatus, Supplier
+from apps.catalog.models import Brand, Category, Item, Supplier
+from apps.orders.models import Order, OrderItem, OrderStatus
 
 
 @pytest.fixture

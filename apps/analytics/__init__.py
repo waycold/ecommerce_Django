@@ -1,0 +1,3 @@
+"""
+apps.analytics package initialization.
+"""

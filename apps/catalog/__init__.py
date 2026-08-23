@@ -1,0 +1,3 @@
+"""
+apps.catalog package initialization.
+"""

@@ -1,0 +1,3 @@
+"""
+apps.orders package initialization.
+"""

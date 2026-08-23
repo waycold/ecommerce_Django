@@ -15,9 +15,10 @@ Comprehensive test suite verifying:
 
 from decimal import Decimal
 import pytest
-from django.contrib.auth.models import User
 from django.urls import reverse
-from product.models import Category, Brand, Supplier, Item
+from django.contrib.auth.models import User
+from apps.catalog.models import Category, Brand, Supplier, Item
+
 
 
 @pytest.fixture

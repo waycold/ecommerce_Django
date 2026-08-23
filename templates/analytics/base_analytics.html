@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Analytics Portal{% endblock %}</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-primary: #08090a;
+            --bg-secondary: #0d0f12;
+            --bg-card: #111317;
+            --border-color: #1e222b;
+            --text-primary: #f8fafc;
+            --text-secondary: #64748b;
+            --accent: #3b82f6;
+            --accent-dim: #1d4ed8;
+        }
+        body {
+            background-color: var(--bg-primary);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: var(--text-primary);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .navbar-custom {
+            background-color: var(--bg-primary);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .brand-text {
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+        .badge-restricted {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border: 1px solid var(--border-color);
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        /* Custom Navbar Links */
+        .nav-custom-group {
+            display: flex;
+            gap: 4px;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+        .nav-link-custom {
+            color: var(--text-secondary);
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            padding: 12px 18px;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.15s ease;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .nav-link-custom:hover {
+            color: var(--text-primary);
+        }
+        .nav-link-custom.active {
+            color: var(--text-primary);
+            border-bottom-color: var(--accent);
+            background: transparent;
+        }
+        .btn-minimal {
+            color: var(--text-secondary);
+            background: transparent;
+            border: 1px solid var(--border-color);
+            font-size: 12px;
+            padding: 6px 12px;
+            border-radius: 4px;
+            text-decoration: none;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+        }
+        .btn-minimal:hover {
+            color: var(--text-primary);
+            border-color: var(--accent);
+            background-color: var(--bg-secondary);
+        }
+        .btn-accent {
+            color: #ffffff;
+            background-color: var(--accent);
+            border: none;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 8px 16px;
+            border-radius: 4px;
+            text-decoration: none;
+            transition: background-color 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        .btn-accent:hover {
+            background-color: var(--accent-dim);
+            color: #ffffff;
+        }
+        .btn-accent.disabled, .btn-accent:disabled {
+            pointer-events: none;
+            opacity: 0.65;
+            background-color: var(--text-secondary) !important;
+        }
+        .analytics-card {
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background-color: var(--bg-card);
+            padding: 20px;
+            height: 100%;
+        }
+        .kpi-title {
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: block;
+            margin-bottom: 6px;
+        }
+        .kpi-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            line-height: 1.2;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }
+        .kpi-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+            display: inline-flex;
+            align-items: center;
+            font-weight: 500;
+        }
+        .kpi-indicator {
+            width: 6px;
+            height: 6px;
+            background-color: var(--accent);
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+        .table-custom {
+            width: 100%;
+            font-size: 13px;
+            border-collapse: collapse;
+        }
+        .table-custom th {
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 10px 12px;
+            text-align: left;
+        }
+        .table-custom td {
+            border-bottom: 1px solid #161a22;
+            padding: 12px 12px;
+            color: #cbd5e1;
+            font-size: 13px;
+        }
+        .table-custom tr:hover td {
+            background-color: #151820;
+            color: var(--text-primary);
+        }
+        .rank-num {
+            font-weight: 600;
+            color: var(--accent);
+        }
+        .section-title {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+        }
+        .future-sec {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 20px;
+        }
+        .future-card {
+            border: 1px solid var(--border-color);
+            padding: 14px;
+            border-radius: 4px;
+            background-color: var(--bg-card);
+            height: 100%;
+        }
+        .future-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }
+        .future-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 0;
+            line-height: 1.4;
+        }
+
+        /* Slider Controls Styling */
+        .slider-group {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px 14px;
+            margin-bottom: 12px;
+        }
+        .slider-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .range-val {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }
+        .form-range {
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+
+        /* Progress Feed Box */
+        .progress-box {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 16px;
+        }
+        .progress-bar-inner {
+            height: 6px;
+            background-color: var(--border-color);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background-color: var(--accent);
+            transition: width 0.3s ease;
+        }
+        .log-feed {
+            max-height: 160px;
+            overflow-y: auto;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 12px;
+            color: var(--text-secondary);
+            background-color: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 10px;
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+    <!-- Header / Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-custom py-0 mb-4">
+        <div class="container d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-4 py-2">
+                <span class="brand-text me-2">Analytics Portal</span>
+                
+                <!-- URL Navigation Buttons -->
+                <div class="nav-custom-group">
+                    <a href="{% url 'analytics:dashboard' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                        Dashboard
+                    </a>
+                    <a href="{% url 'analytics:forecast' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'forecast' %}active{% endif %}">
+                        Forecast & Trends
+                    </a>
+                    <a href="{% url 'analytics:simulator' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'simulator' %}active{% endif %}">
+                        Data Simulator
+                    </a>
+                    <a href="{% url 'analytics:ai_chat' %}" class="nav-link-custom {% if request.resolver_match.url_name == 'ai_chat' %}active{% endif %}">
+                        <i class="fa-solid fa-robot me-1 text-primary"></i> AI Copilot
+                    </a>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge-restricted">Staff Only</span>
+                <a href="/" class="btn-minimal">
+                    <i class="fa-solid fa-arrow-left me-1"></i> Store
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container mb-5">
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/bootstrap.bundle.min.js"></script>
+
+    <!-- Export Excel Script Helper -->
+    <script>
+        document.getElementById('export-btn')?.addEventListener('click', function(e) {
+            e.preventDefault();
+            const btn = this;
+            const originalContent = btn.innerHTML;
+            
+            btn.classList.add('disabled');
+            btn.style.opacity = '0.7';
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> Exporting...';
+            
+            fetch(btn.href)
+                .then(response => {
+                    if (!response.ok) throw new Error('Export failed');
+                    const disposition = response.headers.get('content-disposition');
+                    let filename = `sales_report_analytics_${new Date().toISOString().slice(0,10)}.xlsx`;
+                    if (disposition && disposition.indexOf('attachment') !== -1) {
+                        const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+                        if (matches != null && matches[1]) filename = matches[1].replace(/['"]/g, '');
+                    }
+                    return response.blob().then(blob => ({ blob, filename }));
+                })
+                .then(({ blob, filename }) => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    
+                    btn.classList.remove('disabled');
+                    btn.style.opacity = '1';
+                    btn.innerHTML = '<i class="fa-solid fa-check me-2"></i> Exported';
+                    setTimeout(() => { btn.innerHTML = originalContent; }, 2500);
+                })
+                .catch(err => {
+                    btn.classList.remove('disabled');
+                    btn.style.opacity = '1';
+                    btn.innerHTML = '<i class="fa-solid fa-xmark me-2"></i> Error';
+                    setTimeout(() => { btn.innerHTML = originalContent; }, 2500);
+                });
+        });
+
+        // Helper CSRF Cookie parser
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

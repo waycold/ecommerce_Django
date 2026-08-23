@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% load cart_template_tag %}
+
+{% block content %}
+
+<div class="container my-4">
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <h2 class="h4 font-weight-bold mb-0 text-dark">
+      Checkout
+    </h2>
+    <a href="{% url 'product:order_summary' %}" class="sober-btn-outline btn-sm text-decoration-none">
+      <i class="fas fa-arrow-left mr-1"></i> Back to Cart
+    </a>
+  </div>
+
+  <form method="POST" action="">
+    {% csrf_token %}
+    <div class="row">
+      <!-- Left Column: Shipping & Payment -->
+      <div class="col-lg-7 mb-4">
+        <!-- 1. Shipping Method -->
+        <div class="sober-card mb-4 p-4">
+          <h5 class="font-weight-bold mb-3 text-dark border-bottom pb-2">
+            1. Shipping Method
+          </h5>
+
+          <div class="p-3 border rounded bg-light mb-3 d-flex align-items-center justify-content-between" style="border-radius: 6px !important;">
+            <div class="custom-control custom-radio">
+              <input type="radio" id="shipping_flat" name="shipping_method" class="custom-control-input" checked disabled>
+              <label class="custom-control-label font-weight-bold text-dark" for="shipping_flat">
+                Standard Home Delivery
+              </label>
+              <small class="d-block text-muted">Estimated delivery: 2 to 5 business days</small>
+            </div>
+            <span class="font-weight-bold text-dark">${{ object.shipping_cost }}</span>
+          </div>
+
+          <div class="pt-2">
+            <h6 class="font-weight-bold text-muted small text-uppercase mb-2"><i class="fas fa-map-marker-alt mr-1"></i> Delivery Address</h6>
+            <div class="row">
+              <div class="col-md-6 mb-2">
+                <small class="text-muted d-block">City:</small>
+                <strong class="text-dark">{{ user_profile.city|default:"Not specified" }}</strong>
+              </div>
+              <div class="col-md-6 mb-2">
+                <small class="text-muted d-block">State / Country:</small>
+                <strong class="text-dark">{{ user_profile.province|default:"" }} {% if user_profile.country %}({{ user_profile.country }}){% endif %}</strong>
+              </div>
+              <div class="col-12 mt-2">
+                <a href="{{ user_profile.get_profile_url }}" class="small text-primary font-weight-bold text-decoration-none">
+                  Update address in your profile
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Payment Method -->
+        <div class="sober-card p-4">
+          <h5 class="font-weight-bold mb-3 text-dark border-bottom pb-2">
+            2. Payment Method
+          </h5>
+
+          <div class="payment-options">
+            {% for code, label in payment_methods %}
+            <div class="custom-control custom-radio p-3 border rounded mb-2 bg-white" style="border-radius: 6px !important; transition: all 0.2s;">
+              <input type="radio" id="pm_{{ code }}" name="payment_method" value="{{ code }}" class="custom-control-input" {% if forloop.first %}checked{% endif %}>
+              <label class="custom-control-label font-weight-bold d-flex align-items-center justify-content-between w-100 cursor-pointer text-dark" for="pm_{{ code }}">
+                <span>
+                  {% if code == 'CREDIT_CARD' %}<i class="fas fa-credit-card text-primary mr-2"></i>
+                  {% elif code == 'DEBIT_CARD' %}<i class="far fa-credit-card text-primary mr-2"></i>
+                  {% elif code == 'TRANSFER' %}<i class="fas fa-university text-primary mr-2"></i>
+                  {% else %}<i class="fas fa-money-bill-wave text-primary mr-2"></i>{% endif %}
+                  {{ label }}
+                </span>
+              </label>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Order Summary -->
+      <div class="col-lg-5">
+        <div class="sober-card p-4 position-sticky" style="top: 90px;">
+          <h5 class="font-weight-bold mb-4 text-dark border-bottom pb-2">
+            <i class="fas fa-clipboard-list text-primary mr-2"></i> Order Summary
+          </h5>
+
+          <!-- Items list -->
+          <div class="mb-3 pr-1" style="max-height: 220px; overflow-y: auto;">
+            {% for order_item in object.items.all %}
+            <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
+              <div class="d-flex align-items-center">
+                {% if order_item.item.img %}
+                <img src="/uploads/{{ order_item.item.img }}" alt="{{ order_item.item.title }}" class="mr-2 border rounded p-1" width="36" height="36" style="object-fit: contain; border-radius: 4px !important;">
+                {% endif %}
+                <div>
+                  <h6 class="mb-0 small font-weight-bold text-dark">{{ order_item.item.title }}</h6>
+                  <small class="text-muted">{{ order_item.quantity }} x ${{ order_item.item.price }}</small>
+                </div>
+              </div>
+              <span class="font-weight-bold small">${{ order_item.get_total_item_price }}</span>
+            </div>
+            {% endfor %}
+          </div>
+
+          <!-- Summary Breakdown -->
+          <div class="d-flex justify-content-between mb-2 small">
+            <span class="text-muted">Items Subtotal</span>
+            <span class="font-weight-bold">${{ object.get_items_subtotal }}</span>
+          </div>
+
+          <div class="d-flex justify-content-between mb-2 small">
+            <span class="text-muted">Shipping Fee</span>
+            <span class="font-weight-bold text-dark">${{ object.shipping_cost }}</span>
+          </div>
+
+          {% if object.discount > 0 %}
+          <div class="d-flex justify-content-between mb-2 text-success small">
+            <span>Applied Discount</span>
+            <span class="font-weight-bold">-${{ object.discount }}</span>
+          </div>
+          {% endif %}
+
+          <hr class="my-3">
+
+          <div class="d-flex justify-content-between mb-4">
+            <span class="font-weight-bold text-dark" style="font-size: 18px;">TOTAL</span>
+            <span class="font-weight-bold text-primary" style="font-size: 20px;">${{ object.total }}</span>
+          </div>
+
+          <button type="submit" name="buy" class="sober-btn-primary btn-block text-center py-3">
+            <i class="fas fa-lock mr-2"></i> Confirm and Place Order
+          </button>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+
+{% endblock %}

@@ -22,9 +22,9 @@ from django.contrib.auth.models import User, AnonymousUser
 from django.test import RequestFactory
 from django.urls import reverse
 
-from core.auth_services import validate_staff_jwt_token
-from product.context_processors import user_jwt_token
-from product.models import Category, Brand, Supplier, Item
+from apps.core.authentication.services import validate_staff_jwt_token
+from apps.orders.context_processors import user_jwt_token
+from apps.catalog.models import Category, Brand, Supplier, Item
 
 
 # ---------------------------------------------------------------------------
@@ -98,7 +98,7 @@ class TestStaticWidgetAsset:
 
     @property
     def widget_js_path(self):
-        return os.path.join(settings.BASE_DIR, "product", "static", "js", "chat-widget.js")
+        return os.path.join(settings.BASE_DIR, "static", "js", "chat-widget.js")
 
     def test_chat_widget_js_file_exists_and_not_empty(self):
         """
@@ -363,13 +363,13 @@ class TestLegacyWidgetPurged:
 
     def test_no_legacy_chat_route_in_any_template(self):
         """
-        Confirm that no template in `product/templates/` references the deprecated `/api/chat/` endpoint.
+        Confirm that no template in `templates/` references the deprecated `/api/chat/` endpoint.
         """
-        templates_dir = Path(settings.BASE_DIR) / "product" / "templates"
+        templates_dir = Path(settings.BASE_DIR) / "templates"
         assert templates_dir.exists()
 
         violating_templates = []
-        for html_file in templates_dir.glob("*.html"):
+        for html_file in templates_dir.rglob("*.html"):
             content = html_file.read_text(encoding="utf-8")
             if "/api/chat/" in content:
                 violating_templates.append(html_file.name)

@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+
+<main class="mt-4 pt-4" style="min-height: 100vh;">
+  <div class="container dark-grey-text mt-4">
+    <div class="row">
+      <!-- Product Image -->
+      <div class="col-md-6 mb-4 text-center d-flex align-items-center justify-content-center bg-white rounded p-4 shadow-sm" style="border-radius: 6px !important; border: 1px solid var(--border-color);">
+        {% if object.img %}
+        <img src="{{ object.img.url }}" class="img-fluid" alt="{{ object.title }}" style="max-height: 350px; object-fit: contain;">
+        {% else %}
+        <i class="fas fa-box text-muted" style="font-size: 80px;"></i>
+        {% endif %}
+      </div>
+
+      <!-- Product Details -->
+      <div class="col-md-6 mb-4">
+        <div class="p-4 bg-white rounded shadow-sm" style="border-radius: 6px !important; border: 1px solid var(--border-color);">
+          <div class="mb-3">
+            {% if object.category %}
+            <span class="badge badge-light border text-muted px-2 py-1 mr-1">{{ object.category.name }}</span>
+            {% endif %}
+            {% if object.brand %}
+            <span class="badge badge-primary px-2 py-1 mr-1">{{ object.brand.name }}</span>
+            {% endif %}
+          </div>
+
+          <h2 class="font-weight-bold text-dark mb-3" style="font-size: 24px;">{{ object.title }}</h2>
+
+          <div class="h3 font-weight-bold text-primary mb-3">
+            ${{ object.price }}
+          </div>
+
+          <div class="mb-3 small">
+            <span class="font-weight-bold text-muted">Available Stock:</span>
+            {% if object.stock > 0 %}
+            <span class="badge badge-success px-2 py-1" style="border-radius: 4px;">{{ object.stock }} units</span>
+            {% else %}
+            <span class="badge badge-danger px-2 py-1" style="border-radius: 4px;">Out of Stock</span>
+            {% endif %}
+          </div>
+
+          <div class="mb-4">
+            <h6 class="font-weight-bold text-muted mb-2 text-uppercase" style="font-size: 12px; letter-spacing: 0.5px;">Description</h6>
+            <p class="text-secondary small" style="line-height: 1.6;">{{ object.description|default:"No detailed description available." }}</p>
+          </div>
+
+          <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+            {% if object.stock > 0 %}
+            <a href="{{ object.get_add_to_cart_url }}" class="sober-btn-primary py-2 px-4 mr-2 text-decoration-none" style="width: auto;">
+              Add to Cart
+            </a>
+            {% else %}
+            <button class="btn btn-secondary py-2 px-4 mr-2" style="width: auto; border-radius: 6px;" disabled>
+              Out of Stock
+            </button>
+            {% endif %}
+            <a href="{{ object.get_remove_from_cart_url }}" class="sober-btn-outline py-2 px-3 text-decoration-none">
+              Remove
+            </a>
+          </div>
+
+          <div>
+            <button type="button" class="btn btn-outline-primary btn-sm my-2" onclick="consultarProducto('{{ object.title|escapejs }}')">
+              <i class="fas fa-robot mr-1"></i> Preguntar a la IA sobre este producto
+            </button>
+            <script>
+              function consultarProducto(nombre) {
+                if (window.AiChatWidget) {
+                  window.AiChatWidget.open();
+                  window.AiChatWidget.setAgent('ecommerce');
+                  window.AiChatWidget.sendMessage('Hola, me interesa el producto "' + nombre + '". ¿Podrías darme más detalles, recomendaciones y disponibilidad?');
+                }
+              }
+            </script>
+          </div>
+
+          {% if user.is_superuser %}
+          <div class="mt-4 pt-3 border-top">
+            <h6 class="font-weight-bold text-muted mb-2 small text-uppercase" style="font-size: 11px;"><i class="fas fa-cog mr-1"></i> Admin Options</h6>
+            <a href="{{ object.get_edit_product_url }}" class="sober-btn-outline btn-sm mr-2 text-decoration-none" style="padding: 6px 12px; font-size: 12px;">
+              Edit Product
+            </a>
+            <form action="" method="post" class="d-inline">
+              {% csrf_token %}
+              <button type="submit" name="delete" class="btn btn-danger btn-sm py-2 px-3" style="border-radius: 6px; font-size: 12px; font-weight: 600;" onclick="return confirm('Are you sure you want to delete this product?');">
+                Delete
+              </button>
+            </form>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Comments & Reviews Section -->
+    <div class="row mt-5">
+      <div class="col-12">
+        <div class="sober-card p-4">
+          <h4 class="font-weight-bold mb-4 text-dark" style="font-size: 20px;">
+            Comments & Reviews
+          </h4>
+
+          {% if user.is_authenticated %}
+            {% if user_already_commented %}
+            <div class="alert alert-info py-3 px-4 rounded mb-5" style="border-radius: 6px !important; font-size: 14px;">
+              <i class="fas fa-info-circle mr-2"></i> You have already reviewed this product. Only one review per customer is allowed.
+            </div>
+            {% else %}
+            <form action="" method="post" class="mb-5 custom-form">
+              {% csrf_token %}
+              <div class="d-flex align-items-start">
+                <img src="{{ profile_image_url }}" alt="{{ user.username }}" class="rounded-circle mr-3 border" width="48" height="48" style="object-fit: cover;" onerror="this.onerror=null;this.src='{% static 'img/default-avatar.svg' %}';">
+                <div class="w-100">
+                  <!-- Star Rating Selector (hidden input updated by JS) -->
+                  <div class="mb-3 d-flex align-items-center">
+                    <span class="mr-3 font-weight-bold text-muted small text-uppercase" style="font-size: 12px;">Your Rating:</span>
+                    <div id="starRatingSelector" class="d-flex" style="gap: 6px; font-size: 20px; cursor: pointer;">
+                      <i class="fas fa-star text-warning" data-value="1"></i>
+                      <i class="fas fa-star text-warning" data-value="2"></i>
+                      <i class="fas fa-star text-warning" data-value="3"></i>
+                      <i class="fas fa-star text-warning" data-value="4"></i>
+                      <i class="fas fa-star text-warning" data-value="5"></i>
+                    </div>
+                    {{ form.rating }}
+                  </div>
+                  {{ form.body }}
+                  <button type="submit" name="submit" class="sober-btn-primary mt-2" style="width: auto; padding: 8px 24px;">
+                    Submit Review
+                  </button>
+                </div>
+              </div>
+            </form>
+            {% endif %}
+          {% else %}
+          <div class="alert alert-light border text-center my-3 rounded" style="border-radius: 6px !important; font-size: 14px;">
+            Please <a href="/login/" class="font-weight-bold">log in</a> to leave a review on this product.
+          </div>
+          {% endif %}
+
+          <div class="comments-list">
+            {% for c in comments %}
+            <div class="media mb-3 p-3 rounded bg-light border" style="border-radius: 6px !important;">
+              {% if c.user.profile.image %}
+              <img src="/uploads/{{ c.user.profile.image }}" class="rounded-circle mr-3 border" width="44" height="44" style="object-fit: cover;" alt="{{ c.user.username }}" onerror="this.onerror=null;this.src='{% static 'img/default-avatar.svg' %}';">
+              {% else %}
+              <img src="{% static 'img/default-avatar.svg' %}" class="rounded-circle mr-3 border" width="44" height="44" style="object-fit: cover;" alt="{{ c.user.username }}">
+              {% endif %}
+              <div class="media-body">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <h6 class="mt-0 font-weight-bold text-dark mb-0" style="font-size: 15px;">{{ c.user.username }}</h6>
+                  
+                  <!-- Stars Display -->
+                  <div class="text-warning small">
+                    {% if c.rating >= 1 %}<i class="fas fa-star"></i>{% else %}<i class="far fa-star text-muted"></i>{% endif %}
+                    {% if c.rating >= 2 %}<i class="fas fa-star"></i>{% else %}<i class="far fa-star text-muted"></i>{% endif %}
+                    {% if c.rating >= 3 %}<i class="fas fa-star"></i>{% else %}<i class="far fa-star text-muted"></i>{% endif %}
+                    {% if c.rating >= 4 %}<i class="fas fa-star"></i>{% else %}<i class="far fa-star text-muted"></i>{% endif %}
+                    {% if c.rating >= 5 %}<i class="fas fa-star"></i>{% else %}<i class="far fa-star text-muted"></i>{% endif %}
+                  </div>
+                </div>
+                <small class="text-muted d-block mb-2" style="font-size: 11px;"><i class="far fa-clock mr-1"></i> {{ c.date_added|date:"N j, Y, H:i" }}</small>
+                <p class="mb-0 text-secondary" style="font-size: 14px; line-height: 1.5;">{{ c.body }}</p>
+              </div>
+            </div>
+            {% empty %}
+            <div class="text-center py-4 text-muted">
+              <i class="far fa-comment-dots mb-2" style="font-size: 32px;"></i>
+              <p class="mb-0 small">No reviews yet. Be the first to review this product!</p>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Star Selector Client Logic -->
+<script type="text/javascript">
+  document.addEventListener('DOMContentLoaded', function() {
+    var stars = document.querySelectorAll('#starRatingSelector i');
+    var ratingHiddenInput = document.getElementById('id_rating_hidden');
+    
+    stars.forEach(function(star) {
+      star.addEventListener('click', function() {
+        var value = parseInt(this.getAttribute('data-value'));
+        ratingHiddenInput.value = value;
+        
+        stars.forEach(function(s, idx) {
+          if (idx < value) {
+            s.classList.remove('far', 'text-muted');
+            s.classList.add('fas', 'text-warning');
+          } else {
+            s.classList.remove('fas', 'text-warning');
+            s.classList.add('far', 'text-muted');
+          }
+        });
+      });
+    });
+  });
+</script>
+
+{% endblock %}

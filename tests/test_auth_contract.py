@@ -4,7 +4,7 @@ import jwt
 import pytest
 from django.conf import settings
 from django.contrib.auth.models import User
-from core.auth_services import generate_user_jwt_token
+from apps.core.authentication.services import generate_user_jwt_token
 
 
 @pytest.fixture

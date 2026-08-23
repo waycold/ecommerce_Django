@@ -1,8 +1,7 @@
 import pytest
 from decimal import Decimal
 from django.conf import settings
-from django.urls import reverse
-from product.models import Brand, Category, Item, Supplier
+from apps.catalog.models import Brand, Category, Item, Supplier
 
 
 @pytest.fixture

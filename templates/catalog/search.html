@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div style="margin: 100px;"></div>
+
+
+    <!--/.Carousel Wrapper-->
+
+    <!--Main layout-->
+    <main>
+      <div class="container">
+        <!--Navbar-->
+        <nav
+          class="navbar navbar-expand-lg navbar-dark mdb-color lighten-3 mt-3 mb-5"
+        >
+          <!-- Navbar brand -->
+          <span class="badge red z-depth-1 mr-1">{{ orderitems.objects.quantity }}</span>
+          <span class="navbar-brand">Categories: {{ search }}</span>
+
+          <!-- Collapse button -->
+          <button
+            class="navbar-toggler"
+            type="button"
+            data-toggle="collapse"
+            data-target="#basicExampleNav"
+            aria-controls="basicExampleNav"
+            aria-expanded="false"
+            aria-label="Toggle navigation"
+          >
+            <span class="navbar-toggler-icon"></span>
+          </button>
+
+          <!-- Collapsible content -->
+          <div class="collapse navbar-collapse" id="basicExampleNav">
+            <!-- Links -->
+            <ul class="navbar-nav mr-auto">
+
+              <li class="nav-item active">
+                <a class="nav-link" href="#"
+                  >All
+                  <span class="sr-only">(current)</span>
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#">CPU</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#">GPU</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#">RAM</a>
+              </li>
+            </ul>
+            <!-- Links -->
+
+            <form class="form-inline" method="post" action="">
+              {% csrf_token %}
+              <div class="md-form my-0">
+                <input
+                  class="form-control mr-sm-2"
+                  type="text"
+                  placeholder="Search"
+                  aria-label="Search"
+                  name="search"
+                />
+              </div>
+            </form>
+          </div>
+          <!-- Collapsible content -->
+        </nav>
+        <!--/.Navbar-->
+
+        <!--Section: Products v.3-->
+        <section class="text-center mb-4">
+          <!--Grid row-->
+
+          <div class="row wow  fadeIn">
+
+            {% for item in items %}
+            {% comment %} {% if search == item.title %} {% endcomment %}
+            <!--Grid column-->
+              <a class="col-lg-3 col-md-6 mb-4" href="{{ item.get_absolute_url }}">
+                <!--Card-->
+                <div class="card">
+                  <!--Card image-->
+                  <div class="view overlay" style="display: flex; justify-content: center; justify-items: center;">
+                    <img src="/uploads/{{ item.img }}" style="width: 100px; height: 100px;"
+                        alt="not image found">
+                      </div>
+                      <!--Card image-->
+                      
+                      <!--Card content-->
+                      <div class="card-body text-center">
+                        <!--Category & Title-->
+                          <h5>{{ item.get_category_display }}
+                          </h5>
+                        <h5>
+                          <strong>
+                            <h5 href="{{ item.get_absolute_url }}" class="dark-grey-text"
+                            >{{ item.title }}
+                            <span class="badge badge-pill {{ item.get_label_display }}-color"></span>
+                          </h5>
+                        </strong>
+                      </h5>
+                      
+                      <h4 class="font-weight-bold blue-text">
+                        <strong>$ {{ item.price }}</strong>
+                      </h4>
+                  </div>
+                    <!--Card content-->
+                </div>
+                <!--Card-->
+              </a>
+
+            <!--Grid column-->
+            {% comment %} {% else %}
+            <h1>not found</h1>
+            {% endif %} {% endcomment %}
+            {% endfor %}
+          </div>
+
+
+        </section>
+        <!--Section: Products v.3-->
+        <!--Pagination-->
+        {% if is_paginated %}
+        <nav class="d-flex justify-content-center wow fadeIn">
+          <ul class="pagination pg-blue">
+            <!--Arrow left-->
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+              <a class="page-link" href="?page={{ page_obj.previous_page_number }}" aria-label="Previous">
+                <span aria-hidden="true">&laquo;</span>
+                <span class="sr-only">Previous</span>
+              </a>
+            </li>
+            {% endif %}
+
+            <li class="page-item active">
+              <a class="page-link" href="?page={{ page_obj.number }}"
+                >1
+                <span class="sr-only">(current)</span>
+              </a>
+            </li>
+            <li class="page-item">
+              <a class="page-link" href="#">2</a>
+            </li>
+            <li class="page-item">
+              <a class="page-link" href="#">3</a>
+            </li>
+            <li class="page-item">
+              <a class="page-link" href="#">4</a>
+            </li>
+            <li class="page-item">
+              <a class="page-link" href="#">5</a>
+            </li>
+            {% if page_obj.has_next %}
+            <li class="page-item">
+              <a class="page-link" href="?page={{ page_obj.next_page_number }}" aria-label="Next">
+                <span aria-hidden="true">&raquo;</span>
+                <span class="sr-only">Next</span>
+              </a>
+            </li>
+            {% endif %}
+          </ul>
+        </nav>
+        {% endif %}
+        <!--Pagination-->
+      </div>
+    </main>
+    <!--Main layout-->
+    
+    <!--Footer-->
+    <footer class="page-footer text-center font-small mt-4 wow fadeIn">
+      <!--Call to action-->
+      <div class="pt-4">
+
+      <!--Copyright-->
+      <div class="footer-copyright py-3">
+        © 2019 Copyright:
+        <a href="https://mdbootstrap.com/education/bootstrap/" target="_blank">
+          MDBootstrap.com
+        </a>
+      </div>
+      <!--/.Copyright-->
+    </footer>
+    <!--/.Footer-->
+
+  </body>
+</html>
+
+
+<!-- SCRIPTS -->
+<!-- JQuery -->
+<script type="text/javascript" src="/product/static/js/jquery-3.4.1.min.js"></script>
+<!-- Bootstrap tooltips -->
+<script type="text/javascript" src="/product/static/js/popper.min.js"></script>
+<!-- Bootstrap core JavaScript -->
+<script type="text/javascript" src="/product/static/js/bootstrap.min.js"></script>
+<!-- MDB core JavaScript -->
+<script type="text/javascript" src="/product/static/js/mdb.min.js"></script>
+<!-- Initializations -->
+<script type="text/javascript">
+  // Animations initialization
+  new WOW().init();
+</script>
+</body>
+</html>
+
+{% endblock %}

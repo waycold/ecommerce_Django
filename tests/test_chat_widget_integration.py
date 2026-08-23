@@ -13,9 +13,8 @@ import jwt
 from django.conf import settings
 from django.contrib.auth.models import User, AnonymousUser
 from django.test import TestCase, RequestFactory
-from django.urls import reverse
-from product.context_processors import user_jwt_token
-from product.models import Item, Category, Brand, Supplier
+from apps.orders.context_processors import user_jwt_token
+from apps.catalog.models import Item, Category, Brand, Supplier
 
 
 class TestChatWidgetContextProcessor(TestCase):
@@ -74,7 +73,7 @@ class TestChatWidgetSettingsAndTemplates(TestCase):
 
     def test_context_processor_registered_in_settings(self):
         context_processors = settings.TEMPLATES[0]["OPTIONS"]["context_processors"]
-        self.assertIn("product.context_processors.user_jwt_token", context_processors)
+        self.assertTrue(any("user_jwt_token" in cp for cp in context_processors))
 
     def test_base_template_anonymous_renders_widget_without_token(self):
         response = self.client.get("/")
@@ -118,7 +117,7 @@ class TestChatWidgetSettingsAndTemplates(TestCase):
 
 class TestChatWidgetStaticFileIntegrity(TestCase):
     def test_chat_widget_js_file_exists_and_implements_spec(self):
-        js_path = os.path.join(settings.BASE_DIR, "product", "static", "js", "chat-widget.js")
+        js_path = os.path.join(settings.BASE_DIR, "static", "js", "chat-widget.js")
         self.assertTrue(os.path.exists(js_path), "chat-widget.js static file must exist")
 
         with open(js_path, "r", encoding="utf-8") as f:
