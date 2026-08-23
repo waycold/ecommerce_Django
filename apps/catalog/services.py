@@ -261,20 +261,18 @@ CATEGORY_SYNONYMS_ES_EN = {
 }
 
 
-def normalize_and_tokenize_query(query: Optional[str]) -> Tuple[str, List[str], Optional[str], Optional[str]]:
+def normalize_and_tokenize_query(query: Optional[str]) -> Tuple[str, List[str]]:
     """
     Cleans and normalizes query text:
     1. Removes price prefixes like 'Precio:', 'Price:'.
     2. Strips punctuation symbols: () $ , " ' : ; ! ?
     3. Tokenizes into meaningful keywords (length >= 2, non-stop words).
-    4. Detects price sorting intent ('asc' for cheap/budget, 'desc' for premium/luxury).
-    5. Maps English/Spanish synonyms to standard Amazon Category names (e.g. 'libro' -> 'Books').
 
     Returns:
-        tuple: (cleaned_phrase, list_of_tokens, detected_category_name, price_intent)
+        tuple: (cleaned_phrase, list_of_tokens)
     """
     if not query:
-        return "", [], None, None
+        return "", []
 
     raw = str(query)
 
@@ -287,11 +285,35 @@ def normalize_and_tokenize_query(query: Optional[str]) -> Tuple[str, List[str], 
     # 3. Normalize whitespace
     cleaned_phrase = re.sub(r'\s+', ' ', raw).strip()
     if not cleaned_phrase:
-        return "", [], None, None
+        return "", []
 
-    # 4. Tokenize words
+    # 4. Tokenize words and filter stop words
     raw_tokens = cleaned_phrase.split()
-    tokens: List[str] = []
+    tokens = [
+        t for t in raw_tokens
+        if len(t) >= 2 and t.lower() not in STOP_WORDS
+    ]
+
+    return cleaned_phrase, tokens
+
+
+def detect_category_synonym_and_price_intent(query: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Analyzes query tokens against CATEGORY_SYNONYMS_ES_EN and price intent keywords.
+
+    Returns:
+        tuple: (mapped_category, price_intent)
+    """
+    if not query:
+        return None, None
+
+    raw = str(query)
+    raw = re.sub(r'[\(\)\$,"\'\:\;\!\?]', ' ', raw)
+    cleaned_phrase = re.sub(r'\s+', ' ', raw).strip()
+    if not cleaned_phrase:
+        return None, None
+
+    raw_tokens = cleaned_phrase.split()
     detected_category: Optional[str] = None
     price_intent: Optional[str] = None
 
@@ -299,22 +321,17 @@ def normalize_and_tokenize_query(query: Optional[str]) -> Tuple[str, List[str], 
         clean_token = raw_token.lower()
 
         # Check price modifiers
-        if clean_token in PRICE_BUDGET_KEYWORDS:
-            price_intent = 'asc'
-            continue
-        elif clean_token in PRICE_PREMIUM_KEYWORDS:
-            price_intent = 'desc'
-            continue
+        if not price_intent:
+            if clean_token in PRICE_BUDGET_KEYWORDS:
+                price_intent = 'asc'
+            elif clean_token in PRICE_PREMIUM_KEYWORDS:
+                price_intent = 'desc'
 
         # Check category synonym mapping
         if not detected_category and clean_token in CATEGORY_SYNONYMS_ES_EN:
             detected_category = CATEGORY_SYNONYMS_ES_EN[clean_token]
 
-        # Filter stop words and single-character words
-        if len(clean_token) >= 2 and clean_token not in STOP_WORDS:
-            tokens.append(raw_token)
-
-    return cleaned_phrase, tokens, detected_category, price_intent
+    return detected_category, price_intent
 
 
 def search_catalog_service(
@@ -342,14 +359,15 @@ def search_catalog_service(
     queryset = Item.objects.filter(is_active=True).select_related('category', 'brand', 'supplier')
 
     is_ranked = False
-    price_intent: Optional[str] = None
     mapped_category: Optional[str] = None
+    price_intent: Optional[str] = None
 
     # Apply search query filter with intelligent multi-layer matching
     if query is not None:
         raw_cleaned = str(query).strip()
         if raw_cleaned:
-            cleaned_phrase, tokens, mapped_category, price_intent = normalize_and_tokenize_query(raw_cleaned)
+            cleaned_phrase, tokens = normalize_and_tokenize_query(raw_cleaned)
+            mapped_category, price_intent = detect_category_synonym_and_price_intent(raw_cleaned)
 
             filter_conditions = []
             score_expressions = []

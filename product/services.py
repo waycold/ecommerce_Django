@@ -10,6 +10,7 @@ from apps.catalog.services import (
     PRICE_PREMIUM_KEYWORDS,
     CATEGORY_SYNONYMS_ES_EN,
     normalize_and_tokenize_query,
+    detect_category_synonym_and_price_intent,
     search_catalog_service,
 )
 
@@ -19,5 +20,6 @@ __all__ = [
     'PRICE_PREMIUM_KEYWORDS',
     'CATEGORY_SYNONYMS_ES_EN',
     'normalize_and_tokenize_query',
+    'detect_category_synonym_and_price_intent',
     'search_catalog_service',
 ]

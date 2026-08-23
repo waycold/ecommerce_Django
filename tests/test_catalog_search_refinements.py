@@ -14,7 +14,11 @@ from decimal import Decimal
 import pytest
 from django.conf import settings
 from apps.catalog.models import Brand, Category, Item, Supplier
-from apps.catalog.services import normalize_and_tokenize_query, search_catalog_service
+from apps.catalog.services import (
+    normalize_and_tokenize_query,
+    detect_category_synonym_and_price_intent,
+    search_catalog_service,
+)
 
 
 @pytest.fixture
@@ -421,10 +425,12 @@ class TestCategorySynonymAndIntentMapping:
     """
 
     def test_synonym_normalization_and_category_detection(self):
-        cleaned, tokens, category, price_intent = normalize_and_tokenize_query("dime un libro barato")
+        cleaned, tokens = normalize_and_tokenize_query("dime un libro barato")
+        category, price_intent = detect_category_synonym_and_price_intent("dime un libro barato")
         assert category == "Books"
         assert price_intent == "asc"
         assert "libro" in cleaned
+        assert "libro" in tokens
 
     def test_search_catalog_with_libro_barato_query(self, db):
         cat_books = Category.objects.create(name="Books")
