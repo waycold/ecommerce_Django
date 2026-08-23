@@ -565,9 +565,9 @@ gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --threads 4 --
 
 ---
 
-## 👨‍💻 Author & Engineering Leadership
+## 👨‍💻 Author
 
-Built with craftsmanship by **Facundo Rossi** — Senior Full-Stack Software Engineer & Solutions Architect.
+Built by **Facundo Rizzato**
 
-- **LinkedIn:** [linkedin.com/in/facundo-rossi](https://linkedin.com/in/facundo-rossi)
-- **GitHub:** [@facur](https://github.com/facur)
+- **LinkedIn:** [linkedin.com/in/facundo-rizzato](https://www.linkedin.com/in/facundo-rizzato-63a055259/)
+- **GitHub:** [@waycold](https://github.com/waycold)
