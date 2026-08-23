@@ -26,6 +26,7 @@ class PaymentMethod(models.TextChoices):
     DEBIT_CARD = 'DEBIT_CARD', 'Debit Card'
     TRANSFER = 'TRANSFER', 'Bank Transfer'
     CASH = 'CASH', 'Cash'
+    PAYPAL = 'PAYPAL', 'PayPal'
 
 
 class Profile(models.Model):

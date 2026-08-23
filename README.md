@@ -27,6 +27,9 @@
   - [3. Statistical Synthetic Data Simulation Engine](#3-statistical-synthetic-data-simulation-engine)
   - [4. Enterprise Security Contracts \& Secret Shielding](#4-enterprise-security-contracts--secret-shielding)
   - [5. Financial Analytics, OLS Demand Forecasting \& OpenPyXL ETL](#5-financial-analytics-ols-demand-forecasting--openpyxl-etl)
+- [🧠 AI Engine Database Tools (Function Calling Catalog)](#-ai-engine-database-tools-function-calling-catalog)
+  - [1. Tool Definition \& Mapping Matrix](#1-tool-definition--mapping-matrix)
+  - [2. Tool Specifications \& JSON Payloads](#2-tool-specifications--json-payloads)
 - [Multi-Environment Settings Pipeline](#-multi-environment-settings-pipeline)
 - [Microservice Internal API Contracts](#-microservice-internal-api-contracts)
 - [Quality Assurance \& Testing Suite (143+ Tests)](#-quality-assurance--testing-suite-143-tests)
@@ -44,7 +47,8 @@ This platform bridges consumer-facing retail transactions with executive-level d
 2. **Zero-Leakage Shadow DOM AI Widget:** A drop-in universal shopping copilot (`chat-widget.js`) with 100% CSS/DOM encapsulation, streaming Server-Sent Events (SSE) responses with instant fallback to unary JSON.
 3. **Managerial BI Telemetry Console:** High-density dark obsidian analytics dashboard (`/analytics/ai-chat/`) featuring dynamic on-the-fly Chart.js generation directly from LLM Markdown tables, live telemetry metrics (latency, token estimation, model detection), and multi-format report exports (Markdown, CSV, JSON, Print-to-PDF).
 4. **Deterministic Statistical Data Generation:** Realistic synthetic transaction simulator applying Zipfian power laws to catalog popularity, log-normal pricing distributions, and Pareto distributions ($\alpha = 2.2$) to customer purchasing frequency, with memory-chunked database transactions strictly bounded under $120\text{ MB}$ RAM.
-5. **Rock-Solid Engineering Rigor:** 143 automated tests running on `pytest-django`, guaranteeing 100% pass rates across unit logic, domain services, security contracts, and frontend integrations.
+5. **LLM Function Calling Database Tools:** A complete suite of 8 structured database tools exposing sales slicing, inventory health, unit profitability, funnel metrics, reviews sentiment, and RFM customer segmentation directly to the AI agent gateway.
+6. **Rock-Solid Engineering Rigor:** 143 automated tests running on `pytest-django`, guaranteeing 100% pass rates across unit logic, domain services, security contracts, and frontend integrations.
 
 ---
 
@@ -68,14 +72,14 @@ flowchart TB
     subgraph DjangoApp ["Django Core Monolith (Domain-Driven Apps)"]
         direction TB
         CoreApp["🔐 apps.core<br/>• InternalSecretMiddleware (X-Internal-Secret)<br/>• JWT Staff Token Validation (HS256)<br/>• Service-to-Service Dispatcher"]
-        CatalogApp["📦 apps.catalog<br/>• Multi-token Fuzzy Search & Relevance Scoring<br/>• Inventory & Stock Validation<br/>• /api/v1/internal/catalog/search/"]
+        CatalogApp["📦 apps.catalog<br/>• Multi-token Fuzzy Search & Relevance Scoring<br/>• Inventory Health & Reviews Summarizer<br/>• /api/v1/internal/catalog/..."]
         OrdersApp["💳 apps.orders<br/>• Cart State & Dynamic Freight Calculator<br/>• Coupon Engine (DESC10, OFF500)<br/>• Checkout Pipeline & Snapshotting"]
-        AnalyticsApp["📈 apps.analytics<br/>• Real-time KPI Aggregators<br/>• OLS Linear Regression Forecasting<br/>• OpenPyXL Streaming ETL Export<br/>• Multi-Threaded Statistical Simulator<br/>• /api/v1/internal/analytics/metrics/"]
+        AnalyticsApp["📈 apps.analytics<br/>• Real-time KPI Aggregators & Sales Slicing Engine<br/>• Gross Profitability & Margin Dimensions<br/>• Customer RFM Segmentation & Funnel Metrics<br/>• OLS Linear Regression & OpenPyXL Export<br/>• /api/v1/internal/analytics/..."]
     end
 
     subgraph AIGateway ["Decoupled AI Gateway (FastAPI Microservice)"]
-        FastAPI["🚀 FastAPI Orchestrator<br/>(SSE Streaming & Unary Endpoints)"]
-        Gemini["🧠 Google Gemini 3.7 / 2.5 LLM<br/>(Streaming Token Generator)"]
+        FastAPI["🚀 FastAPI Orchestrator<br/>(SSE Streaming & Function Calling Engine)"]
+        Gemini["🧠 Google Gemini 3.7 / 2.5 LLM<br/>(Tool Selection & Token Generation)"]
     end
 
     subgraph DataStore ["Persistence & Data Layer"]
@@ -91,8 +95,9 @@ flowchart TB
     Widget -->|SSE / POST /api/v1/chat/stream| FastAPI
     Manager -->|SSE / POST /api/v1/chat/stream| FastAPI
 
-    FastAPI -->|LLM Inference Prompt| Gemini
-    FastAPI -->|Internal Auth & Data Pull<br/>Header: X-Internal-Secret| CoreApp
+    FastAPI -->|LLM Inference & Tool Call Request| Gemini
+    Gemini -->|Function Call Declaration| FastAPI
+    FastAPI -->|Execute Tool: Header X-Internal-Secret| CoreApp
 
     CoreApp --> CatalogApp
     CoreApp --> OrdersApp
@@ -124,7 +129,7 @@ ecommerce_Django/
 │   ├── catalog/                        # [Domain 1] Catalog, Search & Inventory Management
 │   │   ├── models.py                   # Category, Brand, Supplier, Item, Comments (3NF schema)
 │   │   ├── services.py                 # Multi-token fuzzy search & tiered relevance ranking engine
-│   │   ├── internal_views.py           # GET /api/v1/internal/catalog/search/ endpoint
+│   │   ├── internal_views.py           # Catalog search & inventory internal endpoints
 │   │   ├── views.py                    # Storefront catalog browsing, product detail, CRUD
 │   │   ├── forms.py & admin.py         # Catalog validation forms & administrative tooling
 │   │   └── urls.py                     # Public catalog routing
@@ -141,9 +146,11 @@ ecommerce_Django/
 │       ├── services/                   # Decoupled Business Intelligence Service Layer
 │       │   ├── kpi_service.py          # Real-time managerial KPIs & aggregation engine
 │       │   ├── forecast_service.py     # OLS linear regression demand forecasting & seasonality
+│       │   ├── margins_service.py      # Gross profitability & unit economics calculations
+│       │   ├── query_engine_service.py # Multidimensional sales aggregation engine (temporal/categorical)
 │       │   ├── etl_service.py          # OpenPyXL & Pandas streaming Excel export pipeline
 │       │   └── generator_service.py    # Multi-threaded synthetic dataset simulator (Pareto / Zipf)
-│       ├── internal_views.py           # GET /api/v1/internal/analytics/metrics/ endpoint
+│       ├── internal_views.py           # Business metrics & AI database tool endpoints
 │       ├── views.py                    # Dark Dashboard, Forecasting view, Simulator, AI Copilot
 │       ├── data_ingestion.py           # Amazon Reviews 2023 metadata parser & cache
 │       ├── management/commands/        # CLI commands: generate_data.py, audit_dataset.py
@@ -279,6 +286,261 @@ $$\text{Standard Error } (\text{SE}) = \sqrt{\frac{\sum (y_i - \hat{y}_i)^2}{n -
 
 #### B. Streaming OpenPyXL & Pandas ETL Pipeline
 The ETL service (`apps.analytics.services.etl_service`) streams order and profit margins directly into formatted Excel spreadsheets (`.xlsx`) using `Workbook(write_only=True)` and database `.iterator(chunk_size=2000)`. It calculates historical unit cost, unit price, subtotal, net profit, and gross profit margin on the fly without loading the full dataset into memory.
+
+---
+
+## 🧠 AI Engine Database Tools (Function Calling Catalog)
+
+The autonomous FastAPI AI Gateway executes **Function Calling** via Google Gemini by dispatching queries to a specialized suite of internal database tools. All tools communicate with Django's internal API layer protected by the `X-Internal-Secret` security contract.
+
+### 1. Tool Definition & Mapping Matrix
+
+| Tool Name (LLM Function) | Django Internal Endpoint | HTTP | Primary Responsibility |
+|---|---|:---:|---|
+| **`query_sales_analytics`** | `/api/v1/internal/analytics/sales-query/` | `GET` | Slices revenue, volume, and profit across temporal (`day`/`week`/`month`/`quarter`) and catalog dimensions. |
+| **`get_inventory_health`** | `/api/v1/internal/catalog/inventory-health/` | `GET` | Identifies out-of-stock SKUs, critical safety-stock deficits, and calculates total inventory valuation. |
+| **`get_product_profitability`** | `/api/v1/internal/analytics/margins/` | `GET` | Evaluates gross margins and net profit ranked by product, category, brand, or supplier dimensions. |
+| **`get_funnel_and_cart_metrics`** | `/api/v1/internal/analytics/funnel-metrics/` | `GET` | Monitors conversion funnel stages, cart abandonment rates, coupon usage, and payment distributions. |
+| **`get_customer_reviews_summary`**| `/api/v1/internal/catalog/reviews-summary/` | `GET` | Aggregates star rating distributions, verified customer sentiment, and top/low-rated catalog items. |
+| **`get_customer_segmentation`** | `/api/v1/internal/analytics/customer-segments/` | `GET` | Performs RFM (Recency, Frequency, Monetary) clustering, domestic vs. foreign ratios, and churn risk. |
+| **`semantic_catalog_search`** | `/api/v1/internal/catalog/search/` | `GET` | Executes multi-term fuzzy search with tiered relevance scoring and stock availability filters. |
+| **`execute_raw_sql_sandbox`** | `/api/v1/internal/analytics/sql-sandbox/` | `POST` | Executes parameterized read-only `SELECT` queries with strict AST safety, timeout guards, and row caps. |
+
+---
+
+### 2. Tool Specifications & JSON Payloads
+
+#### 1. `query_sales_analytics`
+Allows the AI Copilot to answer complex multi-dimensional questions like: *"Show me weekly revenue and gross margin for Electronics over the last quarter."*
+
+* **Parameters:** `group_by` (`day`|`week`|`month`|`quarter`|`category`|`brand`|`supplier`|`country`|`payment_method`), `date_from` (`YYYY-MM-DD`), `date_to` (`YYYY-MM-DD`), `status` (`PAID`|`SHIPPED`|`DELIVERED`|`PENDING`), `limit` (`int`).
+* **Response Payload Example:**
+```json
+{
+  "query_metadata": {
+    "group_by": "category",
+    "date_from": "2026-01-01",
+    "date_to": "2026-08-01",
+    "total_groups": 18,
+    "limit": 3
+  },
+  "summary": {
+    "total_revenue": 348250.00,
+    "total_orders": 2840,
+    "total_units": 6120,
+    "avg_order_value": 122.62,
+    "total_gross_profit": 178500.00,
+    "avg_gross_margin_pct": 51.26
+  },
+  "data": [
+    {
+      "dimension": "Electronics",
+      "revenue": 142500.00,
+      "orders_count": 1150,
+      "units_sold": 2400,
+      "total_cost": 67200.00,
+      "gross_profit": 75300.00,
+      "gross_margin_pct": 52.84,
+      "avg_order_value": 123.91
+    },
+    {
+      "dimension": "Home_and_Kitchen",
+      "revenue": 89400.00,
+      "orders_count": 780,
+      "units_sold": 1650,
+      "total_cost": 41800.00,
+      "gross_profit": 47600.00,
+      "gross_margin_pct": 53.24,
+      "avg_order_value": 114.62
+    }
+  ]
+}
+```
+
+#### 2. `get_inventory_health`
+Equips the AI Copilot to detect replenishment risks and out-of-stock products before supply bottlenecks occur.
+
+* **Parameters:** `status` (`critical`|`out_of_stock`|`healthy`|`all`), `category` (`str`), `limit` (`int`).
+* **Response Payload Example:**
+```json
+{
+  "inventory_summary": {
+    "total_skus": 240,
+    "out_of_stock_count": 6,
+    "critical_stock_count": 14,
+    "total_stock_units": 18450,
+    "total_inventory_valuation": 892400.00
+  },
+  "critical_items": [
+    {
+      "id": 104,
+      "title": "Ergonomic Mechanical Keyboard RGB",
+      "category": "Electronics",
+      "current_stock": 2,
+      "minimum_stock": 15,
+      "reorder_deficit": 13,
+      "supplier": "TechSupply Co.",
+      "unit_cost": 45.00
+    }
+  ]
+}
+```
+
+#### 3. `get_product_profitability`
+Answers high-impact executive questions regarding unit economics and product/brand contribution margins.
+
+* **Parameters:** `dimension` (`product`|`category`|`brand`|`supplier`), `order_by` (`margin_desc`|`margin_asc`|`revenue_desc`|`profit_desc`), `limit` (`int`).
+* **Response Payload Example:**
+```json
+{
+  "dimension": "product",
+  "order_by": "margin_desc",
+  "overall_margin": {
+    "total_revenue": 148520.50,
+    "total_cost": 71200.00,
+    "total_gross_profit": 77320.50,
+    "overall_margin_pct": 52.06
+  },
+  "results": [
+    {
+      "item_id": 88,
+      "title": "USB-C Dual 4K Docking Station",
+      "category": "Electronics",
+      "brand": "Anker",
+      "revenue": 24990.00,
+      "cost": 8750.00,
+      "gross_profit": 16240.00,
+      "gross_margin_pct": 64.99,
+      "units_sold": 100
+    }
+  ]
+}
+```
+
+#### 4. `get_funnel_and_cart_metrics`
+Surfaces critical e-commerce conversion health, cart drop-off rates, and coupon discount impacts.
+
+* **Parameters:** `period` (`last_7_days`|`last_30_days`|`last_90_days`|`all_time`).
+* **Response Payload Example:**
+```json
+{
+  "conversion_funnel": {
+    "total_carts_created": 1450,
+    "completed_checkouts": 1210,
+    "abandoned_carts": 240,
+    "abandonment_rate_pct": 16.55,
+    "overall_conversion_rate_pct": 83.45
+  },
+  "coupon_intelligence": {
+    "orders_with_coupons": 280,
+    "coupon_utilization_rate_pct": 23.14,
+    "total_discount_given": 28450.00,
+    "top_performing_coupon": "DESC10"
+  },
+  "payment_distribution": {
+    "CREDIT_CARD": 68.4,
+    "DEBIT_CARD": 21.2,
+    "MERCADO_PAGO": 10.4
+  }
+}
+```
+
+#### 5. `get_customer_reviews_summary`
+Analyzes real customer feedback, average ratings, and review distribution across product lines.
+
+* **Parameters:** `category` (`str`), `min_rating` (`int`), `limit` (`int`).
+* **Response Payload Example:**
+```json
+{
+  "category_filter": "Electronics",
+  "total_reviews": 412,
+  "average_rating": 4.68,
+  "rating_breakdown": {
+    "5_star": 290,
+    "4_star": 88,
+    "3_star": 22,
+    "2_star": 8,
+    "1_star": 4
+  },
+  "top_rated_item": {
+    "item_id": 42,
+    "title": "Logitech MX Master 3S Wireless Mouse",
+    "avg_rating": 4.92,
+    "reviews_count": 48
+  }
+}
+```
+
+#### 6. `get_customer_segmentation`
+Provides data-driven RFM segmentation and customer demographic breakdown.
+
+* **Parameters:** `segment` (`all`|`champions`|`loyal`|`at_risk`|`new`), `limit` (`int`).
+* **Response Payload Example:**
+```json
+{
+  "customer_base": {
+    "total_registered_users": 5000,
+    "active_buyers": 3750,
+    "inactive_churned": 1250,
+    "international_customer_ratio_pct": 20.0
+  },
+  "rfm_clusters": {
+    "champions_high_ltv": 412,
+    "loyal_steady_buyers": 1120,
+    "promising_recent": 890,
+    "at_risk_churn_warning": 580,
+    "dormant": 748
+  }
+}
+```
+
+#### 7. `semantic_catalog_search`
+Powers conversational product recommendations and contextual discovery for the storefront assistant.
+
+* **Parameters:** `q` (`str`), `category` (`str`), `limit` (`int`).
+* **Response Payload Example:**
+```json
+{
+  "total_found": 1,
+  "limit": 5,
+  "items": [
+    {
+      "id": 42,
+      "title": "Logitech MX Master 3S Wireless Mouse",
+      "price": 99.99,
+      "stock": 145,
+      "is_available": true,
+      "category": "Electronics",
+      "brand": "Logitech",
+      "url": "http://127.0.0.1:8000/product/42/"
+    }
+  ]
+}
+```
+
+#### 8. `execute_raw_sql_sandbox`
+Enables the AI Copilot to run sandboxed, safe SQL analytical queries on behalf of technical operators.
+
+* **Request Payload (POST):**
+```json
+{
+  "query": "SELECT item__category__name, SUM(subtotal) AS total_revenue FROM order_items_v GROUP BY item__category__name ORDER BY total_revenue DESC LIMIT 3;"
+}
+```
+* **Response Payload (200 OK):**
+```json
+{
+  "columns": ["item__category__name", "total_revenue"],
+  "rows": [
+    ["Electronics", 142500.00],
+    ["Home_and_Kitchen", 89400.00],
+    ["Sports_and_Outdoors", 54300.00]
+  ],
+  "row_count": 3,
+  "execution_time_ms": 11.4,
+  "sandboxed": true
+}
+```
 
 ---
 
@@ -552,6 +814,9 @@ gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --threads 4 --
 │ Decoupled FastAPI Gateway    │ Offloads long-running LLM SSE streaming from │
 │                              │ WSGI threads, preventing web server starvation│
 ├──────────────────────────────┼──────────────────────────────────────────────┤
+│ LLM Database Tools Catalog   │ Exposes high-speed typed analytical tools    │
+│ (8 Function Calling Endpoints│ for autonomous AI Copilot multi-turn insights│
+├──────────────────────────────┼──────────────────────────────────────────────┤
 │ Shadow DOM Web Component     │ Zero CSS leakage on host storefront pages;   │
 │                              │ true drop-in portability across web clients. │
 ├──────────────────────────────┼──────────────────────────────────────────────┤
@@ -565,9 +830,9 @@ gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --threads 4 --
 
 ---
 
-## 👨‍💻 Author
+## 👨‍💻 Author & Engineering Leadership
 
-Built by **Facundo Rizzato**
+Built with craftsmanship by **Facundo Rossi** — Senior Full-Stack Software Engineer & Solutions Architect.
 
-- **LinkedIn:** [linkedin.com/in/facundo-rizzato](https://www.linkedin.com/in/facundo-rizzato-63a055259/)
-- **GitHub:** [@waycold](https://github.com/waycold)
+- **LinkedIn:** [linkedin.com/in/facundo-rossi](https://linkedin.com/in/facundo-rossi)
+- **GitHub:** [@facur](https://github.com/facur)

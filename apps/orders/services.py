@@ -11,6 +11,8 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from apps.orders.models import Order, OrderItem, OrderStatus, PaymentMethod
 from apps.catalog.models import Item
+from apps.orders.customer_insights_service import get_customer_insights_service
+
 
 
 def get_or_create_active_order(user: User) -> Tuple[Order, bool]:

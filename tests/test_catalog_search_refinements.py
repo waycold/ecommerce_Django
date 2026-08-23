@@ -411,3 +411,105 @@ class TestCatalogSearchSecurityAndBoundaries:
         )
         assert response.status_code == 400
         assert response.json().get('error') == 'Bad Request'
+
+
+@pytest.mark.django_db
+class TestCategorySynonymAndIntentMapping:
+    """
+    Validates English/Spanish synonym mappings and price intent modifiers.
+    Specifically tests queries like 'dime un libro barato' -> mapped to 'Books' category with budget sorting.
+    """
+
+    def test_synonym_normalization_and_category_detection(self):
+        cleaned, tokens, category, price_intent = normalize_and_tokenize_query("dime un libro barato")
+        assert category == "Books"
+        assert price_intent == "asc"
+        assert "libro" in cleaned
+
+    def test_search_catalog_with_libro_barato_query(self, db):
+        cat_books = Category.objects.create(name="Books")
+        cat_tech = Category.objects.create(name="Electronics")
+        brand = Brand.objects.create(name="Penguin")
+        supplier = Supplier.objects.create(name="BookDistributor", country="UK")
+
+        book_cheap = Item.objects.create(
+            title="Clean Code: A Handbook of Agile Software Craftsmanship",
+            description="Classic programming book on writing clean software",
+            price=Decimal("19.99"),
+            cost=Decimal("10.00"),
+            stock=10,
+            category=cat_books,
+            brand=brand,
+            supplier=supplier,
+            is_active=True,
+        )
+        book_expensive = Item.objects.create(
+            title="The Art of Computer Programming (Collector Edition)",
+            description="Comprehensive multi-volume algorithms reference book",
+            price=Decimal("199.99"),
+            cost=Decimal("120.00"),
+            stock=5,
+            category=cat_books,
+            brand=brand,
+            supplier=supplier,
+            is_active=True,
+        )
+        tech_item = Item.objects.create(
+            title="Wireless Mouse",
+            description="Optical mouse with USB receiver",
+            price=Decimal("15.00"),
+            cost=Decimal("8.00"),
+            stock=20,
+            category=cat_tech,
+            brand=brand,
+            supplier=supplier,
+            is_active=True,
+        )
+
+        res = search_catalog_service("dime un libro barato")
+        assert res["total_found"] >= 2
+        assert res["mapped_category"] == "Books"
+        assert res["price_intent"] == "asc"
+
+        # The cheap book should be ranked first due to budget intent
+        first_item = res["items"][0]
+        assert first_item["id"] == book_cheap.id
+        assert first_item["price"] == 19.99
+
+    def test_search_catalog_with_spanish_synonyms(self, db):
+        cat_phones = Category.objects.create(name="Cell_Phones_and_Accessories")
+        cat_games = Category.objects.create(name="Video_Games")
+        brand = Brand.objects.create(name="Sony")
+        supplier = Supplier.objects.create(name="SupplierA", country="Japan")
+
+        phone = Item.objects.create(
+            title="Galaxy Ultra 5G",
+            description="Smartphone with AMOLED display",
+            price=Decimal("899.00"),
+            cost=Decimal("600.00"),
+            stock=8,
+            category=cat_phones,
+            brand=brand,
+            supplier=supplier,
+            is_active=True,
+        )
+        game = Item.objects.create(
+            title="Elden Ring",
+            description="Fantasy action RPG game",
+            price=Decimal("59.99"),
+            cost=Decimal("30.00"),
+            stock=15,
+            category=cat_games,
+            brand=brand,
+            supplier=supplier,
+            is_active=True,
+        )
+
+        res_celular = search_catalog_service("quiero comprar un celular")
+        assert res_celular["mapped_category"] == "Cell_Phones_and_Accessories"
+        assert any(item["id"] == phone.id for item in res_celular["items"])
+
+        res_juego = search_catalog_service("recomiéndame un videojuego")
+        assert res_juego["mapped_category"] == "Video_Games"
+        assert any(item["id"] == game.id for item in res_juego["items"])
+
