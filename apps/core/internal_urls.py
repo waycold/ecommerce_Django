@@ -3,9 +3,10 @@ apps/core/internal_urls.py
 
 Internal Microservice URL Routing for AI Agent & Orchestrator Communication.
 All endpoints are secured by InternalSecretMiddleware requiring X-Internal-Secret.
+Supports both trailing-slash and non-trailing-slash requests seamlessly.
 """
 
-from django.urls import path
+from django.urls import re_path
 
 # Core views
 from apps.core.views import health_check_view
@@ -35,26 +36,26 @@ app_name = 'internal'
 
 urlpatterns = [
     # System & Health
-    path('health/', health_check_view, name='internal_health'),
+    re_path(r'^health/?$', health_check_view, name='internal_health'),
     
     # Auth & Security
-    path('auth/validate-token/', validate_token_view, name='internal_auth_validate_token'),
+    re_path(r'^auth/validate-token/?$', validate_token_view, name='internal_auth_validate_token'),
     
     # Catalog & Inventory
-    path('catalog/search/', catalog_search_view, name='internal_catalog_search'),
-    path('catalog/semantic-search/', catalog_semantic_search_view, name='internal_catalog_semantic_search'),
-    path('catalog/reviews-summary/', catalog_reviews_summary_view, name='internal_catalog_reviews_summary'),
-    path('inventory/health/', inventory_health_view, name='internal_inventory_health'),
+    re_path(r'^catalog/search/?$', catalog_search_view, name='internal_catalog_search'),
+    re_path(r'^catalog/semantic-search/?$', catalog_semantic_search_view, name='internal_catalog_semantic_search'),
+    re_path(r'^catalog/reviews-summary/?$', catalog_reviews_summary_view, name='internal_catalog_reviews_summary'),
+    re_path(r'^inventory/health/?$', inventory_health_view, name='internal_inventory_health'),
     
     # Analytics, Metrics & Reporting
-    path('analytics/metrics/', analytics_metrics_view, name='internal_analytics_metrics'),
-    path('analytics/query/', analytics_query_view, name='internal_analytics_query'),
-    path('analytics/margins/', analytics_margins_view, name='internal_analytics_margins'),
-    path('analytics/funnel/', analytics_funnel_view, name='internal_analytics_funnel'),
+    re_path(r'^analytics/metrics/?$', analytics_metrics_view, name='internal_analytics_metrics'),
+    re_path(r'^analytics/query/?$', analytics_query_view, name='internal_analytics_query'),
+    re_path(r'^analytics/margins/?$', analytics_margins_view, name='internal_analytics_margins'),
+    re_path(r'^analytics/funnel/?$', analytics_funnel_view, name='internal_analytics_funnel'),
     
     # Customers & CRM
-    path('customers/insights/', customer_insights_view, name='internal_customers_insights'),
+    re_path(r'^customers/insights/?$', customer_insights_view, name='internal_customers_insights'),
     
     # Safe SQL Sandbox
-    path('query/raw-read/', raw_sql_sandbox_view, name='internal_raw_sql_sandbox'),
+    re_path(r'^query/raw-read/?$', raw_sql_sandbox_view, name='internal_raw_sql_sandbox'),
 ]

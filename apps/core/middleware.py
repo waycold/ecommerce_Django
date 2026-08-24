@@ -19,7 +19,8 @@ class InternalSecretMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if request.path.startswith('/api/v1/internal/'):
+        norm_path = '/' + request.path.lstrip('/')
+        if norm_path.startswith('/api/v1/internal/'):
             secret_header = (
                 request.headers.get('X-Internal-Secret')
                 or request.META.get('HTTP_X_INTERNAL_SECRET')
