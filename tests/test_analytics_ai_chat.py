@@ -185,3 +185,209 @@ class TestAnalyticsAICopilotTemplateComponents:
         assert "telemetryTokens" in html
         assert "checkGatewayHealth" in html
 
+    def test_markdown_parser_safe_delimiters_and_no_italic_corruption(self, client, staff_user):
+        """
+        Verify that parseMarkdown uses safe delimiters without underscores (%%%HTMLPART, %%%DIRECTCHARTPART, etc.)
+        and that it renders tables with toolbar actions without leaving broken placeholders.
+        """
+        import json
+        import subprocess
+
+        client.force_login(staff_user)
+        url = reverse("analytics:ai_chat")
+        response = client.get(url)
+        assert response.status_code == 200
+        html = response.content.decode("utf-8")
+
+        # Verify safe delimiters present in JS code
+        assert "%%%HTMLPART" in html
+        assert "%%%DIRECTCHARTPART" in html
+        assert "%%%CODEBLOCKPART" in html
+        assert "%%%INLINECODEPART" in html
+
+        # Extract parseMarkdown and escapeHtml from the template
+        fn_start = html.find("function escapeHtml")
+        fn_end = html.find("// 5. Chart.js Dynamic Rendering Engine")
+        extracted_js = html[fn_start:fn_end]
+
+        js_test = f"""
+        let tableCounter = 0;
+        {extracted_js}
+
+        const sampleMarkdown = `
+Aquí está el análisis para _ventas del mes_:
+
+| Categoría | Ventas ($) | Cantidad |
+| :--- | :---: | ---: |
+| Electrónica | 120,000 | 450 |
+| Calzado | 85,000 | 920 |
+
+Puntos clave:
+- Mayor volumen en *calzado*.
+- Mayor margen en **electrónica**.
+
+Segundo reporte de _inventario_:
+
+| Item | Stock |
+| --- | --- |
+| Laptop | 15 |
+| Mouse | 150 |
+        `;
+
+        const result = parseMarkdown(sampleMarkdown);
+        const hasBrokenTokens = /HTMLPART/i.test(result);
+        const tableCardCount = (result.match(/table-container-card/g) || []).length;
+        const hasVerGrafico = result.includes('Ver Gráfico');
+        const hasCsv = result.includes('CSV');
+        const hasCopiar = result.includes('Copiar');
+
+        console.log(JSON.stringify({{
+            hasBrokenTokens,
+            tableCardCount,
+            hasVerGrafico,
+            hasCsv,
+            hasCopiar
+        }}));
+        """
+        res = subprocess.run(["node", "-e", js_test], capture_output=True, text=True, check=True)
+        data = json.loads(res.stdout.strip())
+        assert not data["hasBrokenTokens"], "parseMarkdown left broken HTMLPART placeholders"
+        assert data["tableCardCount"] == 2, f"Expected 2 table cards, got {data['tableCardCount']}"
+        assert data["hasVerGrafico"], "Expected 'Ver Gráfico' button in table toolbar"
+        assert data["hasCsv"], "Expected 'CSV' button in table toolbar"
+        assert data["hasCopiar"], "Expected 'Copiar' button in table toolbar"
+
+    def test_complex_markdown_multi_table_mixed_formatting_parser_resilience(self, client, staff_user):
+        """
+        Validates that a complex multi-table response containing mixed formatting:
+        - Multiple tables (3 distinct tables)
+        - Italic with single underscore `_text_` and asterisk `*text*`
+        - Bold with double underscore `__text__` and double asterisk `**text**`
+        - Snake_case variable names (`Industrial_and_Scientific`, `calculate_margins_service`)
+        - Bulleted lists (- and *) and numbered lists (1., 2.)
+        - Inline code with underscores
+        - Fenced code blocks
+        - Direct JSON chart blocks
+        - Markdown links [text](url)
+        - Multi-line paragraphs and single line breaks
+        parses 100% cleanly without leaving broken placeholder tokens (HTMLPART, CODEBLOCKPART, etc.).
+        """
+        import json
+        import subprocess
+
+        client.force_login(staff_user)
+        url = reverse("analytics:ai_chat")
+        response = client.get(url)
+        assert response.status_code == 200
+        html = response.content.decode("utf-8")
+
+        fn_start = html.find("function escapeHtml")
+        fn_end = html.find("// 5. Chart.js Dynamic Rendering Engine")
+        extracted_js = html[fn_start:fn_end]
+
+        complex_markdown = r"""
+# Reporte Ejecutivo de Ventas y Márgenes - Diciembre 2025
+
+A continuación se detalla el desglose por categorías líderes para el período _2025-12-01_ a _2025-12-31_:
+
+| Ranking | Categoría | Ingresos ($) | Margen Bruto (%) | Unidades |
+| :---: | :--- | ---: | :---: | ---: |
+| 1 | Industrial_and_Scientific | $95,000.00 | 48.5% | 1,250 |
+| 2 | Cell_Phones_and_Accessories | $78,500.00 | 42.0% | 3,100 |
+| 3 | Electronics | $54,200.00 | 38.0% | 890 |
+| 4 | Home_and_Kitchen | $36,800.00 | 35.2% | 1,420 |
+| 5 | Automotive | $22,100.00 | 31.8% | 610 |
+
+### Observaciones y Conclusiones:
+* La categoría **Industrial_and_Scientific** lidera con un margen del __48.5%__.
+* El producto destacado es `industrial_sensor_pro_v2` con _alto rendimiento_ y campo `gross_margin_pct`.
+- Crecimiento sostenido en **Cell_Phones_and_Accessories**.
+- Enlaces de referencia: [Ver Portal Analytics](https://analytics.example.com/portal_2025).
+
+1. Primer paso: reabastecer inventario de *sensores industriales*.
+2. Segundo paso: optimizar logística en **Home_and_Kitchen**.
+
+```json-chart
+{"type": "bar", "labels": ["Industrial_and_Scientific", "Cell_Phones_and_Accessories", "Electronics"], "datasets": [{"data": [95000, 78500, 54200]}]}
+```
+
+```python
+def verify_margin_aggregation(category_name, revenue, cost):
+    margin = (revenue - cost) / revenue * 100.0
+    return {"category": category_name, "margin_pct": round(margin, 2)}
+```
+
+### Tabla Secundaria: Rendimiento por Canal de Pago
+
+| Canal de Pago | Transacciones | Total Facturado | Tasa Aprobación |
+| :--- | :---: | ---: | ---: |
+| CREDIT_CARD | 4,200 | $185,000.00 | 98.2% |
+| TRANSFER | 1,150 | $68,500.00 | 99.5% |
+| DEBIT_CARD | 820 | $33,100.00 | 97.8% |
+
+### Tabla Terciaria: Resumen de Stock Crítico
+
+| SKU | Descripción | Stock Actual | Punto Reorden | Estado |
+| :--- | :--- | :---: | :---: | :---: |
+| IND-9901 | Sensor Láser Industrial Pro | 4 | 15 | CRÍTICO |
+| CEL-4421 | Funda Ultra Resistente Armor | 8 | 20 | BAJO |
+| AUT-1029 | Filtro de Aceite Sintético | 0 | 10 | AGOTADO |
+
+Fin del reporte consolidado.
+"""
+
+        js_test = f"""
+        let tableCounter = 0;
+        {extracted_js}
+
+        const inputMarkdown = {json.dumps(complex_markdown)};
+        const outputHtml = parseMarkdown(inputMarkdown);
+
+        // Verification checks
+        const hasBrokenHtmlPart = /(?:HTMLPART|%%%HTMLPART|@@@HTMLPART)/i.test(outputHtml);
+        const hasBrokenCodeBlock = /(?:CODEBLOCKPART|%%%CODEBLOCK|@@@CODEBLOCK)/i.test(outputHtml);
+        const hasBrokenInlineCode = /(?:INLINECODEPART|%%%INLINECODE|@@@INLINECODE)/i.test(outputHtml);
+        const hasBrokenDirectChart = /(?:DIRECTCHARTPART|%%%DIRECTCHART|@@@DIRECTCHART)/i.test(outputHtml);
+
+        const tableContainerCards = (outputHtml.match(/class="table-container-card"/g) || []).length;
+        const directChartBoxes = (outputHtml.match(/class="direct-chart-box"/g) || []).length;
+        const codeBlockWrappers = (outputHtml.match(/class="code-block-wrapper"/g) || []).length;
+        const inlineCodeCount = (outputHtml.match(/class="inline-code"/g) || []).length;
+        const boldTagsCount = (outputHtml.match(/<strong>/g) || []).length;
+        const italicTagsCount = (outputHtml.match(/<em>/g) || []).length;
+        const ulCount = (outputHtml.match(/<ul/g) || []).length;
+        const olCount = (outputHtml.match(/<ol/g) || []).length;
+
+        console.log(JSON.stringify({{
+            hasBrokenHtmlPart,
+            hasBrokenCodeBlock,
+            hasBrokenInlineCode,
+            hasBrokenDirectChart,
+            tableContainerCards,
+            directChartBoxes,
+            codeBlockWrappers,
+            inlineCodeCount,
+            boldTagsCount,
+            italicTagsCount,
+            ulCount,
+            olCount,
+            outputHtmlLength: outputHtml.length
+        }}));
+        """
+        res = subprocess.run(["node", "-e", js_test], capture_output=True, text=True, check=True)
+        data = json.loads(res.stdout.strip())
+
+        assert not data["hasBrokenHtmlPart"], f"parseMarkdown produced broken HTMLPART tokens: {data}"
+        assert not data["hasBrokenCodeBlock"], f"parseMarkdown produced broken CODEBLOCK tokens: {data}"
+        assert not data["hasBrokenInlineCode"], f"parseMarkdown produced broken INLINECODE tokens: {data}"
+        assert not data["hasBrokenDirectChart"], f"parseMarkdown produced broken DIRECTCHART tokens: {data}"
+        assert data["tableContainerCards"] == 3, f"Expected 3 table containers, got {data['tableContainerCards']}"
+        assert data["directChartBoxes"] == 1, f"Expected 1 direct chart box, got {data['directChartBoxes']}"
+        assert data["codeBlockWrappers"] == 1, f"Expected 1 code block wrapper, got {data['codeBlockWrappers']}"
+        assert data["inlineCodeCount"] >= 2, f"Expected inline code tags, got {data['inlineCodeCount']}"
+        assert data["boldTagsCount"] >= 4, f"Expected bold tags, got {data['boldTagsCount']}"
+        assert data["italicTagsCount"] >= 3, f"Expected italic tags, got {data['italicTagsCount']}"
+        assert data["ulCount"] >= 1, f"Expected unordered list, got {data['ulCount']}"
+        assert data["olCount"] >= 1, f"Expected ordered list, got {data['olCount']}"
+
+

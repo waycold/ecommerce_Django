@@ -6,9 +6,9 @@ Allows slicing and dicing sales metrics across temporal (day, week, month, quart
 and catalog/customer dimensions (category, brand, supplier, payment_method, country).
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 from django.db.models import Sum, Count, F, Q, Value, DecimalField, ExpressionWrapper
 from django.db.models.functions import (
     TruncDate,
@@ -37,8 +37,8 @@ VALID_GROUP_BY_DIMENSIONS = {
 
 
 def dynamic_sales_query_service(
-    date_from: Optional[str] = None,
-    date_to: Optional[str] = None,
+    date_from: Optional[Union[str, date, datetime]] = None,
+    date_to: Optional[Union[str, date, datetime]] = None,
     group_by: str = "category",
     metrics: str = "revenue,orders,units",
     status: Optional[str] = None,
@@ -48,8 +48,8 @@ def dynamic_sales_query_service(
     Executes dynamic database aggregations across dimensions and date windows.
 
     Args:
-        date_from (str, optional): ISO date string 'YYYY-MM-DD'
-        date_to (str, optional): ISO date string 'YYYY-MM-DD'
+        date_from (str, optional): ISO date string 'YYYY-MM-DD' or date/datetime object
+        date_to (str, optional): ISO date string 'YYYY-MM-DD' or date/datetime object
         group_by (str): Dimension to group by ('day'|'week'|'month'|'quarter'|'category'|'brand'|'supplier'|'payment_method'|'country')
         metrics (str): Comma-separated list of metrics to include
         status (str, optional): Order status filter. Defaults to completed paid orders if omitted.
@@ -76,12 +76,18 @@ def dynamic_sales_query_service(
 
     # Date range filters
     if date_from:
-        parsed_from = parse_date(str(date_from).strip())
+        if isinstance(date_from, (datetime, date)):
+            parsed_from = date_from.date() if isinstance(date_from, datetime) else date_from
+        else:
+            parsed_from = parse_date(str(date_from).strip())
         if parsed_from:
             queryset = queryset.filter(order__ordered_date__date__gte=parsed_from)
 
     if date_to:
-        parsed_to = parse_date(str(date_to).strip())
+        if isinstance(date_to, (datetime, date)):
+            parsed_to = date_to.date() if isinstance(date_to, datetime) else date_to
+        else:
+            parsed_to = parse_date(str(date_to).strip())
         if parsed_to:
             queryset = queryset.filter(order__ordered_date__date__lte=parsed_to)
 

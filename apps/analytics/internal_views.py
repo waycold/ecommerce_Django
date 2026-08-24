@@ -100,6 +100,8 @@ def analytics_margins_view(request):
     Query Parameters:
         - dimension (optional, str): product | category | brand | supplier (default: product)
         - order_by (optional, str): margin_desc | margin_asc | revenue_desc | profit_desc (default: margin_desc)
+        - date_from (optional, str): YYYY-MM-DD
+        - date_to (optional, str): YYYY-MM-DD
         - limit (optional, int): max rows to return (default 20, max 100)
 
     Returns:
@@ -118,6 +120,8 @@ def analytics_margins_view(request):
 
     dimension = request.GET.get('dimension', 'product')
     order_by = request.GET.get('order_by', 'margin_desc')
+    date_from = request.GET.get('date_from') or None
+    date_to = request.GET.get('date_to') or None
     limit_param = request.GET.get('limit', 20)
 
     try:
@@ -130,6 +134,8 @@ def analytics_margins_view(request):
     result = calculate_margins_service(
         dimension=dimension,
         order_by=order_by,
+        date_from=date_from,
+        date_to=date_to,
         limit=limit,
     )
     return JsonResponse(result, status=200)

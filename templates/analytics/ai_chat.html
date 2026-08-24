@@ -1131,7 +1131,7 @@
         let text = rawText.replace(/```(?:chart|json-chart)\n?([\s\S]*?)```/g, function(_, jsonContent) {
             const idx = chartBlocks.length;
             chartBlocks.push(jsonContent.trim());
-            return '@@DIRECTCHART_' + idx + '@@';
+            return '%%%DIRECTCHARTPART' + idx + 'END%%%';
         });
 
         // Step 2: Extract Fenced Code Blocks
@@ -1139,7 +1139,7 @@
         text = text.replace(/```([a-zA-Z0-9_-]*)\n?([\s\S]*?)```/g, function(_, lang, code) {
             const idx = codeBlocks.length;
             codeBlocks.push({ lang: lang.trim() || 'code', code: code.replace(/\n$/, '') });
-            return '@@CODEBLOCK_' + idx + '@@';
+            return '%%%CODEBLOCKPART' + idx + 'END%%%';
         });
 
         // Step 3: Extract Inline Code
@@ -1147,12 +1147,13 @@
         text = text.replace(/`([^`\n]+)`/g, function(_, code) {
             const idx = inlineCodes.length;
             inlineCodes.push(code);
-            return '@@INLINECODE_' + idx + '@@';
+            return '%%%INLINECODEPART' + idx + 'END%%%';
         });
 
         // Step 4: Markdown Tables Parsing with Interactive Toolbar & Chart Wrapper
-        text = text.replace(/((?:^[ \t]*\|.+?\|[ \t]*(?:\n|$)){2,})/gm, function(tableBlock) {
-            const lines = tableBlock.trim().split('\n').map(l => l.trim()).filter(Boolean);
+        const htmlParts = [];
+        text = text.replace(/((?:^[ \t]*\|.+?\|[ \t]*(?:\r?\n|$)){2,})/gm, function(tableBlock) {
+            const lines = tableBlock.trim().split(/\r?\n/).map(l => l.trim()).filter(Boolean);
             if (lines.length < 2) return tableBlock;
 
             const isSeparator = function(line) {
@@ -1183,7 +1184,11 @@
             let headerHtml = '<thead><tr>';
             headers.forEach(function(h, idx) {
                 const alignClass = alignments[idx] || 'text-start';
-                headerHtml += '<th class="' + alignClass + '">' + escapeHtml(h) + '</th>';
+                let formattedHeader = escapeHtml(h);
+                formattedHeader = formattedHeader.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+                formattedHeader = formattedHeader.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+                formattedHeader = formattedHeader.replace(/(^|[^\*])\*([^*]+)\*([^\*]|$)/g, '$1<em>$2</em>$3');
+                headerHtml += '<th class="' + alignClass + '">' + formattedHeader + '</th>';
             });
             headerHtml += '</tr></thead>';
 
@@ -1195,7 +1200,12 @@
                 bodyHtml += '<tr>';
                 cells.forEach(function(cellContent, idx) {
                     const alignClass = alignments[idx] || 'text-start';
-                    bodyHtml += '<td class="' + alignClass + '">' + escapeHtml(cellContent) + '</td>';
+                    let formattedCell = escapeHtml(cellContent);
+                    formattedCell = formattedCell.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+                    formattedCell = formattedCell.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+                    formattedCell = formattedCell.replace(/(^|[^\*])\*([^*]+)\*([^\*]|$)/g, '$1<em>$2</em>$3');
+                    formattedCell = formattedCell.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+                    bodyHtml += '<td class="' + alignClass + '">' + formattedCell + '</td>';
                 });
                 bodyHtml += '</tr>';
             });
@@ -1205,7 +1215,7 @@
             const tId = 'tbl_' + tableCounter + '_' + Math.random().toString(36).substring(2, 7);
 
             // Construct Full Table Container with Toolbar and Hidden Chart Canvas
-            return (
+            const tableHtml = (
                 '<div class="table-container-card" id="card_' + tId + '">' +
                     '<div class="table-toolbar">' +
                         '<span class="table-toolbar-title"><i class="fa-solid fa-table me-1"></i> Tabla de Datos</span>' +
@@ -1254,30 +1264,26 @@
                     '</div>' +
                 '</div>'
             );
-        });
 
-        // Step 5: Preserve generated HTML containers
-        const htmlParts = [];
-        text = text.replace(/(<div class="table-container-card"[\s\S]*?<\/div>\s*<\/div>\s*<\/div>)/g, function(_, match) {
             const idx = htmlParts.length;
-            htmlParts.push(match);
-            return '@@HTMLPART_' + idx + '@@';
+            htmlParts.push(tableHtml);
+            return '%%%HTMLPART' + idx + 'END%%%';
         });
 
         text = escapeHtml(text);
 
-        // Step 6: Markdown Links [label](url)
+        // Step 5: Markdown Links [label](url)
         text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/g, function(_, label, url) {
             return '<a href="' + encodeURI(url.trim()) + '" target="_blank" rel="noopener noreferrer">' + label + ' <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 11px;"></i></a>';
         });
 
-        // Step 7: Bold & Italics
+        // Step 6: Bold & Italics
         text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
         text = text.replace(/__([^_]+)__/g, '<strong>$1</strong>');
         text = text.replace(/(^|[^\*])\*([^*]+)\*([^\*]|$)/g, '$1<em>$2</em>$3');
         text = text.replace(/(^|[^_])_([^_]+)_([^_]|$)/g, '$1<em>$2</em>$3');
 
-        // Step 8: Bullet & Numbered Lists
+        // Step 7: Bullet & Numbered Lists
         text = text.replace(/((?:^(?:-|\*)\s+.+(?:\n|$))+)/gm, function(match) {
             const items = match.trim().split('\n').map(l => l.replace(/^(?:-|\*)\s+/, '').trim()).filter(Boolean);
             return '<ul class="my-2">' + items.map(it => '<li>' + it + '</li>').join('') + '</ul>';
@@ -1288,20 +1294,38 @@
             return '<ol class="my-2">' + items.map(it => '<li>' + it + '</li>').join('') + '</ol>';
         });
 
-        // Step 9: Paragraphs & Breaks
+        // Step 8: Paragraphs & Breaks
         text = text.replace(/\n\n+/g, '</p><p>');
         text = text.replace(/\n/g, '<br>');
         if (!text.startsWith('<div') && !text.startsWith('<ul') && !text.startsWith('<ol') && !text.startsWith('<p')) {
             text = '<p>' + text + '</p>';
         }
 
-        // Step 10: Reinsert HTML Table containers
-        text = text.replace(/@@HTMLPART_(\d+)@@/g, function(_, id) {
+        // Step 9: Reinsert HTML Table containers
+        text = text.replace(/%%%HTMLPART(\d+)END%%%/g, function(_, id) {
+            return htmlParts[Number(id)] || '';
+        });
+        text = text.replace(/@@@?HTMLPART_?(?:<em>)?(\d+)(?:<\/em>)?@@@?/gi, function(_, id) {
             return htmlParts[Number(id)] || '';
         });
 
-        // Step 11: Reinsert Direct Chart Blocks
-        text = text.replace(/@@DIRECTCHART_(\d+)@@/g, function(_, id) {
+        // Step 10: Reinsert Direct Chart Blocks
+        text = text.replace(/%%%DIRECTCHARTPART(\d+)END%%%/g, function(_, id) {
+            const rawJson = chartBlocks[Number(id)];
+            tableCounter++;
+            const directChartId = 'dchart_' + tableCounter;
+            return (
+                '<div class="direct-chart-box" id="box_' + directChartId + '">' +
+                    '<div class="d-flex justify-content-between align-items-center mb-2">' +
+                        '<span class="fw-semibold text-primary" style="font-size: 12px;"><i class="fa-solid fa-chart-pie me-1"></i> Gráfico JSON Directo</span>' +
+                    '</div>' +
+                    '<div class="chart-canvas-wrapper" style="height: 260px;">' +
+                        '<canvas id="canvas_' + directChartId + '" data-direct-chart="' + encodeURIComponent(rawJson) + '"></canvas>' +
+                    '</div>' +
+                '</div>'
+            );
+        });
+        text = text.replace(/@@@?DIRECTCHART_?(?:<em>)?(\d+)(?:<\/em>)?@@@?/gi, function(_, id) {
             const rawJson = chartBlocks[Number(id)];
             tableCounter++;
             const directChartId = 'dchart_' + tableCounter;
@@ -1317,8 +1341,22 @@
             );
         });
 
-        // Step 12: Reinsert Code Blocks
-        text = text.replace(/@@CODEBLOCK_(\d+)@@/g, function(_, id) {
+        // Step 11: Reinsert Code Blocks
+        text = text.replace(/%%%CODEBLOCKPART(\d+)END%%%/g, function(_, id) {
+            const block = codeBlocks[Number(id)];
+            if (!block) return '';
+            const safeCode = escapeHtml(block.code);
+            return (
+                '<div class="code-block-wrapper">' +
+                '<div class="code-block-header">' +
+                    '<span><i class="fa-solid fa-code me-1"></i>' + escapeHtml(block.lang) + '</span>' +
+                    '<button type="button" class="copy-code-btn" data-code="' + encodeURIComponent(block.code) + '"><i class="fa-regular fa-copy me-1"></i>Copiar</button>' +
+                '</div>' +
+                '<pre><code>' + safeCode + '</code></pre>' +
+                '</div>'
+            );
+        });
+        text = text.replace(/@@@?CODEBLOCK_?(?:<em>)?(\d+)(?:<\/em>)?@@@?/gi, function(_, id) {
             const block = codeBlocks[Number(id)];
             if (!block) return '';
             const safeCode = escapeHtml(block.code);
@@ -1333,8 +1371,11 @@
             );
         });
 
-        // Step 13: Reinsert Inline Code
-        text = text.replace(/@@INLINECODE_(\d+)@@/g, function(_, id) {
+        // Step 12: Reinsert Inline Code
+        text = text.replace(/%%%INLINECODEPART(\d+)END%%%/g, function(_, id) {
+            return '<code class="inline-code">' + escapeHtml(inlineCodes[Number(id)] || '') + '</code>';
+        });
+        text = text.replace(/@@@?INLINECODE_?(?:<em>)?(\d+)(?:<\/em>)?@@@?/gi, function(_, id) {
             return '<code class="inline-code">' + escapeHtml(inlineCodes[Number(id)] || '') + '</code>';
         });
 

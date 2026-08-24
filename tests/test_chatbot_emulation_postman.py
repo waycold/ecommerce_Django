@@ -614,3 +614,262 @@ class TestChatbotEmulationPostmanCollection:
         # All 11 scenarios successfully executed in under 200ms avg latency
         avg_latency = sum(r['latency_ms'] for r in results_report) / len(results_report)
         assert avg_latency < 250.0
+
+
+# ==============================================================================
+# DECEMBER 2025 AUDITED DATASET & TOP 5 CATEGORIES TEST SUITE
+# ==============================================================================
+
+@pytest.fixture
+def december_2025_categories_dataset(db):
+    """
+    Creates a calibrated multi-category dataset covering December 2025 (2025-12-01 to 2025-12-31)
+    and surrounding baseline periods to rigorously test temporal filtering and Top 5 category rankings.
+
+    Expected December 2025 Revenue Ranking:
+    1. Industrial_and_Scientific: $95,000.00
+    2. Cell_Phones_and_Accessories: $78,500.00
+    3. Electronics: $54,200.00
+    4. Home_and_Kitchen: $36,800.00
+    5. Automotive: $22,100.00
+    6. Beauty_and_Personal_Care: $9,400.00 (Excluded by limit=5)
+    7. Sports_and_Outdoors: $4,500.00 (Excluded by limit=5)
+
+    Out-of-period noise:
+    - November 2025: $150,000.00 in Beauty_and_Personal_Care (must be excluded)
+    - January 2026: $200,000.00 in Sports_and_Outdoors (must be excluded)
+    - December 2025 (PENDING): $500,000.00 in Sports_and_Outdoors (must be excluded from paid queries)
+    """
+    user = User.objects.create_user(username="dec_buyer", email="dec@example.com", password="password123")
+    supplier = Supplier.objects.create(name="DecSupplyGlobal", country="United States")
+    brand = Brand.objects.create(name="UniversalBrand")
+
+    categories_config = [
+        ("Industrial_and_Scientific", Decimal("95000.00"), Decimal("50000.00"), datetime(2025, 12, 5, 10, 0, 0, tzinfo=dt_timezone.utc)),
+        ("Cell_Phones_and_Accessories", Decimal("78500.00"), Decimal("45000.00"), datetime(2025, 12, 12, 14, 0, 0, tzinfo=dt_timezone.utc)),
+        ("Electronics", Decimal("54200.00"), Decimal("32000.00"), datetime(2025, 12, 18, 11, 30, 0, tzinfo=dt_timezone.utc)),
+        ("Home_and_Kitchen", Decimal("36800.00"), Decimal("22000.00"), datetime(2025, 12, 22, 16, 15, 0, tzinfo=dt_timezone.utc)),
+        ("Automotive", Decimal("22100.00"), Decimal("14000.00"), datetime(2025, 12, 28, 9, 45, 0, tzinfo=dt_timezone.utc)),
+        ("Beauty_and_Personal_Care", Decimal("9400.00"), Decimal("5000.00"), datetime(2025, 12, 29, 12, 0, 0, tzinfo=dt_timezone.utc)),
+        ("Sports_and_Outdoors", Decimal("4500.00"), Decimal("2500.00"), datetime(2025, 12, 30, 15, 0, 0, tzinfo=dt_timezone.utc)),
+    ]
+
+    created_items = {}
+    for cat_name, rev, cost, order_dt in categories_config:
+        cat_obj = Category.objects.create(name=cat_name)
+        item_obj = Item.objects.create(
+            title=f"Sample Item for {cat_name}",
+            description=f"Product description for {cat_name}",
+            price=rev,
+            cost=cost,
+            stock=100,
+            minimum_stock=10,
+            category=cat_obj,
+            brand=brand,
+            supplier=supplier,
+            is_active=True,
+        )
+        created_items[cat_name] = item_obj
+
+        # Create Paid Order in December 2025
+        order = Order.objects.create(
+            user=user,
+            status=OrderStatus.PAID,
+            payment_method=PaymentMethod.CREDIT_CARD,
+            shipping_cost=Decimal("0.00"),
+            total=rev,
+            ordered_date=order_dt,
+            start_date=order_dt,
+        )
+        oi = OrderItem.objects.create(
+            order=order,
+            item=item_obj,
+            quantity=1,
+            unit_price=rev,
+            unit_cost=cost,
+            subtotal=rev,
+        )
+        order.items.add(oi)
+
+    # 1. Out-of-period order: November 2025 (2025-11-15) -> Beauty ($150,000)
+    dt_nov = datetime(2025, 11, 15, 12, 0, 0, tzinfo=dt_timezone.utc)
+    ord_nov = Order.objects.create(
+        user=user,
+        status=OrderStatus.PAID,
+        payment_method=PaymentMethod.CREDIT_CARD,
+        shipping_cost=Decimal("0.00"),
+        total=Decimal("150000.00"),
+        ordered_date=dt_nov,
+        start_date=dt_nov,
+    )
+    oi_nov = OrderItem.objects.create(
+        order=ord_nov,
+        item=created_items["Beauty_and_Personal_Care"],
+        quantity=1,
+        unit_price=Decimal("150000.00"),
+        unit_cost=Decimal("80000.00"),
+        subtotal=Decimal("150000.00"),
+    )
+    ord_nov.items.add(oi_nov)
+
+    # 2. Out-of-period order: January 2026 (2026-01-10) -> Sports ($200,000)
+    dt_jan = datetime(2026, 1, 10, 12, 0, 0, tzinfo=dt_timezone.utc)
+    ord_jan = Order.objects.create(
+        user=user,
+        status=OrderStatus.PAID,
+        payment_method=PaymentMethod.CREDIT_CARD,
+        shipping_cost=Decimal("0.00"),
+        total=Decimal("200000.00"),
+        ordered_date=dt_jan,
+        start_date=dt_jan,
+    )
+    oi_jan = OrderItem.objects.create(
+        order=ord_jan,
+        item=created_items["Sports_and_Outdoors"],
+        quantity=1,
+        unit_price=Decimal("200000.00"),
+        unit_cost=Decimal("100000.00"),
+        subtotal=Decimal("200000.00"),
+    )
+    ord_jan.items.add(oi_jan)
+
+    # 3. In-period but unpaid order: December 2025 (2025-12-20, PENDING) -> Sports ($500,000)
+    dt_pending = datetime(2025, 12, 20, 12, 0, 0, tzinfo=dt_timezone.utc)
+    ord_pending = Order.objects.create(
+        user=user,
+        status=OrderStatus.PENDING,
+        total=Decimal("500000.00"),
+        ordered_date=dt_pending,
+        start_date=dt_pending,
+    )
+    oi_pending = OrderItem.objects.create(
+        order=ord_pending,
+        item=created_items["Sports_and_Outdoors"],
+        quantity=1,
+        unit_price=Decimal("500000.00"),
+        unit_cost=Decimal("250000.00"),
+        subtotal=Decimal("500000.00"),
+    )
+    ord_pending.items.add(oi_pending)
+
+    return created_items
+
+
+@pytest.mark.django_db
+class TestDecember2025CategoryRanking:
+    """
+    Validates audited December 2025 Top 5 category rankings across dynamic sales query
+    and margin calculation internal endpoints and services.
+    """
+    AUTH_HEADER = {'HTTP_X_INTERNAL_SECRET': settings.INTERNAL_API_SECRET}
+
+    EXPECTED_TOP_5_CATEGORIES = [
+        'Industrial_and_Scientific',
+        'Cell_Phones_and_Accessories',
+        'Electronics',
+        'Home_and_Kitchen',
+        'Automotive',
+    ]
+
+    EXPECTED_REVENUES = [
+        95000.0,
+        78500.0,
+        54200.0,
+        36800.0,
+        22100.0,
+    ]
+
+    def test_dynamic_sales_query_endpoint_december_2025_top_5_categories(self, client, december_2025_categories_dataset):
+        """
+        Tests GET /api/v1/internal/analytics/query/?date_from=2025-12-01&date_to=2025-12-31&group_by=category&limit=5
+        Verifies:
+        1. HTTP 200 response with correct query metadata.
+        2. Exactly 5 records returned.
+        3. Correct descending order matching the audited December 2025 ranking.
+        4. Excludes out-of-period orders (Nov 2025, Jan 2026) and unpaid orders (Pending).
+        """
+        url = '/api/v1/internal/analytics/query/?date_from=2025-12-01&date_to=2025-12-31&group_by=category&limit=5'
+        response = client.get(url, **self.AUTH_HEADER)
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Metadata validation
+        assert data['query_metadata']['date_from'] == '2025-12-01'
+        assert data['query_metadata']['date_to'] == '2025-12-31'
+        assert data['query_metadata']['group_by'] == 'category'
+        assert data['query_metadata']['limit'] == 5
+
+        # Data rows validation
+        rows = data['data']
+        assert len(rows) == 5, f"Expected 5 records, got {len(rows)}"
+
+        returned_categories = [r['dimension'] for r in rows]
+        assert returned_categories == self.EXPECTED_TOP_5_CATEGORIES, (
+            f"Category ranking mismatch! Got {returned_categories}, expected {self.EXPECTED_TOP_5_CATEGORIES}"
+        )
+
+        returned_revenues = [r['revenue'] for r in rows]
+        assert returned_revenues == self.EXPECTED_REVENUES, (
+            f"Revenue mismatch! Got {returned_revenues}, expected {self.EXPECTED_REVENUES}"
+        )
+
+        # Summary check (Total December 2025 paid revenue across all 7 categories = 300,500.0)
+        assert data['summary']['total_revenue'] == 300500.0
+        assert data['summary']['total_orders'] == 7
+
+        # Ensure excluded categories are not in the top 5
+        assert 'Beauty_and_Personal_Care' not in returned_categories
+        assert 'Sports_and_Outdoors' not in returned_categories
+
+    def test_margins_endpoint_december_2025_top_5_categories(self, client, december_2025_categories_dataset):
+        """
+        Tests GET /api/v1/internal/analytics/margins/?dimension=category&date_from=2025-12-01&date_to=2025-12-31&order_by=revenue_desc&limit=5
+        Verifies:
+        1. HTTP 200 response with correct date_from and date_to.
+        2. Exactly 5 category margin records in expected revenue ranking order.
+        """
+        url = '/api/v1/internal/analytics/margins/?dimension=category&date_from=2025-12-01&date_to=2025-12-31&order_by=revenue_desc&limit=5'
+        response = client.get(url, **self.AUTH_HEADER)
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data['dimension'] == 'category'
+        assert data['order_by'] == 'revenue_desc'
+        assert data['date_from'] == '2025-12-01'
+        assert data['date_to'] == '2025-12-31'
+        assert data['limit'] == 5
+
+        results = data['results']
+        assert len(results) == 5
+
+        returned_categories = [r['category'] for r in results]
+        assert returned_categories == self.EXPECTED_TOP_5_CATEGORIES
+
+        returned_revenues = [r['revenue'] for r in results]
+        assert returned_revenues == self.EXPECTED_REVENUES
+
+    def test_services_direct_december_2025_filtering(self, december_2025_categories_dataset):
+        """
+        Direct service layer test validating dynamic_sales_query_service and calculate_margins_service.
+        """
+        from apps.analytics.services import dynamic_sales_query_service, calculate_margins_service
+
+        query_res = dynamic_sales_query_service(
+            date_from='2025-12-01',
+            date_to='2025-12-31',
+            group_by='category',
+            limit=5,
+        )
+        assert [r['dimension'] for r in query_res['data']] == self.EXPECTED_TOP_5_CATEGORIES
+
+        margin_res = calculate_margins_service(
+            dimension='category',
+            order_by='revenue_desc',
+            date_from='2025-12-01',
+            date_to='2025-12-31',
+            limit=5,
+        )
+        assert [r['category'] for r in margin_res['results']] == self.EXPECTED_TOP_5_CATEGORIES
+

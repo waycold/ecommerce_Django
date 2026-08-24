@@ -5,10 +5,12 @@ Gross margin and profitability analytics service.
 Calculates revenue, cost, profit, and margin % aggregated by product, category, brand, or supplier.
 """
 
+from datetime import date, datetime
 from decimal import Decimal
-from typing import Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 from django.db.models import Sum, F, DecimalField, ExpressionWrapper
 from django.db.models.functions import Coalesce
+from django.utils.dateparse import parse_date
 
 from apps.orders.models import OrderItem, OrderStatus
 
@@ -20,6 +22,8 @@ VALID_ORDER_BYS = {'margin_desc', 'margin_asc', 'revenue_desc', 'profit_desc'}
 def calculate_margins_service(
     dimension: str = "product",
     order_by: str = "margin_desc",
+    date_from: Optional[Union[str, date, datetime]] = None,
+    date_to: Optional[Union[str, date, datetime]] = None,
     limit: int = 20,
 ) -> Dict[str, Any]:
     """
@@ -28,10 +32,12 @@ def calculate_margins_service(
     Args:
         dimension (str): 'product' | 'category' | 'brand' | 'supplier'
         order_by (str): 'margin_desc' | 'margin_asc' | 'revenue_desc' | 'profit_desc'
+        date_from (str, optional): ISO date string 'YYYY-MM-DD' or date/datetime object
+        date_to (str, optional): ISO date string 'YYYY-MM-DD' or date/datetime object
         limit (int): Max rows to return (clamped between 1 and 100).
 
     Returns:
-        dict: {dimension, order_by, limit, overall_margin, results}
+        dict: {dimension, order_by, limit, date_from, date_to, overall_margin, results}
     """
     effective_limit = max(1, min(int(limit), 100))
     dim_clean = str(dimension or "product").lower().strip()
@@ -44,6 +50,22 @@ def calculate_margins_service(
 
     paid_statuses = [OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.DELIVERED]
     queryset = OrderItem.objects.filter(order__status__in=paid_statuses)
+
+    if date_from:
+        if isinstance(date_from, (datetime, date)):
+            parsed_from = date_from.date() if isinstance(date_from, datetime) else date_from
+        else:
+            parsed_from = parse_date(str(date_from).strip())
+        if parsed_from:
+            queryset = queryset.filter(order__ordered_date__date__gte=parsed_from)
+
+    if date_to:
+        if isinstance(date_to, (datetime, date)):
+            parsed_to = date_to.date() if isinstance(date_to, datetime) else date_to
+        else:
+            parsed_to = parse_date(str(date_to).strip())
+        if parsed_to:
+            queryset = queryset.filter(order__ordered_date__date__lte=parsed_to)
 
     cost_expr = ExpressionWrapper(
         F('unit_cost') * F('quantity'),
@@ -148,6 +170,8 @@ def calculate_margins_service(
     return {
         'dimension': dim_clean,
         'order_by': order_clean,
+        'date_from': date_from,
+        'date_to': date_to,
         'limit': effective_limit,
         'overall_margin': {
             'total_revenue': float(round(total_rev_all, 2)),

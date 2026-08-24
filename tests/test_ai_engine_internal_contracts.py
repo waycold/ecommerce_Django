@@ -190,6 +190,73 @@ class TestAIEngineInternalEndpoints:
             assert 'gross_margin_pct' in res
             assert 'gross_profit' in res
 
+    def test_margins_endpoint_with_date_range(self, client, ai_engine_dataset):
+        """
+        GET /api/v1/internal/analytics/margins/ filters accurately by date_from and date_to.
+        """
+        now = timezone.now()
+        date_from = (now - timedelta(days=6)).strftime('%Y-%m-%d')
+        date_to = (now - timedelta(days=4)).strftime('%Y-%m-%d')
+
+        # Query matching only order1 (laptop, 5 days ago)
+        url = f'/api/v1/internal/analytics/margins/?dimension=product&date_from={date_from}&date_to={date_to}'
+        response = client.get(url, **self.SECRET_HEADER)
+        assert response.status_code == 200
+        data = response.json()
+        assert data['date_from'] == date_from
+        assert data['date_to'] == date_to
+        assert data['overall_margin']['total_revenue'] == 2000.00
+        assert data['overall_margin']['total_cost'] == 1200.00
+        assert data['overall_margin']['total_gross_profit'] == 800.00
+        assert len(data['results']) == 1
+        assert data['results'][0]['title'] == 'Gaming Laptop ROG Strix RTX'
+
+        # Query in an empty date range
+        url_empty = '/api/v1/internal/analytics/margins/?dimension=category&date_from=2020-01-01&date_to=2020-01-31'
+        response_empty = client.get(url_empty, **self.SECRET_HEADER)
+        assert response_empty.status_code == 200
+        data_empty = response_empty.json()
+        assert data_empty['date_from'] == '2020-01-01'
+        assert data_empty['date_to'] == '2020-01-31'
+        assert data_empty['overall_margin']['total_revenue'] == 0.0
+        assert len(data_empty['results']) == 0
+
+    def test_margins_service_direct_date_filtering(self, ai_engine_dataset):
+        """
+        Direct service unit test verifying calculate_margins_service with category dimension and date ranges.
+        """
+        from apps.analytics.services import calculate_margins_service
+
+        now = timezone.now()
+        date_from = (now - timedelta(days=20)).strftime('%Y-%m-%d')
+        date_to = (now - timedelta(days=10)).strftime('%Y-%m-%d')
+
+        # Matches order2 (keyboard, 15 days ago)
+        result = calculate_margins_service(dimension='category', date_from=date_from, date_to=date_to)
+        assert result['date_from'] == date_from
+        assert result['date_to'] == date_to
+        assert result['overall_margin']['total_revenue'] == 150.00
+        assert len(result['results']) == 1
+        assert result['results'][0]['category'] == 'Electronics'
+
+    def test_dynamic_sales_query_service_date_filtering(self, ai_engine_dataset):
+        """
+        Direct service unit test verifying dynamic_sales_query_service with date ranges.
+        """
+        from apps.analytics.services import dynamic_sales_query_service
+
+        now = timezone.now()
+        date_from = (now - timedelta(days=6)).strftime('%Y-%m-%d')
+        date_to = (now - timedelta(days=4)).strftime('%Y-%m-%d')
+
+        result = dynamic_sales_query_service(date_from=date_from, date_to=date_to, group_by='category')
+        assert result['query_metadata']['date_from'] == date_from
+        assert result['query_metadata']['date_to'] == date_to
+        assert result['summary']['total_revenue'] == 2000.00
+        assert result['summary']['total_orders'] == 1
+        assert len(result['data']) == 1
+        assert result['data'][0]['dimension'] == 'Electronics'
+
     def test_funnel_endpoint(self, client, ai_engine_dataset):
         """
         GET /api/v1/internal/analytics/funnel/ calculates cart abandonment and promotions ROI.
