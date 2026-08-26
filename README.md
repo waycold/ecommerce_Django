@@ -1,18 +1,18 @@
 # 🛒 Enterprise E-Commerce Platform & AI-Powered BI Telemetry Engine
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![Django](https://img.shields.io/badge/Django-4.1.2-092E20?style=for-the-badge&logo=django&logoColor=white)](https://www.djangoproject.com/)
+[![Django](https://img.shields.io/badge/Django-5.2%20LTS-092E20?style=for-the-badge&logo=django&logoColor=white)](https://www.djangoproject.com/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-AI%20Gateway-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon.tech%20Serverless-336791?style=for-the-badge&logo=postgresql&logoColor=white)](https://neon.tech/)
 [![Google Gemini](https://img.shields.io/badge/GenAI-Gemini%203.7%20Flash-8E75B2?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
 [![Render](https://img.shields.io/badge/Render-Cloud%20Hosted-46E3B7?style=for-the-badge&logo=render&logoColor=black)](https://render.com/)
 [![Pandas & OpenPyXL](https://img.shields.io/badge/Pandas-ETL%20Engine-150458?style=for-the-badge&logo=pandas&logoColor=white)](https://pandas.pydata.org/)
-[![Pytest](https://img.shields.io/badge/Pytest-143%2B%20Tests%20Passed%20(100%25)-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white)](https://docs.pytest.org/)
+[![Pytest](https://img.shields.io/badge/Pytest-196%2B%20Tests%20Passed%20(100%25)-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white)](https://docs.pytest.org/)
 [![Security](https://img.shields.io/badge/Security-SHA256%20HMAC%20JWT%20%7C%20CSP-red?style=for-the-badge&logo=auth0&logoColor=white)](https://jwt.io/)
 
 > **A production-grade, full-stack commerce ecosystem and managerial business intelligence engine** combining a modern **Domain-Driven Django Monolith**, an autonomous **FastAPI AI Agent Gateway**, a **Serverless PostgreSQL (Neon.tech)** database, and an interactive **BI & Analytics Console with Real-Time SSE AI Copilots**.
 > 
-> Engineered from the ground up to showcase enterprise architectural patterns: **Clean Architecture & 12-Factor App principles**, **Decoupled Microservice Communication**, **Server-Sent Events (SSE) Token Streaming**, **Shadow DOM Web Components**, **Statistical Synthetic Data Simulation (Pareto / Zipf / Log-Normal)**, and **100% automated test coverage (143+ Pytest suite)**.
+> Engineered from the ground up to showcase enterprise architectural patterns: **Clean Architecture & 12-Factor App principles**, **Decoupled Microservice Communication**, **Server-Sent Events (SSE) Token Streaming**, **Shadow DOM Web Components**, **Statistical Synthetic Data Simulation (Pareto / Zipf / Log-Normal)**, and **100% automated test coverage (196+ Pytest suite)**.
 
 ---
 
@@ -32,7 +32,7 @@
   - [2. Tool Specifications \& JSON Payloads](#2-tool-specifications--json-payloads)
 - [Multi-Environment Settings Pipeline](#-multi-environment-settings-pipeline)
 - [Microservice Internal API Contracts](#-microservice-internal-api-contracts)
-- [Quality Assurance \& Testing Suite (143+ Tests)](#-quality-assurance--testing-suite-143-tests)
+- [Quality Assurance \& Testing Suite (196+ Tests)](#-quality-assurance--testing-suite-196-tests)
 - [Installation \& Local Quickstart](#-installation--local-quickstart)
 - [Cloud Deployment (Render \& Neon.tech)](#-cloud-deployment-render--neontech)
 - [Engineering Standards \& Design Decisions](#-engineering-standards--design-decisions)
@@ -48,7 +48,7 @@ This platform bridges consumer-facing retail transactions with executive-level d
 3. **Managerial BI Telemetry Console:** High-density dark obsidian analytics dashboard (`/analytics/ai-chat/`) featuring dynamic on-the-fly Chart.js generation directly from LLM Markdown tables, live telemetry metrics (latency, token estimation, model detection), and multi-format report exports (Markdown, CSV, JSON, Print-to-PDF).
 4. **Deterministic Statistical Data Generation:** Realistic synthetic transaction simulator applying Zipfian power laws to catalog popularity, log-normal pricing distributions, and Pareto distributions ($\alpha = 2.2$) to customer purchasing frequency, with memory-chunked database transactions strictly bounded under $120\text{ MB}$ RAM.
 5. **LLM Function Calling Database Tools:** A complete suite of 8 structured database tools exposing sales slicing, inventory health, unit profitability, funnel metrics, reviews sentiment, and RFM customer segmentation directly to the AI agent gateway.
-6. **Rock-Solid Engineering Rigor:** 143 automated tests running on `pytest-django`, guaranteeing 100% pass rates across unit logic, domain services, security contracts, and frontend integrations.
+6. **Rock-Solid Engineering Rigor:** 196 automated tests running on `pytest-django`, guaranteeing 100% pass rates across unit logic, domain services, security contracts, and frontend integrations.
 
 ---
 
@@ -176,7 +176,7 @@ ecommerce_Django/
 │   ├── orders/                         # Cart summary, checkout, and profile templates
 │   └── analytics/                      # Executive dashboard, forecast, and AI Copilot console
 │
-├── tests/                              # Comprehensive Pytest QA & Security Suite (143+ Tests)
+├── tests/                              # Comprehensive Pytest QA & Security Suite (196+ Tests)
 │   ├── test_internal_security.py       # X-Internal-Secret middleware contract tests
 │   ├── test_auth_contract.py           # JWT token validation & cryptographic signature tests
 │   ├── test_catalog_contract.py        # Catalog search internal API contract tests
@@ -659,34 +659,37 @@ All internal endpoints reside under `/api/v1/internal/` and require the `X-Inter
 
 ---
 
-## 🧪 Quality Assurance & Testing Suite (143+ Tests)
+## 🧪 Quality Assurance & Testing Suite (196+ Tests)
 
-The platform is fortified with **143 automated Pytest tests** with 100% pass status, verifying domain calculations, security boundaries, and edge cases:
+The platform is fortified with **196 automated Pytest tests** with 100% pass status, verifying domain calculations, security boundaries, and edge cases:
 
 ```bash
 ============================= test session starts =============================
 platform win32 -- Python 3.11.0, pytest-9.1.1, pluggy-1.6.0
-django: version: 4.1.2, settings: config.settings.testing (from ini)
+django: version: 5.2.17, settings: config.settings.testing (from ini)
 rootdir: C:\Users\facur\Documents\ecommerce_Django
 plugins: anyio-4.14.2, Faker-22.5.1, django-4.14.0
-collected 143 items
+collected 196 items
 
-apps\analytics\tests.py ........                                         [  5%]
-apps\catalog\tests.py ...                                                [  7%]
-apps\orders\tests.py ...                                                 [  9%]
-tests\test_analytics_ai_chat.py .......                                  [ 14%]
-tests\test_analytics_chat.py ......................                      [ 30%]
-tests\test_analytics_contract.py ...........                             [ 37%]
-tests\test_auth_contract.py ..............                               [ 47%]
-tests\test_catalog_contract.py .....................                     [ 62%]
-tests\test_catalog_search_refinements.py ..............                  [ 72%]
-tests\test_chat_widget_integration.py ........                           [ 77%]
-tests\test_frontend_integration.py ..............                        [ 87%]
-tests\test_internal_security.py ..........                               [ 94%]
+apps\analytics\tests.py ........                                         [  4%]
+apps\catalog\tests.py ...                                                [  5%]
+apps\orders\tests.py ...                                                 [  7%]
+tests\test_ai_engine_internal_contracts.py ............                  [ 13%]
+tests\test_analytics_ai_chat.py .........                                [ 17%]
+tests\test_analytics_chat.py ......................                      [ 29%]
+tests\test_analytics_contract.py ...........                             [ 34%]
+tests\test_auth_contract.py ..............                               [ 41%]
+tests\test_catalog_contract.py .....................                     [ 52%]
+tests\test_catalog_search_refinements.py .................               [ 61%]
+tests\test_chat_widget_integration.py ........                           [ 65%]
+tests\test_chatbot_emulation_postman.py ...............                  [ 72%]
+tests\test_database_ai_endpoints.py .....................                [ 83%]
+tests\test_frontend_integration.py ..............                        [ 90%]
+tests\test_internal_security.py ..........                               [ 95%]
 tests\test_catalog_search_refinements.py ....                            [ 97%]
 tests\test_frontend_integration.py ....                                  [100%]
 
-======================= 143 passed, 1 warning in 9.90s ========================
+======================= 196 passed, 1 warning in 21.10s =======================
 ```
 
 ### Test Suite Breakdown
@@ -755,7 +758,7 @@ python manage.py createsuperuser
 
 ### 4. Run Development Server & Test Suite
 ```bash
-# Execute 143+ Pytest suite
+# Execute 196+ Pytest suite
 python -m pytest
 
 # Start Django development server
@@ -824,7 +827,7 @@ gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --threads 4 --
 │                              │ for seamless execution on 512 MB cloud RAM.  │
 ├──────────────────────────────┼──────────────────────────────────────────────┤
 │ 100% Pytest Contract Suite   │ Ensures microservice security contracts and  │
-│ (143+ automated tests)       │ mathematical formulas remain bug-free.       │
+│ (196+ automated tests)       │ mathematical formulas remain bug-free.       │
 └──────────────────────────────┴──────────────────────────────────────────────┘
 ```
 
