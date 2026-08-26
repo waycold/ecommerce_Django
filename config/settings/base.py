@@ -120,7 +120,15 @@ STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
 
-STATICFILES_STORAGE = 'apps.core.storage.NonStrictCompressedManifestStaticFilesStorage'
+# Django 4.2+: STATICFILES_STORAGE was replaced by the STORAGES setting.
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'apps.core.storage.NonStrictCompressedManifestStaticFilesStorage',
+    },
+}
 WHITENOISE_MANIFEST_STRICT = False
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
