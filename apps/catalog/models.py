@@ -5,13 +5,17 @@ Catalog domain models: Category, Brand, Supplier, Item, Comments.
 Maintains exact db_table mappings to ensure 100% database backwards-compatibility.
 """
 
+import hashlib
+
 from decimal import Decimal
 from django.conf import settings
 from django.db import models
 from django.shortcuts import reverse
 from django.contrib.auth.models import User
 from django.utils.text import slugify
-from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator, MaxLengthValidator
+
+from pgvector.django import VectorField, HnswIndex
 
 
 LABEL_CHOICES = (
@@ -19,6 +23,29 @@ LABEL_CHOICES = (
     ('S', 'secondary'),
     ('D', 'danger')
 )
+
+
+EMBEDDING_DIM = 768
+EMBEDDING_MODEL_NAME = "gemini-embedding-2"   # fallback: "gemini-embedding-001"
+EMBEDDING_TEXT_VERSION = 1  # bump this to force a full catalog re-embed
+
+
+def build_embedding_text(item):
+    """Concatenate the fields that carry real semantic signal about a product.
+
+    Deliberately excludes item.supplier (Faker-generated logistics data, not
+    a real product attribute) and item.label (a UI badge indicator —
+    'primary'/'secondary'/'danger' — not a semantic product attribute; see
+    LABEL_CHOICES above). Including either would inject noise into the
+    embedding rather than signal.
+    """
+    parts = [
+        item.title, item.title,  # repeated: weighs the title more heavily
+        (item.description or ""),
+        (item.category.name if item.category_id else ""),
+        (item.brand.name if item.brand_id else ""),
+    ]
+    return " | ".join(p.strip() for p in parts if p and p.strip())[:6000]
 
 
 class Brand(models.Model):
@@ -60,8 +87,8 @@ class Supplier(models.Model):
 
 
 class Item(models.Model):
-    title = models.CharField(max_length=100)
-    description = models.CharField(max_length=500, null=True, blank=True)
+    title = models.CharField(max_length=300)
+    description = models.TextField(null=True, blank=True, validators=[MaxLengthValidator(4000)])
     price = models.DecimalField(max_digits=10, decimal_places=2)
     cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     stock = models.IntegerField(default=0)
@@ -128,3 +155,42 @@ class Comments(models.Model):
     def __str__(self):
         item_title = self.item.title if self.item else "Deleted Item"
         return f"Comment by {self.user.username} on {item_title}"
+
+
+class ItemEmbedding(models.Model):
+    item = models.OneToOneField(
+        Item, on_delete=models.CASCADE, related_name="embedding", primary_key=True
+    )
+    vector = VectorField(dimensions=EMBEDDING_DIM)
+    content_hash = models.CharField(max_length=64)  # sha256(build_embedding_text(item))
+    text_version = models.PositiveSmallIntegerField(default=EMBEDDING_TEXT_VERSION)
+    model_name = models.CharField(max_length=64, default=EMBEDDING_MODEL_NAME)
+    source_updated_at = models.DateTimeField()
+
+    class Meta:
+        db_table = "product_item_embedding"
+        # Declared here so `makemigrations` sees model state and migration-graph
+        # state agree (see the Phase 1 migration's SeparateDatabaseAndState block,
+        # which mirrors this same index in both `state_operations` and
+        # `database_operations`). The actual CREATE INDEX ... USING hnsw DDL is
+        # still gated to PostgreSQL only, at the migration-operation level, via
+        # ConditionalAddIndex -- SQLite never executes it.
+        indexes = [
+            HnswIndex(
+                name="item_embedding_hnsw_cos",
+                fields=["vector"],
+                m=16,
+                ef_construction=64,
+                opclasses=["vector_cosine_ops"],
+            ),
+        ]
+
+
+class ProductAttribute(models.Model):
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name="attributes")
+    name = models.CharField(max_length=40)    # "color", "size", "material", "gender", "brand"
+    value = models.CharField(max_length=100)  # "red", "42", "leather", ...
+
+    class Meta:
+        db_table = "product_item_attribute"
+        indexes = [models.Index(fields=["name", "value"])]
