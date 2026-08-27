@@ -19,7 +19,8 @@ from django.contrib.auth.models import User
 from faker import Faker
 
 from apps.orders.models import OrderItem, Order, Profile, OrderStatus, PaymentMethod
-from apps.catalog.models import Item, Category, Brand, Supplier, Comments
+from apps.catalog.models import Item, Category, Brand, Supplier, Comments, ProductAttribute, ItemEmbedding
+from apps.catalog.attribute_mapping import map_details_to_attributes
 from apps.analytics.data_ingestion import get_amazon_data
 
 CATEGORIES_LIST = [
@@ -191,7 +192,13 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
         update_progress(18, "Clearing previous database records...", "Purging old sales, items, users & profiles...")
         log("1. Purging existing database records...")
 
-        models_to_purge = [OrderItem, Order, Comments, Item, Category, Brand, Supplier, Profile]
+        # ProductAttribute and ItemEmbedding both FK to Item with on_delete=CASCADE,
+        # so they are listed immediately before Item to be purged fully
+        # alongside it across all three branches below (Postgres TRUNCATE ...
+        # CASCADE would also catch them implicitly, but the sqlite per-table
+        # DELETE loop and the generic ORM-delete branch need them listed
+        # explicitly to guarantee a clean purge).
+        models_to_purge = [OrderItem, Order, Comments, ProductAttribute, ItemEmbedding, Item, Category, Brand, Supplier, Profile]
         db_tables = [m._meta.db_table for m in models_to_purge]
 
         with transaction.atomic():
@@ -247,8 +254,14 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
             sup = random.choices(suppliers_db, weights=supplier_weights)[0]
 
             item_objs.append(Item(
-                title=p["title"][:100],
-                description=p["description"][:200] if p["description"] else "No description",
+                # Item.title is a CharField(max_length=300) at the DB level --
+                # Postgres will hard-reject anything longer, so this cap is
+                # not optional.
+                title=p["title"][:300],
+                # Item.description is a TextField with MaxLengthValidator(4000);
+                # bulk_create doesn't run validators, but keep this consistent
+                # with the stated invariant anyway.
+                description=p["description"][:4000] if p["description"] else "No description",
                 price=price,
                 cost=cost,
                 stock=random.randint(0, 500),
@@ -263,6 +276,15 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
         Item.objects.bulk_create(item_objs, batch_size=500)
         items_db = list(Item.objects.select_related('category').order_by('id'))
         asin_to_item = {products[idx]["parent_asin"]: item for idx, item in enumerate(items_db)}
+
+        update_progress(38, "Mapping product attributes...", "Deriving ProductAttribute rows from Amazon metadata details...")
+        log("3b. Mapping raw Amazon 'details' into ProductAttribute rows...")
+        all_attrs = []
+        for idx, item in enumerate(items_db):
+            details = products[idx].get("details", {})
+            all_attrs.extend(map_details_to_attributes(item, details))
+        ProductAttribute.objects.bulk_create(all_attrs, batch_size=1000)
+        log(f"   -> Created {len(all_attrs)} ProductAttribute rows.")
 
         # Shuffle items so top sellers & best-selling categories vary across random seeds
         random.shuffle(items_db)

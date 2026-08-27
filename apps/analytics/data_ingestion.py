@@ -11,6 +11,13 @@ except ImportError:
 
 HF_DATASET_NAME = "McAuley-Lab/Amazon-Reviews-2023"
 
+# Bump this whenever the shape of the cached data changes (new/renamed fields,
+# different truncation limits, etc.). get_amazon_data() refuses to reuse a
+# cache file whose schema_version doesn't match -- a previous session already
+# generated a cache under the old shape (missing "details"/"features"), and we
+# don't want a stale cache to silently pass incomplete data downstream.
+CACHE_SCHEMA_VERSION = 2
+
 # List of the 33 Hugging Face configurations corresponding to the categories
 CATEGORIES = [
     "All_Beauty", "Amazon_Fashion", "Appliances", "Arts_Crafts_and_Sewing", "Automotive",
@@ -68,13 +75,39 @@ def fetch_category_data(category_name, limit_meta=65, limit_reviews=100):
             desc_list = item.get("description", [])
             description = " ".join(desc_list) if isinstance(desc_list, list) else str(desc_list)
 
+            # `details` arrives from this dataset as a JSON-encoded string
+            # (e.g. '{"Color": "Black", "Best Sellers Rank": {...}}'), not a
+            # native dict -- confirmed by direct inspection of raw_meta_*
+            # streaming records across multiple categories. Parse it into a
+            # dict defensively; some records may have malformed/empty details.
+            details_raw = item.get("details", {}) or {}
+            if isinstance(details_raw, str):
+                try:
+                    details = json.loads(details_raw)
+                except (json.JSONDecodeError, TypeError):
+                    details = {}
+            elif isinstance(details_raw, dict):
+                details = details_raw
+            else:
+                details = {}
+            if not isinstance(details, dict):
+                details = {}
+
+            features_raw = item.get("features", []) or []
+            features = list(features_raw) if isinstance(features_raw, (list, tuple)) else []
+
             meta_items.append({
                 "parent_asin": item.get("parent_asin"),
                 "title": item.get("title", "No Title"),
                 "brand": clean_brand(item.get("store")),
-                "description": description[:300],
+                # Item.description is a TextField (MaxLengthValidator(4000)) as
+                # of Phase 1 -- no need to needlessly clip real content to 300
+                # chars at fetch time anymore.
+                "description": description[:4000],
                 "price": price,
-                "category": category_name
+                "category": category_name,
+                "details": details,
+                "features": features,
             })
     except Exception as e:
         print(f"[Warning] Failed to fetch metadata for {category_name}: {e}")
@@ -119,9 +152,16 @@ def get_amazon_data(cache_dir, limit_meta=65, limit_reviews=100):
 
     for path in alt_cache_paths:
         if os.path.exists(path):
-            print(f"Loading Amazon Reviews 2023 from local cache: {path}")
             with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
+                cached = json.load(f)
+            if cached.get("schema_version") == CACHE_SCHEMA_VERSION:
+                print(f"Loading Amazon Reviews 2023 from local cache: {path}")
+                return cached
+            print(
+                f"[Cache] Ignoring stale cache at {path} "
+                f"(schema_version={cached.get('schema_version')!r}, expected {CACHE_SCHEMA_VERSION}). "
+                "Re-fetching from Hugging Face..."
+            )
 
     print("No local cache found. Initiating concurrent Hugging Face datasets streaming...")
     start_time = time.time()
@@ -142,6 +182,7 @@ def get_amazon_data(cache_dir, limit_meta=65, limit_reviews=100):
         print(f" -> Category {cat_name}: fetched {len(meta_items)} products, {len(reviews)} reviews")
 
     data = {
+        "schema_version": CACHE_SCHEMA_VERSION,
         "products": all_products,
         "reviews": all_reviews
     }
