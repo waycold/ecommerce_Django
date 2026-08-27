@@ -57,6 +57,19 @@ class CatalogModelTests(TestCase):
         self.assertEqual(res["total_found"], 1)
         self.assertFalse(res["items"][0]["is_available"])
 
+    def test_external_id_roundtrip_and_filter(self):
+        item = Item.objects.create(
+            title="Core i9 13900K",
+            price=600.00,
+            cost=480.00,
+            external_id="B0B7XYZ123",
+        )
+        item.refresh_from_db()
+        self.assertEqual(item.external_id, "B0B7XYZ123")
+        self.assertEqual(
+            Item.objects.filter(external_id="B0B7XYZ123").first().pk, item.pk
+        )
+
 
 class ItemEmbeddingModelTests(TestCase):
     """Phase 1 pgvector schema: basic ORM-level CRUD, unaffected by the lack

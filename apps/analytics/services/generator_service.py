@@ -269,6 +269,11 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
                 category=cat,
                 supplier=sup,
                 brand=brand,
+                # external_id links back to the source Amazon Reviews 2023 dataset
+                # product (parent_asin) so variants of the same base product can be
+                # grouped later. Truncated defensively to fit max_length=64, though
+                # real ASINs are normally exactly 10 characters.
+                external_id=p["parent_asin"][:64] if p.get("parent_asin") else None,
                 slug=f"item-{idx}-{random.randint(1000, 9999)}",
                 is_active=random.choices([True, False], weights=[0.95, 0.05])[0]
             ))

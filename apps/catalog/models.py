@@ -99,6 +99,7 @@ class Item(models.Model):
     brand = models.ForeignKey(Brand, on_delete=models.SET_NULL, null=True, blank=True, related_name='items')
 
     label = models.CharField(choices=LABEL_CHOICES, max_length=5, null=True, blank=True)
+    external_id = models.CharField(max_length=64, null=True, blank=True, db_index=True)
     slug = models.SlugField(unique=True, blank=True)
     img = models.ImageField(upload_to='products/', null=True, blank=True)
 
