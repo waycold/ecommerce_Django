@@ -19,6 +19,13 @@ from apps.catalog.internal_views import (
     inventory_health_view,
     catalog_reviews_summary_view,
     catalog_semantic_search_view,
+    catalog_vector_search_view,
+    catalog_embeddings_similar_view,
+    catalog_embeddings_pending_view,
+    catalog_embeddings_upsert_view,
+    catalog_embeddings_mark_error_view,
+    catalog_items_verify_view,
+    catalog_facets_view,
 )
 
 # Analytics internal views
@@ -58,4 +65,13 @@ urlpatterns = [
     
     # Safe SQL Sandbox
     re_path(r'^query/raw-read/?$', raw_sql_sandbox_view, name='internal_raw_sql_sandbox'),
+
+    # RAG / pgvector Catalog Endpoints
+    re_path(r'^catalog/vector-search/?$', catalog_vector_search_view, name='internal_catalog_vector_search'),
+    re_path(r'^catalog/embeddings/similar/?$', catalog_embeddings_similar_view, name='internal_catalog_embeddings_similar'),
+    re_path(r'^catalog/embeddings/pending/?$', catalog_embeddings_pending_view, name='internal_catalog_embeddings_pending'),
+    re_path(r'^catalog/embeddings/upsert/?$', catalog_embeddings_upsert_view, name='internal_catalog_embeddings_upsert'),
+    re_path(r'^catalog/embeddings/mark-error/?$', catalog_embeddings_mark_error_view, name='internal_catalog_embeddings_mark_error'),
+    re_path(r'^catalog/items/verify/?$', catalog_items_verify_view, name='internal_catalog_items_verify'),
+    re_path(r'^catalog/facets/?$', catalog_facets_view, name='internal_catalog_facets'),
 ]

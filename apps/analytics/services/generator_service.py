@@ -10,6 +10,7 @@ import gc
 import json
 import math
 import random
+import hashlib
 import threading
 from datetime import datetime, timedelta
 from django.conf import settings
@@ -19,7 +20,10 @@ from django.contrib.auth.models import User
 from faker import Faker
 
 from apps.orders.models import OrderItem, Order, Profile, OrderStatus, PaymentMethod
-from apps.catalog.models import Item, Category, Brand, Supplier, Comments, ProductAttribute, ItemEmbedding
+from apps.catalog.models import (
+    Item, Category, Brand, Supplier, Comments, ProductAttribute, ItemEmbedding,
+    EmbeddingSyncTask, build_embedding_text,
+)
 from apps.catalog.attribute_mapping import map_details_to_attributes
 from apps.analytics.data_ingestion import get_amazon_data
 
@@ -192,13 +196,16 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
         update_progress(18, "Clearing previous database records...", "Purging old sales, items, users & profiles...")
         log("1. Purging existing database records...")
 
-        # ProductAttribute and ItemEmbedding both FK to Item with on_delete=CASCADE,
-        # so they are listed immediately before Item to be purged fully
-        # alongside it across all three branches below (Postgres TRUNCATE ...
-        # CASCADE would also catch them implicitly, but the sqlite per-table
-        # DELETE loop and the generic ORM-delete branch need them listed
-        # explicitly to guarantee a clean purge).
-        models_to_purge = [OrderItem, Order, Comments, ProductAttribute, ItemEmbedding, Item, Category, Brand, Supplier, Profile]
+        # ProductAttribute, ItemEmbedding, and EmbeddingSyncTask all FK to Item
+        # with on_delete=CASCADE, so they are listed immediately before Item to
+        # be purged fully alongside it across all three branches below (Postgres
+        # TRUNCATE ... CASCADE would also catch them implicitly, but the sqlite
+        # per-table DELETE loop and the generic ORM-delete branch need them
+        # listed explicitly to guarantee a clean purge).
+        models_to_purge = [
+            OrderItem, Order, Comments, ProductAttribute, ItemEmbedding, EmbeddingSyncTask,
+            Item, Category, Brand, Supplier, Profile,
+        ]
         db_tables = [m._meta.db_table for m in models_to_purge]
 
         with transaction.atomic():
@@ -290,6 +297,27 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
             all_attrs.extend(map_details_to_attributes(item, details))
         ProductAttribute.objects.bulk_create(all_attrs, batch_size=1000)
         log(f"   -> Created {len(all_attrs)} ProductAttribute rows.")
+
+        # Seed a PENDING EmbeddingSyncTask for every newly created item so the
+        # Chatbot-Engine-Gateway can compute embeddings for the freshly
+        # regenerated catalog. bulk_create() never fires Item's post_save
+        # signal (apps.catalog.signals.queue_embedding_sync), which is exactly
+        # why this explicit seeding step exists instead of relying on it --
+        # and unlike that real-time signal path, a full regeneration run does
+        # NOT synchronously ping the Gateway's wake endpoint per item (that
+        # would mean 2000+ HTTP calls); the Gateway's own periodic poll of
+        # GET .../embeddings/pending/ is expected to pick these up.
+        update_progress(39, "Queuing embedding sync tasks...", "Seeding EmbeddingSyncTask rows for the Gateway to process...")
+        log("3c. Seeding EmbeddingSyncTask rows for newly created items...")
+        sync_tasks = [
+            EmbeddingSyncTask(
+                item=item,
+                content_hash=hashlib.sha256(build_embedding_text(item).encode("utf-8")).hexdigest(),
+            )
+            for item in items_db
+        ]
+        EmbeddingSyncTask.objects.bulk_create(sync_tasks, batch_size=1000)
+        log(f"   -> Created {len(sync_tasks)} EmbeddingSyncTask rows.")
 
         # Shuffle items so top sellers & best-selling categories vary across random seeds
         random.shuffle(items_db)

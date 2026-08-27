@@ -141,6 +141,15 @@ INTERNAL_API_SECRET = os.environ.get(
     config('INTERNAL_API_SECRET', default='django-insecure-internal-microservice-secret')
 )
 
+# Base URL of the sibling Chatbot-Engine-Gateway (FastAPI) microservice.
+# Used only for the best-effort "wake up and poll for pending embeddings"
+# ping fired from apps.catalog.signals.queue_embedding_sync -- never for
+# fetching embeddings ourselves (Django never calls any embedding/LLM API).
+AI_AGENT_GATEWAY_URL = os.environ.get(
+    'AI_AGENT_GATEWAY_URL',
+    config('AI_AGENT_GATEWAY_URL', default='https://ai-agent-gateway-sued.onrender.com')
+)
+
 JWT_SECRET_KEY = os.environ.get(
     'JWT_SECRET_KEY',
     config('JWT_SECRET_KEY', default=SECRET_KEY)

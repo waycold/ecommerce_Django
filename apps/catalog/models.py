@@ -195,3 +195,38 @@ class ProductAttribute(models.Model):
     class Meta:
         db_table = "product_item_attribute"
         indexes = [models.Index(fields=["name", "value"])]
+
+
+class EmbeddingSyncTask(models.Model):
+    """Outbox-pattern task queue: rows here represent catalog items whose
+    embedding needs to be (re)computed by the Chatbot-Engine-Gateway
+    microservice. Created either by the `queue_embedding_sync` post_save
+    signal (real-time single-item edits) or in bulk by the analytics
+    dataset generator (full catalog regeneration).
+
+    The Gateway polls GET .../embeddings/pending/ to claim PENDING tasks
+    (atomically flipped to PROCESSING at claim time -- see
+    apps.catalog.rag_service.get_pending_embedding_tasks_service), computes
+    the embedding, then reports back via .../embeddings/upsert/ (-> DONE) or
+    .../embeddings/mark-error/ (-> ERROR).
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        PROCESSING = "processing", "Processing"
+        DONE = "done", "Done"
+        ERROR = "error", "Error"
+
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name="embedding_sync_tasks")
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    content_hash = models.CharField(max_length=64)
+    error_message = models.CharField(max_length=500, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "catalog_embedding_sync_task"
+        indexes = [models.Index(fields=["status", "created_at"])]
+
+    def __str__(self):
+        return f"EmbeddingSyncTask(item={self.item_id}, status={self.status})"

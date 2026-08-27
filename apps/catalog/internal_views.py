@@ -14,6 +14,34 @@ from apps.catalog.services import (
     get_reviews_summary_service,
     semantic_catalog_search_service,
 )
+from apps.catalog.rag_service import (
+    vector_search_service,
+    find_similar_items_service,
+    get_pending_embedding_tasks_service,
+    upsert_embedding_service,
+    mark_embedding_error_service,
+    verify_items_service,
+    get_catalog_facets_service,
+)
+
+
+def _parse_json_body(request):
+    """Shared helper for the RAG endpoints below: parses the request body as
+    JSON, returning (data, None) on success or (None, error_response) on
+    failure -- mirrors the try/except json.loads pattern already used by
+    catalog_semantic_search_view above.
+    """
+    try:
+        body_content = request.body.decode('utf-8') if isinstance(request.body, bytes) else str(request.body)
+        data = json.loads(body_content) if body_content else {}
+        if not isinstance(data, dict):
+            raise ValueError('Body must be a JSON object.')
+        return data, None
+    except Exception:
+        return None, JsonResponse(
+            {'error': 'Bad Request', 'detail': 'Invalid or missing JSON request body.'},
+            status=400,
+        )
 
 
 def catalog_search_view(request):
@@ -201,3 +229,230 @@ def catalog_semantic_search_view(request):
         request=request,
     )
     return JsonResponse(result, status=200)
+
+
+# ---------------------------------------------------------------------------
+# RAG / pgvector Catalog Endpoints
+# Consumed by the Chatbot-Engine-Gateway microservice to run real pgvector
+# semantic search against this catalog. See apps/catalog/rag_service.py for
+# all business logic -- these views are thin parse-and-delegate wrappers.
+# ---------------------------------------------------------------------------
+
+def catalog_vector_search_view(request):
+    """
+    POST /api/v1/internal/catalog/vector-search/
+
+    Request Body (JSON):
+        - query_vector (list[float], required): pre-computed embedding, must be EMBEDDING_DIM long.
+        - query_text (str, optional): original user query text, echoed back.
+        - top_k (int, optional): max results (default 8, clamped 1-50).
+        - in_stock_only (bool, optional): only items with stock > 0 (default True).
+        - min_price / max_price (float, optional): inclusive price bounds.
+        - category / brand (str, optional): case-insensitive substring filters.
+
+    Returns:
+        JsonResponse: 200 with ranked items, 400 on invalid body/vector, 405 on invalid method.
+    """
+    if request.method != 'POST':
+        return JsonResponse(
+            {'error': 'Method Not Allowed', 'detail': f'Method {request.method} not allowed. Must be POST.'},
+            status=405,
+        )
+
+    data, error_response = _parse_json_body(request)
+    if error_response is not None:
+        return error_response
+
+    result, status_code = vector_search_service(
+        query_vector=data.get('query_vector'),
+        query_text=data.get('query_text', ''),
+        top_k=data.get('top_k', 8),
+        in_stock_only=data.get('in_stock_only', True),
+        min_price=data.get('min_price'),
+        max_price=data.get('max_price'),
+        category=data.get('category'),
+        brand=data.get('brand'),
+    )
+    return JsonResponse(result, status=status_code)
+
+
+def catalog_embeddings_similar_view(request):
+    """
+    POST /api/v1/internal/catalog/embeddings/similar/
+
+    Request Body (JSON):
+        - item_id (int, required): reference item's id.
+        - top_k (int, optional): max neighbours (default 5, clamped 1-50).
+        - exclude_out_of_stock (bool, optional): default True.
+
+    Returns:
+        JsonResponse: 200 with nearest-neighbour items, 400 on bad item_id,
+        404 if the item doesn't exist or has no embedding yet, 405 on invalid method.
+    """
+    if request.method != 'POST':
+        return JsonResponse(
+            {'error': 'Method Not Allowed', 'detail': f'Method {request.method} not allowed. Must be POST.'},
+            status=405,
+        )
+
+    data, error_response = _parse_json_body(request)
+    if error_response is not None:
+        return error_response
+
+    result, status_code = find_similar_items_service(
+        item_id=data.get('item_id'),
+        top_k=data.get('top_k', 5),
+        exclude_out_of_stock=data.get('exclude_out_of_stock', True),
+    )
+    return JsonResponse(result, status=status_code)
+
+
+def catalog_embeddings_pending_view(request):
+    """
+    GET /api/v1/internal/catalog/embeddings/pending/
+
+    Query Parameters:
+        - limit (optional, int): max tasks to claim (default 20, max 100).
+
+    Atomically claims PENDING tasks by flipping them to PROCESSING before
+    returning them, so two overlapping poll cycles never get the same task.
+
+    Returns:
+        JsonResponse: 200 with claimed tasks, 400 on invalid limit, 405 on invalid method.
+    """
+    if request.method != 'GET':
+        return JsonResponse(
+            {'error': 'Method Not Allowed', 'detail': f'Method {request.method} not allowed. Must be GET.'},
+            status=405,
+        )
+
+    limit_param = request.GET.get('limit', 20)
+    try:
+        limit = int(limit_param)
+        if limit <= 0:
+            return JsonResponse({'error': 'Bad Request', 'detail': 'limit must be a positive integer.'}, status=400)
+    except (ValueError, TypeError):
+        return JsonResponse({'error': 'Bad Request', 'detail': 'limit must be a positive integer.'}, status=400)
+
+    result, status_code = get_pending_embedding_tasks_service(limit=limit)
+    return JsonResponse(result, status=status_code)
+
+
+def catalog_embeddings_upsert_view(request):
+    """
+    POST /api/v1/internal/catalog/embeddings/upsert/
+
+    Request Body (JSON):
+        - item_id (int, required)
+        - task_id (str, optional): EmbeddingSyncTask pk to mark DONE.
+        - vector (list[float], required): must be exactly EMBEDDING_DIM long.
+        - content_hash (str, optional)
+        - model_name (str, optional): defaults to EMBEDDING_MODEL_NAME.
+
+    Returns:
+        JsonResponse: 200 on successful create/update, 400 on bad item_id/vector,
+        404 if item_id doesn't exist, 405 on invalid method.
+    """
+    if request.method != 'POST':
+        return JsonResponse(
+            {'error': 'Method Not Allowed', 'detail': f'Method {request.method} not allowed. Must be POST.'},
+            status=405,
+        )
+
+    data, error_response = _parse_json_body(request)
+    if error_response is not None:
+        return error_response
+
+    result, status_code = upsert_embedding_service(
+        item_id=data.get('item_id'),
+        task_id=data.get('task_id'),
+        vector=data.get('vector'),
+        content_hash=data.get('content_hash'),
+        model_name=data.get('model_name'),
+    )
+    return JsonResponse(result, status=status_code)
+
+
+def catalog_embeddings_mark_error_view(request):
+    """
+    POST /api/v1/internal/catalog/embeddings/mark-error/
+
+    Request Body (JSON):
+        - task_id (str, required): EmbeddingSyncTask pk to mark ERROR.
+        - error (str, required): human-readable message, truncated to 500 chars.
+
+    Returns:
+        JsonResponse: 200 on success, 400 if task_id missing, 404 if task_id
+        doesn't exist, 405 on invalid method.
+    """
+    if request.method != 'POST':
+        return JsonResponse(
+            {'error': 'Method Not Allowed', 'detail': f'Method {request.method} not allowed. Must be POST.'},
+            status=405,
+        )
+
+    data, error_response = _parse_json_body(request)
+    if error_response is not None:
+        return error_response
+
+    result, status_code = mark_embedding_error_service(
+        task_id=data.get('task_id'),
+        error=data.get('error'),
+    )
+    return JsonResponse(result, status=status_code)
+
+
+def catalog_items_verify_view(request):
+    """
+    POST /api/v1/internal/catalog/items/verify/
+
+    Request Body (JSON):
+        - item_ids (list, optional): ids to verify (raw values echoed back in not_found on miss).
+        - slugs (list[str], optional): slugs to verify, matched case-sensitively, never re-slugified.
+        At least one of item_ids/slugs must be provided.
+
+    Returns:
+        JsonResponse: 200 with resolved items (deduped) + not_found raw values,
+        400 (status: error shape) if neither item_ids nor slugs provided, 405 on invalid method.
+    """
+    if request.method != 'POST':
+        return JsonResponse(
+            {'error': 'Method Not Allowed', 'detail': f'Method {request.method} not allowed. Must be POST.'},
+            status=405,
+        )
+
+    try:
+        body_content = request.body.decode('utf-8') if isinstance(request.body, bytes) else str(request.body)
+        data = json.loads(body_content) if body_content else {}
+        if not isinstance(data, dict):
+            raise ValueError('Body must be a JSON object.')
+    except Exception:
+        return JsonResponse({'status': 'error', 'error': 'Invalid or missing JSON request body.'}, status=400)
+
+    result, status_code = verify_items_service(
+        item_ids=data.get('item_ids'),
+        slugs=data.get('slugs'),
+    )
+    return JsonResponse(result, status=status_code)
+
+
+def catalog_facets_view(request):
+    """
+    GET /api/v1/internal/catalog/facets/
+
+    Query Parameters:
+        - facet (optional, str): 'category' | 'brand' | 'both' (default 'both').
+
+    Returns:
+        JsonResponse: 200 with categories/brands that have at least one active item,
+        400 on invalid facet value, 405 on invalid method.
+    """
+    if request.method != 'GET':
+        return JsonResponse(
+            {'error': 'Method Not Allowed', 'detail': f'Method {request.method} not allowed. Must be GET.'},
+            status=405,
+        )
+
+    facet = request.GET.get('facet', 'both')
+    result, status_code = get_catalog_facets_service(facet=facet)
+    return JsonResponse(result, status=status_code)

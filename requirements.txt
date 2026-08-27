@@ -15,6 +15,11 @@ pgvector==0.5.0
 python-dotenv==1.2.2
 python-decouple==3.8
 
+# --- Internal Microservice HTTP Client ---
+# Already present transitively (google-genai, huggingface_hub) but pinned
+# directly here since apps/catalog/signals.py now imports it explicitly.
+httpx==0.28.1
+
 # --- Data Processing & Export ---
 pandas==2.2.0
 openpyxl==3.1.2
