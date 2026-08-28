@@ -63,15 +63,18 @@ class ProductDetailView(DetailView):
     slug_url_kwarg = 'slug'
     context_object_name = 'object'
 
+    def get_queryset(self):
+        return Item.objects.prefetch_related('attributes', 'comments__user__profile').select_related('category', 'brand', 'supplier')
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['items'] = Item.objects.filter(slug=self.kwargs['slug'])
-        context['comments'] = Comments.objects.filter(item=self.object)
+        context['comments'] = self.object.comments.all()
         context['form'] = comments_form()
 
         user_already_commented = False
         if self.request.user.is_authenticated:
-            user_already_commented = Comments.objects.filter(user=self.request.user, item=self.object).exists()
+            user_already_commented = any(c.user_id == self.request.user.id for c in self.object.comments.all())
         context['user_already_commented'] = user_already_commented
         return context
 

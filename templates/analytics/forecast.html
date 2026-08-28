@@ -1,43 +1,97 @@
 {% extends 'analytics/base_analytics.html' %}
+{% load humanize %}
 
 {% block title %}Forecast & Trends | Analytics Portal{% endblock %}
+
+{% block extra_head %}
+<style>
+    .chart-panel {
+        height: 400px;
+        position: relative;
+    }
+    .chart-panel--compact {
+        height: 260px;
+        position: relative;
+    }
+    /* Keep the category bar chart from stretching into awkward whitespace
+       when there are few categories — it centers within the taller panel
+       instead of the bars ballooning to fill the extra height.
+
+       This div carries BOTH `.chart-panel` and `.category-chart-wrap` — do not
+       give this class its own `height`. `.chart-panel` already sets a solid
+       `height: 400px` on the same element; a second `height: 100%` here used to
+       win the cascade (equal specificity, declared later in the file), which
+       replaced that fixed 400px with a percentage anchored to nothing solid
+       (the ancestor chain is Bootstrap flex-stretch + `.analytics-card {height:
+       100%}`, itself not fixed). Chart.js's ResizeObserver measures this same
+       box to size the canvas, so an unanchored height feeds back into itself:
+       container size -> canvas size -> container size, growing without bound.
+       min-height/min-width: 0 are also load-bearing (a flex item's default
+       min-height is content-based, which is its own route into the same loop)
+       but do not by themselves fix an unanchored height — both fixes are
+       required together. */
+    .category-chart-wrap {
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    .category-chart-wrap canvas {
+        min-height: 0;
+        min-width: 0;
+    }
+    .section-subtitle {
+        font-size: 11px;
+        color: var(--text-tertiary);
+        margin-top: -12px;
+        margin-bottom: 14px;
+    }
+    /* Subtle hover lift, using the border-color/transform transition already
+       declared on .analytics-card in base_analytics.html — this page just
+       opts in with the actual :hover state. */
+    .analytics-card:hover {
+        border-color: var(--accent-dim);
+        transform: translateY(-2px);
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h4 class="fw-bold mb-1 text-light">Forecast & Trends</h4>
-        <p class="text-secondary mb-0" style="font-size: 12px;">Predictive demand modeling, time-series projections, and category distribution.</p>
+        <p class="text-secondary mb-0 text-xs">Predictive demand modeling, time-series projections, and category distribution.</p>
     </div>
 </div>
 
 <!-- Forecast Metrics Row -->
 <div class="row g-3 mb-4">
     <div class="col-md-4">
-        <div class="analytics-card">
+        <div class="analytics-card fade-in">
             <span class="kpi-title">Projected Next Month Revenue</span>
-            <div class="kpi-value">$ {{ forecast_data.next_month_projected|floatformat:2 }}</div>
+            <div class="kpi-value">${{ forecast_data.next_month_projected|floatformat:2|intcomma }}</div>
             <div class="kpi-meta">
-                <span class="kpi-indicator"></span> Linear Trend Model
+                <span class="kpi-indicator kpi-dot-neutral"></span> Linear Trend Model
             </div>
         </div>
     </div>
     <div class="col-md-4">
-        <div class="analytics-card">
+        <div class="analytics-card fade-in">
             <span class="kpi-title">MoM Revenue Growth</span>
             <div class="kpi-value">
                 {% if forecast_data.mom_growth >= 0 %}+{% endif %}{{ forecast_data.mom_growth }}%
             </div>
             <div class="kpi-meta">
-                <span class="kpi-indicator" style="background-color: {% if forecast_data.mom_growth >= 0 %}#22c55e{% else %}#ef4444{% endif %};"></span> Month-over-Month
+                <span class="kpi-indicator {% if forecast_data.mom_growth >= 0 %}kpi-dot-positive{% else %}kpi-dot-negative{% endif %}"></span> Month-over-Month
             </div>
         </div>
     </div>
     <div class="col-md-4">
-        <div class="analytics-card">
+        <div class="analytics-card fade-in">
             <span class="kpi-title">Seasonality Multiplier</span>
             <div class="kpi-value">{{ forecast_data.seasonality_index }}x</div>
             <div class="kpi-meta">
-                <span class="kpi-indicator"></span> Peak vs Baseline Ratio
+                <span class="kpi-indicator kpi-dot-neutral"></span> Peak vs Baseline Ratio
             </div>
         </div>
     </div>
@@ -45,19 +99,32 @@
 
 <!-- Charts Row -->
 <div class="row g-3 mb-4">
-    <div class="col-lg-8">
-        <div class="analytics-card">
+    <div class="col-lg-7">
+        <div class="analytics-card fade-in">
             <div class="section-title">24-Month Sales Trend & 3-Month Forecast (All-Time)</div>
-            <div style="height: 280px; position: relative;">
+            <div class="chart-panel">
                 <canvas id="forecastChart"></canvas>
             </div>
         </div>
     </div>
-    <div class="col-lg-4">
-        <div class="analytics-card">
+    <div class="col-lg-5">
+        <div class="analytics-card fade-in">
             <div class="section-title">Revenue by Category (All-Time Historical)</div>
-            <div style="height: 280px; position: relative;">
+            <div class="chart-panel category-chart-wrap">
                 <canvas id="categoryChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MoM Variation Panel -->
+<div class="row g-3 mb-4">
+    <div class="col-12">
+        <div class="analytics-card fade-in">
+            <div class="section-title">Month-over-Month Revenue Variation (%)</div>
+            <p class="section-subtitle">Percentage change in revenue versus the prior month, derived from the historical trend above.</p>
+            <div class="chart-panel--compact">
+                <canvas id="momVariationChart"></canvas>
             </div>
         </div>
     </div>
@@ -71,12 +138,17 @@
     document.addEventListener("DOMContentLoaded", function() {
         if (!forecastData) return;
 
+        const theme = window.AnalyticsTheme || {
+            accent: '#3b82f6', accentSecondary: '#14b8a6', success: '#22c55e',
+            danger: '#ef4444', border: '#262b35', textSecondary: '#8a97ab', textTertiary: '#5b6576'
+        };
+
         // Chart 1: Line Chart
         const ctxForecast = document.getElementById('forecastChart');
         if (ctxForecast) {
             const allLabels = [...(forecastData.months_labels || []), ...(forecastData.forecast_months || [])];
             const histCount = (forecastData.months_labels || []).length;
-            
+
             const histSeries = [...(forecastData.historical_revenue || [])];
             const forecastSeries = new Array(histCount - 1).fill(null);
             if (histCount > 0) {
@@ -100,59 +172,79 @@
                         {
                             label: 'Historical Sales ($)',
                             data: histSeries,
-                            borderColor: '#3b82f6',
-                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderColor: theme.accent,
+                            backgroundColor: theme.accent + '1a',
                             borderWidth: 2,
                             fill: true,
                             tension: 0.35,
-                            pointRadius: 2
+                            pointRadius: 2,
+                            order: 1
                         },
                         {
                             label: 'Forecast Projection ($)',
                             data: forecastSeries,
-                            borderColor: '#60a5fa',
+                            borderColor: theme.accentSecondary,
                             borderWidth: 2,
                             borderDash: [6, 4],
                             fill: false,
                             pointRadius: 3,
-                            pointBackgroundColor: '#60a5fa'
+                            pointBackgroundColor: theme.accentSecondary,
+                            order: 1
                         },
                         {
+                            // Drawn first (order: 2, higher = later... Chart.js draws lower
+                            // `order` last/on top, so these two sit under the trend lines)
+                            // and filled toward the Lower Bound dataset immediately after it
+                            // to render the confidence range as a shaded band, not two
+                            // near-invisible dashed lines.
                             label: 'Upper Bound',
                             data: upperSeries,
-                            borderColor: 'rgba(148, 163, 184, 0.25)',
+                            borderColor: theme.accentSecondary + '55',
+                            backgroundColor: theme.accentSecondary + '26',
                             borderWidth: 1,
                             borderDash: [2, 2],
-                            fill: false,
-                            pointRadius: 0
+                            fill: '+1',
+                            pointRadius: 0,
+                            order: 2
                         },
                         {
                             label: 'Lower Bound',
                             data: lowerSeries,
-                            borderColor: 'rgba(148, 163, 184, 0.25)',
+                            borderColor: theme.accentSecondary + '55',
                             borderWidth: 1,
                             borderDash: [2, 2],
                             fill: false,
-                            pointRadius: 0
+                            pointRadius: 0,
+                            order: 2
                         }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
                     plugins: {
                         legend: {
-                            labels: { color: '#94a3b8', font: { size: 10 } }
+                            labels: { color: theme.textSecondary, font: { size: 12 }, usePointStyle: true, boxWidth: 8 }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    const val = ctx.parsed.y;
+                                    if (val === null || val === undefined) return undefined;
+                                    return `${ctx.dataset.label}: $${val.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                                }
+                            }
                         }
                     },
                     scales: {
                         x: {
-                            grid: { color: '#1e222b' },
-                            ticks: { color: '#64748b', font: { size: 10 } }
+                            grid: { color: theme.border },
+                            ticks: { color: theme.textTertiary, font: { size: 11 } }
                         },
                         y: {
-                            grid: { color: '#1e222b' },
-                            ticks: { color: '#64748b', font: { size: 10 } }
+                            grid: { color: theme.border },
+                            ticks: { color: theme.textTertiary, font: { size: 11 } }
                         }
                     }
                 }
@@ -169,10 +261,11 @@
                     datasets: [{
                         label: 'Revenue ($)',
                         data: forecastData.category_revenues || [],
-                        backgroundColor: 'rgba(59, 130, 246, 0.75)',
-                        borderColor: '#3b82f6',
+                        backgroundColor: theme.accent + 'bf',
+                        borderColor: theme.accent,
                         borderWidth: 1,
-                        borderRadius: 3
+                        borderRadius: 3,
+                        maxBarThickness: 28
                     }]
                 },
                 options: {
@@ -180,16 +273,83 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { display: false }
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    return `Revenue: $${ctx.parsed.x.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                                }
+                            }
+                        }
                     },
                     scales: {
                         x: {
-                            grid: { color: '#1e222b' },
-                            ticks: { color: '#64748b', font: { size: 9 } }
+                            grid: { color: theme.border },
+                            ticks: { color: theme.textTertiary, font: { size: 11 } }
                         },
                         y: {
                             grid: { display: false },
-                            ticks: { color: '#cbd5e1', font: { size: 10 } }
+                            ticks: { color: theme.textSecondary, font: { size: 12 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Chart 3: Month-over-Month Revenue Variation (%) — computed client-side
+        // from the same historical_revenue series used in Chart 1. No new
+        // backend data; first month has no prior month to compare against.
+        const ctxMom = document.getElementById('momVariationChart');
+        if (ctxMom) {
+            const hist = forecastData.historical_revenue || [];
+            const labels = forecastData.months_labels || [];
+            const variation = hist.map((val, i) => {
+                if (i === 0) return null;
+                const prev = hist[i - 1];
+                if (!prev) return null;
+                return ((val - prev) / prev) * 100;
+            });
+            const colors = variation.map(v => v === null ? theme.textTertiary : (v >= 0 ? theme.success : theme.danger));
+
+            new Chart(ctxMom, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'MoM Change (%)',
+                        data: variation,
+                        backgroundColor: colors,
+                        borderRadius: 3,
+                        maxBarThickness: 22
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    const val = ctx.parsed.y;
+                                    if (val === null || val === undefined) return 'No prior month data';
+                                    return `${val >= 0 ? '+' : ''}${val.toFixed(1)}%`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: theme.textTertiary, font: { size: 11 }, maxRotation: 0, autoSkip: true }
+                        },
+                        y: {
+                            grid: { color: theme.border },
+                            ticks: {
+                                color: theme.textTertiary,
+                                font: { size: 11 },
+                                callback: function(value) { return value + '%'; }
+                            }
                         }
                     }
                 }

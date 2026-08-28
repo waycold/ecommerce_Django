@@ -2,8 +2,38 @@
 {% load static %}
 {% block content %}
 
+<style>
+  .product-description-container {
+    position: relative;
+    overflow: hidden;
+  }
+  .product-description-content.collapsed {
+    max-height: 140px;
+    overflow: hidden;
+    transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .product-description-content.expanded {
+    max-height: 3000px;
+    transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .product-description-fade {
+    display: none;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 50px;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 1));
+    pointer-events: none;
+  }
+  .product-description-content.collapsed + .product-description-fade {
+    display: block;
+  }
+</style>
+
 <main class="mt-4 pt-4" style="min-height: 100vh;">
   <div class="container dark-grey-text mt-4">
+    <!-- Top Hero Section: Product Image & Purchase Summary -->
     <div class="row">
       <!-- Product Image -->
       <div class="col-md-6 mb-4 text-center d-flex align-items-center justify-content-center bg-white rounded p-4 shadow-sm" style="border-radius: 6px !important; border: 1px solid var(--border-color);">
@@ -14,66 +44,63 @@
         {% endif %}
       </div>
 
-      <!-- Product Details -->
+      <!-- Purchase Summary -->
       <div class="col-md-6 mb-4">
-        <div class="p-4 bg-white rounded shadow-sm" style="border-radius: 6px !important; border: 1px solid var(--border-color);">
-          <div class="mb-3">
-            {% if object.category %}
-            <span class="badge badge-light border text-muted px-2 py-1 mr-1">{{ object.category.name }}</span>
-            {% endif %}
-            {% if object.brand %}
-            <span class="badge badge-primary px-2 py-1 mr-1">{{ object.brand.name }}</span>
-            {% endif %}
-          </div>
-
-          <h2 class="font-weight-bold text-dark mb-3" style="font-size: 24px;">{{ object.title }}</h2>
-
-          <div class="h3 font-weight-bold text-primary mb-3">
-            ${{ object.price }}
-          </div>
-
-          <div class="mb-3 small">
-            <span class="font-weight-bold text-muted">Available Stock:</span>
-            {% if object.stock > 0 %}
-            <span class="badge badge-success px-2 py-1" style="border-radius: 4px;">{{ object.stock }} units</span>
-            {% else %}
-            <span class="badge badge-danger px-2 py-1" style="border-radius: 4px;">Out of Stock</span>
-            {% endif %}
-          </div>
-
-          <div class="mb-4">
-            <h6 class="font-weight-bold text-muted mb-2 text-uppercase" style="font-size: 12px; letter-spacing: 0.5px;">Description</h6>
-            <p class="text-secondary small" style="line-height: 1.6;">{{ object.description|default:"No detailed description available." }}</p>
-          </div>
-
-          <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
-            {% if object.stock > 0 %}
-            <a href="{{ object.get_add_to_cart_url }}" class="sober-btn-primary py-2 px-4 mr-2 text-decoration-none" style="width: auto;">
-              Add to Cart
-            </a>
-            {% else %}
-            <button class="btn btn-secondary py-2 px-4 mr-2" style="width: auto; border-radius: 6px;" disabled>
-              Out of Stock
-            </button>
-            {% endif %}
-            <a href="{{ object.get_remove_from_cart_url }}" class="sober-btn-outline py-2 px-3 text-decoration-none">
-              Remove
-            </a>
-          </div>
-
+        <div class="p-4 bg-white rounded shadow-sm h-100 d-flex flex-column justify-content-between" style="border-radius: 6px !important; border: 1px solid var(--border-color);">
           <div>
-            <button type="button" class="btn btn-outline-primary btn-sm my-2" onclick="consultarProducto('{{ object.title|escapejs }}')">
-              <i class="fas fa-robot mr-1"></i> Preguntar a la IA sobre este producto
-            </button>
-            <script>
-              function consultarProducto(nombre) {
-                if (window.AiChatWidget) {
-                  window.AiChatWidget.open();
-                  window.AiChatWidget.setAgent('ecommerce');
-                  window.AiChatWidget.sendMessage('Hola, me interesa el producto "' + nombre + '". ¿Podrías darme más detalles, recomendaciones y disponibilidad?');
+            <div class="mb-3">
+              {% if object.category %}
+              <span class="badge badge-light border text-muted px-2 py-1 mr-1">{{ object.category.name }}</span>
+              {% endif %}
+              {% if object.brand %}
+              <span class="badge badge-primary px-2 py-1 mr-1">{{ object.brand.name }}</span>
+              {% endif %}
+            </div>
+
+            <h2 class="font-weight-bold text-dark mb-3" style="font-size: 24px;">{{ object.title }}</h2>
+
+            <div class="h3 font-weight-bold text-primary mb-3">
+              ${{ object.price }}
+            </div>
+
+            <div class="mb-4 small">
+              <span class="font-weight-bold text-muted">Available Stock:</span>
+              {% if object.stock > 0 %}
+              <span class="badge badge-success px-2 py-1" style="border-radius: 4px;">{{ object.stock }} units</span>
+              {% else %}
+              <span class="badge badge-danger px-2 py-1" style="border-radius: 4px;">Out of Stock</span>
+              {% endif %}
+            </div>
+
+            <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+              {% if object.stock > 0 %}
+              <a href="{{ object.get_add_to_cart_url }}" class="sober-btn-primary py-2 px-4 mr-2 text-decoration-none" style="width: auto;">
+                Add to Cart
+              </a>
+              {% else %}
+              <button class="btn btn-secondary py-2 px-4 mr-2" style="width: auto; border-radius: 6px;" disabled>
+                Out of Stock
+              </button>
+              {% endif %}
+              <a href="{{ object.get_remove_from_cart_url }}" class="sober-btn-outline py-2 px-3 text-decoration-none">
+                Remove
+              </a>
+            </div>
+
+            <div>
+              <button type="button" class="btn btn-outline-primary btn-sm my-2" onclick="consultarProducto('{{ object.title|escapejs }}')">
+                <i class="fas fa-robot mr-1"></i> Preguntar a la IA sobre este producto
+              </button>
+              <script>
+                function consultarProducto(nombre) {
+                  if (window.AiChatWidget) {
+                    window.AiChatWidget.open();
+                    window.AiChatWidget.setAgent('ecommerce');
+                    window.AiChatWidget.sendMessage('Hola, me interesa el producto "' + nombre + '". ¿Podrías darme más detalles, recomendaciones y disponibilidad?');
+                  }
                 }
-              }
-            </script>
+              </script>
+            </div>
           </div>
 
           {% if user.is_superuser %}
@@ -94,8 +121,57 @@
       </div>
     </div>
 
+    <!-- Dedicated Product Info Section: Description & Specifications -->
+    <div class="row mt-4">
+      <!-- Product Description -->
+      <div class="col-lg-7 mb-4">
+        <div class="p-4 bg-white rounded shadow-sm h-100" style="border-radius: 6px !important; border: 1px solid var(--border-color);">
+          <h4 class="font-weight-bold mb-3 text-dark d-flex align-items-center" style="font-size: 18px;">
+            <i class="fas fa-align-left mr-2 text-primary"></i> Description
+          </h4>
+          <div class="product-description-container position-relative" id="productDescriptionContainer">
+            <div id="productDescriptionContent" class="product-description-content text-secondary" style="font-size: 14px; line-height: 1.7; white-space: pre-line;">{{ object.description|default:"No detailed description available." }}</div>
+            <div id="productDescriptionFade" class="product-description-fade"></div>
+          </div>
+          <div class="mt-3" id="toggleDescriptionWrapper" style="display: none;">
+            <button id="toggleDescriptionBtn" class="btn btn-link p-0 text-primary font-weight-bold small text-decoration-none d-flex align-items-center" type="button" onclick="toggleProductDescription()">
+              <span id="toggleDescriptionText">Read more</span>
+              <i id="toggleDescriptionIcon" class="fas fa-chevron-down ml-1" style="font-size: 11px;"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Specifications / Attributes -->
+      <div class="col-lg-5 mb-4">
+        <div class="p-4 bg-white rounded shadow-sm h-100" style="border-radius: 6px !important; border: 1px solid var(--border-color);">
+          <h4 class="font-weight-bold mb-3 text-dark d-flex align-items-center" style="font-size: 18px;">
+            <i class="fas fa-list-ul mr-2 text-primary"></i> Specifications
+          </h4>
+          <div class="table-responsive">
+            <table class="table table-sm table-borderless mb-0" style="font-size: 13px;">
+              <tbody>
+                {% for attr in object.attributes.all %}
+                <tr class="border-bottom" style="border-color: #f1f3f5 !important;">
+                  <td class="text-muted font-weight-bold py-2 pl-0 text-capitalize" style="width: 40%;">{{ attr.name }}</td>
+                  <td class="text-dark font-weight-medium py-2 pr-0">{{ attr.value }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="2" class="text-muted py-3 pl-0 small">
+                    <i class="fas fa-info-circle mr-1"></i> No specifications available.
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Comments & Reviews Section -->
-    <div class="row mt-5">
+    <div class="row mt-4">
       <div class="col-12">
         <div class="sober-card p-4">
           <h4 class="font-weight-bold mb-4 text-dark" style="font-size: 20px;">
@@ -177,16 +253,54 @@
   </div>
 </main>
 
-<!-- Star Selector Client Logic -->
+<!-- Client Interactivity Logic -->
 <script type="text/javascript">
+  function toggleProductDescription() {
+    var content = document.getElementById('productDescriptionContent');
+    var btnText = document.getElementById('toggleDescriptionText');
+    var btnIcon = document.getElementById('toggleDescriptionIcon');
+    if (!content) return;
+
+    if (content.classList.contains('collapsed')) {
+      content.classList.remove('collapsed');
+      content.classList.add('expanded');
+      if (btnText) btnText.textContent = 'Show less';
+      if (btnIcon) {
+        btnIcon.classList.remove('fa-chevron-down');
+        btnIcon.classList.add('fa-chevron-up');
+      }
+    } else {
+      content.classList.remove('expanded');
+      content.classList.add('collapsed');
+      if (btnText) btnText.textContent = 'Read more';
+      if (btnIcon) {
+        btnIcon.classList.remove('fa-chevron-up');
+        btnIcon.classList.add('fa-chevron-down');
+      }
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', function() {
+    // Description expand/collapse check
+    var descContent = document.getElementById('productDescriptionContent');
+    var toggleWrapper = document.getElementById('toggleDescriptionWrapper');
+    if (descContent) {
+      if (descContent.scrollHeight > 150) {
+        descContent.classList.add('collapsed');
+        if (toggleWrapper) toggleWrapper.style.display = 'block';
+      }
+    }
+
+    // Star selector logic
     var stars = document.querySelectorAll('#starRatingSelector i');
     var ratingHiddenInput = document.getElementById('id_rating_hidden');
     
     stars.forEach(function(star) {
       star.addEventListener('click', function() {
         var value = parseInt(this.getAttribute('data-value'));
-        ratingHiddenInput.value = value;
+        if (ratingHiddenInput) {
+          ratingHiddenInput.value = value;
+        }
         
         stars.forEach(function(s, idx) {
           if (idx < value) {

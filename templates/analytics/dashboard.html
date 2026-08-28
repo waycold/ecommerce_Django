@@ -1,13 +1,102 @@
 {% extends 'analytics/base_analytics.html' %}
+{% load humanize %}
 
 {% block title %}Dashboard | Analytics Portal{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* --- Month-over-Month delta chips (KPI cards) --- */
+    .kpi-delta {
+        font-size: 11px;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        vertical-align: middle;
+        margin-left: 8px;
+    }
+    .kpi-delta.positive { color: var(--success); background-color: rgba(34, 197, 94, 0.12); }
+    .kpi-delta.negative { color: var(--danger); background-color: rgba(239, 68, 68, 0.12); }
+    .kpi-delta.neutral { color: var(--text-tertiary); background-color: rgba(91, 101, 118, 0.12); }
+
+    /* --- Muted performance color tokens (text only, no filled backgrounds) --- */
+    .text-value-positive { color: var(--success); }
+    .text-value-warning { color: var(--warning); }
+    .text-value-negative { color: var(--danger); }
+
+    /* --- Top Products table: clickable rows + truncated titles --- */
+    .product-row {
+        cursor: pointer;
+        transition: background-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .product-row:hover td:first-child {
+        box-shadow: inset 3px 0 0 var(--accent);
+    }
+    .product-title-truncate {
+        display: inline-block;
+        max-width: 340px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        vertical-align: bottom;
+    }
+    @media (max-width: 991px) {
+        .product-title-truncate { max-width: 180px; }
+    }
+
+    /* --- Product Performance modal --- */
+    .ppm-stat {
+        padding: 10px 12px;
+        background-color: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        height: 100%;
+    }
+    .ppm-stat-label {
+        font-size: 11px;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+    .ppm-stat-value {
+        font-size: 1.05rem;
+        font-weight: 700;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        color: var(--text-primary);
+    }
+    .ppm-chart-wrap {
+        position: relative;
+        height: 280px;
+        width: 100%;
+    }
+
+    /* --- Power BI section: slim utility banner, not a hero --- */
+    .pbi-container {
+        background-color: var(--bg-elevated);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 14px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+    .pbi-icon { font-size: 20px; color: var(--accent); }
+</style>
+{% endblock %}
 
 {% block content %}
 <!-- Top Actions Bar -->
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h4 class="fw-bold mb-1 text-light">Management Dashboard</h4>
-        <p class="text-secondary mb-0" style="font-size: 12px;">Real-time performance metrics and business intelligence.</p>
+        <p class="text-secondary text-xs mb-0">Real-time performance metrics and business intelligence.</p>
     </div>
     <div>
         <a href="{% url 'analytics:export_excel' %}" class="btn-accent" id="export-btn">
@@ -18,61 +107,91 @@
 
 <!-- SECTION A: KPI Cards Grid -->
 <div class="row g-3 mb-4">
-    
+
     <!-- KPI 1: Current Month Revenue -->
     <div class="col-md-3">
-        <div class="analytics-card">
+        <div class="analytics-card fade-in">
             <span class="kpi-title">Net Revenue ({{ current_month_name }})</span>
-            <div class="kpi-value">$ {{ monthly_revenue|floatformat:2 }}</div>
+            <div class="kpi-value">
+                ${{ monthly_revenue|floatformat:2|intcomma }}
+                {% if monthly_revenue_mom_pct is not None %}
+                <span class="kpi-delta {% if monthly_revenue_mom_pct > 0 %}positive{% elif monthly_revenue_mom_pct < 0 %}negative{% else %}neutral{% endif %}">
+                    <i class="fa-solid fa-arrow-{% if monthly_revenue_mom_pct > 0 %}up{% elif monthly_revenue_mom_pct < 0 %}down{% else %}right{% endif %}"></i>
+                    {{ monthly_revenue_mom_pct|floatformat:1 }}%
+                </span>
+                {% else %}
+                <span class="kpi-delta neutral">New</span>
+                {% endif %}
+            </div>
             <div class="kpi-meta">
-                <span class="kpi-indicator"></span> Successful Orders Only
+                <span class="kpi-indicator kpi-dot-neutral"></span> vs. {{ prior_month_name }} &middot; Successful Orders Only
             </div>
         </div>
     </div>
 
     <!-- KPI 2: Monthly Orders -->
     <div class="col-md-3">
-        <div class="analytics-card">
+        <div class="analytics-card fade-in">
             <span class="kpi-title">Completed Orders ({{ current_month_name }})</span>
-            <div class="kpi-value">{{ monthly_orders_count }}</div>
+            <div class="kpi-value">
+                {{ monthly_orders_count }}
+                {% if monthly_orders_mom_pct is not None %}
+                <span class="kpi-delta {% if monthly_orders_mom_pct > 0 %}positive{% elif monthly_orders_mom_pct < 0 %}negative{% else %}neutral{% endif %}">
+                    <i class="fa-solid fa-arrow-{% if monthly_orders_mom_pct > 0 %}up{% elif monthly_orders_mom_pct < 0 %}down{% else %}right{% endif %}"></i>
+                    {{ monthly_orders_mom_pct|floatformat:1 }}%
+                </span>
+                {% else %}
+                <span class="kpi-delta neutral">New</span>
+                {% endif %}
+            </div>
             <div class="kpi-meta">
-                <span class="kpi-indicator" style="background-color: #22c55e;"></span> {{ active_customers_count }} Active Customers
+                <span class="kpi-indicator kpi-dot-positive"></span> {{ active_customers_count }} Active Customers
             </div>
         </div>
     </div>
 
     <!-- KPI 3: Average Order Value (AOV) -->
     <div class="col-md-3">
-        <div class="analytics-card">
+        <div class="analytics-card fade-in">
             <span class="kpi-title">Average Order Value ({{ current_month_name }})</span>
-            <div class="kpi-value">$ {{ avg_order_value|floatformat:2 }}</div>
+            <div class="kpi-value">
+                ${{ avg_order_value|floatformat:2|intcomma }}
+                {% if avg_order_value_mom_pct is not None %}
+                <span class="kpi-delta {% if avg_order_value_mom_pct > 0 %}positive{% elif avg_order_value_mom_pct < 0 %}negative{% else %}neutral{% endif %}">
+                    <i class="fa-solid fa-arrow-{% if avg_order_value_mom_pct > 0 %}up{% elif avg_order_value_mom_pct < 0 %}down{% else %}right{% endif %}"></i>
+                    {{ avg_order_value_mom_pct|floatformat:1 }}%
+                </span>
+                {% else %}
+                <span class="kpi-delta neutral">New</span>
+                {% endif %}
+            </div>
             <div class="kpi-meta">
-                <span class="kpi-indicator"></span> Revenue per Ticket
+                <span class="kpi-indicator kpi-dot-neutral"></span> Revenue per Ticket
             </div>
         </div>
     </div>
 
     <!-- KPI 4: Pending Orders -->
     <div class="col-md-3">
-        <div class="analytics-card">
+        <div class="analytics-card fade-in">
             <span class="kpi-title">Abandoned/Pending Orders (All-Time)</span>
             <div class="kpi-value">{{ abandoned_carts_count }}</div>
             <div class="kpi-meta">
-                <span class="kpi-indicator" style="background-color: var(--text-secondary);"></span> Awaiting Payment
+                <span class="kpi-indicator kpi-dot-warning"></span> Awaiting Payment
             </div>
         </div>
     </div>
 
 </div>
 
-<!-- SECTION B: Top 8 Best-Selling Products Table -->
+<!-- SECTION B: Top 8 Best-Selling Products (primary, full-width) -->
 <div class="row g-3 mb-4">
     <div class="col-12">
-        <div class="analytics-card">
+        <div class="analytics-card fade-in">
             <div class="section-title d-flex justify-content-between align-items-center">
                 <span>Top 8 Best-Selling Products (All-Time Historical)</span>
                 {% if top_product_star %}
-                <span class="text-secondary" style="font-size: 12px; font-weight: normal; text-transform: none;">
+                <span class="text-secondary text-xs" style="font-weight: normal; text-transform: none;">
                     Leader: <strong class="text-light">{{ top_product_star.item__title }}</strong> ({{ top_product_star.total_units_sold }} units)
                 </span>
                 {% endif %}
@@ -85,18 +204,21 @@
                             <th style="width: 60px;" class="text-center">Rank</th>
                             <th>Product</th>
                             <th>Category</th>
+                            <th class="text-end">Price</th>
+                            <th class="text-end">Cost</th>
+                            <th class="text-end">Margin</th>
                             <th class="text-end">Units Sold</th>
                             <th class="text-end">Revenue</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for prod in top_products %}
-                        <tr>
+                        <tr class="product-row" data-item-id="{{ prod.item__id }}" data-product-title="{{ prod.item__title }}" tabindex="0">
                             <td class="text-center rank-num">
                                 {{ forloop.counter }}
                             </td>
                             <td>
-                                <span class="fw-medium text-light">{{ prod.item__title }}</span>
+                                <span class="fw-medium text-light product-title-truncate" title="{{ prod.item__title }}">{{ prod.item__title }}</span>
                             </td>
                             <td>
                                 <span class="text-secondary">
@@ -104,15 +226,32 @@
                                 </span>
                             </td>
                             <td class="text-end text-light font-monospace">
+                                ${{ prod.item__price|floatformat:2|intcomma }}
+                            </td>
+                            <td class="text-end text-secondary font-monospace">
+                                {% if prod.cost is not None %}
+                                ${{ prod.cost|floatformat:2|intcomma }}
+                                {% else %}
+                                &mdash;
+                                {% endif %}
+                            </td>
+                            <td class="text-end font-monospace">
+                                {% if prod.gross_margin_pct is not None %}
+                                <span class="{% if prod.gross_margin_pct >= 30 %}text-value-positive{% elif prod.gross_margin_pct >= 15 %}text-value-warning{% else %}text-value-negative{% endif %}">{{ prod.gross_margin_pct|floatformat:1 }}%</span>
+                                {% else %}
+                                <span class="text-secondary">&mdash;</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end text-light font-monospace">
                                 {{ prod.total_units_sold }}
                             </td>
                             <td class="text-end text-light font-monospace">
-                                $ {{ prod.total_revenue_generated|floatformat:2 }}
+                                ${{ prod.total_revenue_generated|floatformat:2|intcomma }}
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="5" class="text-center py-4 text-secondary">
+                            <td colspan="8" class="text-center py-4 text-secondary">
                                 Not enough sales recorded.
                             </td>
                         </tr>
@@ -124,25 +263,218 @@
     </div>
 </div>
 
-<!-- SECTION C: Power BI Integration -->
+<!-- SECTION C: Power BI Integration (slim utility banner) -->
 <div class="row g-3 mb-4">
     <div class="col-12">
-        <div class="analytics-card">
-            <div class="section-title">
-                <span>Power BI Reports Integration</span>
-                <p class="text-secondary mb-0 ms-3" style="font-size: 12px; font-weight: normal; text-transform: none;">Secure external reporting dashboard.</p>
+        <div class="pbi-container fade-in">
+            <div class="d-flex align-items-center gap-3">
+                <i class="fa-solid fa-chart-pie pbi-icon"></i>
+                <div>
+                    <h6 class="text-light mb-0" style="font-size: 13px;">Advanced Power BI Analytics</h6>
+                    <p class="text-secondary text-xs mb-0">External secure reporting dashboard.</p>
+                </div>
             </div>
-            <div class="pbi-container" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 40px; display: flex; align-items: center; justify-content: center;">
-                <div class="text-center">
-                    <i class="fa-solid fa-chart-pie text-accent mb-3" style="font-size: 32px; color: var(--accent);"></i>
-                    <h6 class="text-light mb-2">Access Advanced Power BI Analytics</h6>
-                    <p class="text-secondary mb-4" style="font-size: 13px; max-width: 440px; margin: 0 auto; line-height: 1.5;">Due to browser security policies (cross-site tracking), secure Power BI reports cannot be embedded directly without a public link. Click below to view the secure report.</p>
-                    <a href="https://app.powerbi.com/groups/me/reports/7bf26a0b-0785-4522-a42f-b4487211c815?ctid=659e1dba-b3cc-4dcc-8730-d23877e7ab7b&pbi_source=linkShare&bookmarkGuid=39dd2e12-b65f-4103-b0ab-49f484753484" target="_blank" rel="noopener noreferrer" class="btn-accent">
-                        <i class="fa-solid fa-arrow-up-right-from-square me-2"></i> Open Power BI Dashboard
-                    </a>
+            <a href="https://app.powerbi.com/groups/me/reports/7bf26a0b-0785-4522-a42f-b4487211c815?ctid=659e1dba-b3cc-4dcc-8730-d23877e7ab7b&pbi_source=linkShare&bookmarkGuid=39dd2e12-b65f-4103-b0ab-49f484753484" target="_blank" rel="noopener noreferrer" class="btn-accent">
+                <i class="fa-solid fa-arrow-up-right-from-square me-2"></i> Open Power BI Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Product Performance Modal -->
+<div class="modal fade" id="productPerfModal" tabindex="-1" aria-labelledby="productPerfModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content" style="background-color: var(--bg-elevated); border: 1px solid var(--border-color);">
+            <div class="modal-header" style="border-bottom: 1px solid var(--border-color);">
+                <h5 class="modal-title text-light" id="productPerfModalLabel">Product Performance</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="ppm-loading" class="text-center text-secondary py-5">
+                    <i class="fa-solid fa-spinner fa-spin me-2"></i> Loading product performance&hellip;
+                </div>
+                <div id="ppm-error" class="text-center text-secondary py-5 d-none">
+                    Unable to load product performance data.
+                </div>
+                <div id="ppm-content" class="d-none">
+                    <div class="row g-2 mb-3">
+                        <div class="col-6 col-md-3">
+                            <div class="ppm-stat">
+                                <span class="ppm-stat-label">Category</span>
+                                <span class="ppm-stat-value" id="ppm-category" style="font-size: 0.85rem;">&mdash;</span>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="ppm-stat">
+                                <span class="ppm-stat-label">Brand</span>
+                                <span class="ppm-stat-value" id="ppm-brand" style="font-size: 0.85rem;">&mdash;</span>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="ppm-stat">
+                                <span class="ppm-stat-label">Price</span>
+                                <span class="ppm-stat-value" id="ppm-price">&mdash;</span>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="ppm-stat">
+                                <span class="ppm-stat-label">Total Revenue</span>
+                                <span class="ppm-stat-value" id="ppm-total-revenue">&mdash;</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between text-2xs text-secondary mb-2">
+                        <span id="ppm-total-units">0 units sold</span>
+                        <span id="ppm-total-orders">0 orders</span>
+                    </div>
+                    <div class="ppm-chart-wrap">
+                        <canvas id="ppm-chart"></canvas>
+                    </div>
+                    <div id="ppm-empty" class="text-center text-secondary py-4 d-none">
+                        No paid order history recorded for this product yet.
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+    (function () {
+        const PRODUCT_PERF_URL_TEMPLATE = "{% url 'analytics:product_performance' item_id=0 %}";
+        let ppmChart = null;
+        let modalInstance = null;
+
+        function fmtUSD(n) {
+            const num = Number(n) || 0;
+            return '$' + num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function openProductPerformanceModal(itemId, productTitle) {
+            const modalEl = document.getElementById('productPerfModal');
+            modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+            document.getElementById('productPerfModalLabel').textContent = productTitle || 'Product Performance';
+            document.getElementById('ppm-loading').classList.remove('d-none');
+            document.getElementById('ppm-error').classList.add('d-none');
+            document.getElementById('ppm-content').classList.add('d-none');
+            document.getElementById('ppm-empty').classList.add('d-none');
+
+            modalInstance.show();
+
+            const url = PRODUCT_PERF_URL_TEMPLATE.replace('/0/', '/' + encodeURIComponent(itemId) + '/');
+
+            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (resp) {
+                    if (!resp.ok) throw new Error('Request failed');
+                    return resp.json();
+                })
+                .then(renderProductPerformance)
+                .catch(function () {
+                    document.getElementById('ppm-loading').classList.add('d-none');
+                    document.getElementById('ppm-error').classList.remove('d-none');
+                });
+        }
+
+        function renderProductPerformance(data) {
+            document.getElementById('ppm-loading').classList.add('d-none');
+            document.getElementById('ppm-content').classList.remove('d-none');
+
+            document.getElementById('productPerfModalLabel').textContent = data.title || 'Product Performance';
+            document.getElementById('ppm-category').textContent = data.category || 'Uncategorized';
+            document.getElementById('ppm-brand').textContent = data.brand || 'Generic';
+            document.getElementById('ppm-price').textContent = fmtUSD(data.price);
+            document.getElementById('ppm-total-revenue').textContent = fmtUSD(data.total_revenue);
+            document.getElementById('ppm-total-units').textContent = (data.total_units || 0) + ' units sold';
+            document.getElementById('ppm-total-orders').textContent = (data.total_orders || 0) + ' orders';
+
+            const hasHistory = data.months && data.months.length > 0;
+            const chartWrap = document.querySelector('.ppm-chart-wrap');
+            const emptyEl = document.getElementById('ppm-empty');
+
+            if (!hasHistory) {
+                if (ppmChart) { ppmChart.destroy(); ppmChart = null; }
+                chartWrap.classList.add('d-none');
+                emptyEl.classList.remove('d-none');
+                return;
+            }
+
+            chartWrap.classList.remove('d-none');
+            emptyEl.classList.add('d-none');
+
+            const theme = window.AnalyticsTheme || {};
+            const ctx = document.getElementById('ppm-chart').getContext('2d');
+
+            if (ppmChart) {
+                ppmChart.destroy();
+            }
+
+            ppmChart = new Chart(ctx, {
+                data: {
+                    labels: data.months,
+                    datasets: [
+                        {
+                            type: 'line',
+                            label: 'Revenue ($)',
+                            data: data.revenue,
+                            borderColor: theme.accent || '#3b82f6',
+                            backgroundColor: 'transparent',
+                            yAxisID: 'y',
+                            tension: 0.3,
+                            pointRadius: 3,
+                            pointBackgroundColor: theme.accent || '#3b82f6',
+                        },
+                        {
+                            type: 'bar',
+                            label: 'Units Sold',
+                            data: data.units,
+                            backgroundColor: (theme.accentSecondary || '#14b8a6') + '55',
+                            borderColor: theme.accentSecondary || '#14b8a6',
+                            borderWidth: 1,
+                            yAxisID: 'y1',
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { labels: { color: theme.textSecondary || '#8a97ab' } }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: theme.textSecondary || '#8a97ab' },
+                            grid: { color: theme.border || '#262b35' }
+                        },
+                        y: {
+                            position: 'left',
+                            ticks: { color: theme.textSecondary || '#8a97ab' },
+                            grid: { color: theme.border || '#262b35' }
+                        },
+                        y1: {
+                            position: 'right',
+                            ticks: { color: theme.textSecondary || '#8a97ab' },
+                            grid: { drawOnChartArea: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        document.querySelectorAll('.product-row').forEach(function (row) {
+            row.addEventListener('click', function () {
+                const itemId = this.getAttribute('data-item-id');
+                const productTitle = this.getAttribute('data-product-title');
+                if (!itemId) return;
+                openProductPerformanceModal(itemId, productTitle);
+            });
+            row.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    this.click();
+                }
+            });
+        });
+    })();
+</script>
 {% endblock %}

@@ -6,10 +6,25 @@
 {% block extra_head %}
 <style>
     /* AI Copilot Custom Dark Theme Layout */
+
+    /* The shared base template wraps page content in .container-analytics.mb-5 -
+       a 48px bottom margin that's right for normal scrolling pages but, combined
+       with a fixed-height chat widget below, pushes total page height past
+       100vh and produces a page-level scrollbar. Scoped to this page only. */
+    .container-analytics {
+        margin-bottom: 0 !important;
+    }
+
+    /* Fills the viewport below the shared navbar, which (as rendered) is 62.5px
+       tall plus its own 24px bottom margin = 86.5px, measured directly in the
+       browser rather than guessed. Rounded up 1px so the container never runs
+       a hair past 100vh. This is the single source for this element's height -
+       the only other rules touching it are the explicit mobile and print
+       overrides below, which intentionally replace it rather than compete with it. */
     .copilot-container {
         display: flex;
         flex-direction: column;
-        height: calc(100vh - 155px);
+        height: calc(100vh - 87px);
         min-height: 620px;
         background-color: var(--bg-card);
         border: 1px solid var(--border-color);
@@ -31,14 +46,14 @@
         display: flex;
         flex: 1;
         overflow: hidden;
+        position: relative;
     }
 
-    /* Left: Chat Feed Area */
+    /* Left: Chat Feed Area - centered reading column (ChatGPT/Claude/Gemini pattern) */
     .chat-main-column {
         flex: 1;
         display: flex;
         flex-direction: column;
-        border-right: 1px solid var(--border-color);
         background-color: var(--bg-primary);
         min-width: 0;
         height: 100%;
@@ -46,12 +61,24 @@
 
     .chat-history {
         flex: 1;
+        width: 100%;
+        max-width: 1000px;
+        margin: 0 auto;
         padding: 20px;
         overflow-y: auto;
         display: flex;
         flex-direction: column;
         gap: 16px;
         scroll-behavior: smooth;
+    }
+
+    /* Shared centered-column wrapper for the prompt starters and input areas,
+       kept in sync with .chat-history's max-width so the whole page reads as
+       one column. */
+    .copilot-col-inner {
+        width: 100%;
+        max-width: 1000px;
+        margin: 0 auto;
     }
 
     .chat-history::-webkit-scrollbar {
@@ -68,16 +95,98 @@
         background: #334155;
     }
 
-    /* Right: Telemetry & Sidebar */
+    /* Right: Telemetry / Diagnostics Drawer - collapsed by default, toggled from the header.
+       Stays in the DOM at all times (never display:none) so polling/update logic that writes
+       into #telemetryLatency, #telemetryTurns, #telemetryTokens, etc. keeps working while closed. */
+    .telemetry-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
+        z-index: 14;
+    }
+
+    .telemetry-backdrop.open {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
     .telemetry-sidebar {
-        width: 320px;
+        position: absolute;
+        top: 0;
+        right: 0;
+        height: 100%;
+        width: 360px;
+        max-width: 85vw;
         flex-shrink: 0;
         background-color: var(--bg-secondary);
-        padding: 16px;
+        border-left: 1px solid var(--border-color);
+        padding: 24px;
         overflow-y: auto;
         display: flex;
         flex-direction: column;
-        gap: 14px;
+        gap: 22px;
+        transform: translateX(100%);
+        transition: transform 0.2s ease;
+        box-shadow: -12px 0 32px rgba(0, 0, 0, 0.45);
+        z-index: 15;
+    }
+
+    .telemetry-sidebar.open {
+        transform: translateX(0);
+    }
+
+    .telemetry-drawer-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 10px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .btn-drawer-close {
+        background: transparent;
+        border: 1px solid var(--border-color);
+        color: var(--text-secondary);
+        width: 24px;
+        height: 24px;
+        border-radius: 4px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: all 0.15s ease;
+    }
+
+    .btn-drawer-close:hover {
+        color: var(--text-primary);
+        border-color: var(--accent);
+    }
+
+    .btn-diagnostics-toggle {
+        background: transparent;
+        border: 1px solid var(--border-color);
+        color: var(--text-secondary);
+        width: 30px;
+        height: 30px;
+        border-radius: 4px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 13px;
+        transition: all 0.15s ease;
+    }
+
+    .btn-diagnostics-toggle:hover,
+    .btn-diagnostics-toggle.active {
+        color: var(--text-primary);
+        border-color: var(--accent);
+        background-color: var(--bg-elevated);
     }
 
     @media (max-width: 991px) {
@@ -85,24 +194,22 @@
             height: auto;
             min-height: auto;
         }
-        .copilot-body {
-            flex-direction: column;
-        }
         .chat-main-column {
-            border-right: none;
-            border-bottom: 1px solid var(--border-color);
             height: 540px;
         }
         .telemetry-sidebar {
             width: 100%;
+            max-width: 100%;
         }
     }
 
-    /* Message Bubbles */
+    /* Message Bubbles - turns are differentiated primarily by alignment + a subtle
+       background tint (reference-product pattern), not by avatar+bordered-card chrome
+       on every single turn. */
     .message-row {
         display: flex;
-        gap: 12px;
-        max-width: 92%;
+        gap: 10px;
+        max-width: 100%;
         animation: fadeInMsg 0.2s ease-out;
     }
 
@@ -113,7 +220,7 @@
 
     .message-row.user {
         align-self: flex-end;
-        flex-direction: row-reverse;
+        max-width: 78%;
     }
 
     .message-row.bot {
@@ -121,61 +228,69 @@
         width: 100%;
     }
 
+    .message-body {
+        min-width: 0;
+    }
+
+    .message-row.bot .message-body {
+        flex: 1;
+    }
+
     .avatar-icon {
-        width: 34px;
-        height: 34px;
-        border-radius: 4px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 14px;
+        font-size: 11px;
         flex-shrink: 0;
+        margin-top: 2px;
     }
 
     .avatar-bot {
-        background: rgba(59, 130, 246, 0.15);
+        background: transparent;
         color: var(--accent);
-        border: 1px solid rgba(59, 130, 246, 0.3);
     }
 
-    .avatar-user {
-        background: #1e293b;
-        color: #94a3b8;
-        border: 1px solid var(--border-color);
+    .avatar-error {
+        color: var(--danger);
     }
 
     .message-content {
-        background-color: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        padding: 12px 16px;
+        background-color: transparent;
+        border-radius: 14px;
+        padding: 2px 0;
         color: var(--text-primary);
         font-size: 13px;
         line-height: 1.6;
         word-break: break-word;
-        min-width: 80px;
+    }
+
+    .message-content.typing-bubble {
+        background-color: var(--bg-elevated);
+        padding: 8px 14px;
+        display: inline-block;
     }
 
     .message-row.user .message-content {
-        background-color: rgba(59, 130, 246, 0.12);
-        border-color: rgba(59, 130, 246, 0.35);
-        color: #e2e8f0;
-    }
-
-    .message-row.bot .message-content {
-        background-color: var(--bg-secondary);
-        border-color: var(--border-color);
+        background-color: var(--bg-elevated);
+        color: var(--text-primary);
+        padding: 10px 14px;
+        min-width: 48px;
     }
 
     .message-row.error .message-content {
-        background-color: rgba(239, 68, 68, 0.1);
-        border-color: rgba(239, 68, 68, 0.3);
+        background-color: rgba(239, 68, 68, 0.08);
+        border: 1px solid rgba(239, 68, 68, 0.25);
+        border-radius: 8px;
+        padding: 10px 14px;
         color: #fca5a5;
     }
 
     .message-meta {
         font-size: 11px;
-        color: var(--text-secondary);
+        color: var(--text-tertiary);
         margin-top: 4px;
         display: flex;
         gap: 8px;
@@ -186,12 +301,30 @@
         justify-content: flex-end;
     }
 
-    /* Prompt Starters Header Box */
+    /* Prompt Starters Header Box - compact by default (round 2: was reported as
+       taking up too much space) and collapses out of flow, animated, as soon as
+       a real conversation is underway. Uses its own max-height/opacity transition
+       (.is-collapsed) rather than relying solely on Bootstrap's instant .d-none
+       display:none, so the disappearance is visibly obvious instead of an abrupt,
+       easy-to-miss cut. See updatePromptStartersVisibility() in the script block. */
     .prompt-starters-section {
         background: var(--bg-secondary);
         border-bottom: 1px solid var(--border-color);
-        padding: 10px 18px;
+        padding: 8px 18px;
         flex-shrink: 0;
+        max-height: 220px;
+        overflow: hidden;
+        opacity: 1;
+        transition: max-height 0.25s ease, opacity 0.2s ease, padding 0.25s ease, border-color 0.25s ease;
+    }
+
+    .prompt-starters-section.is-collapsed {
+        max-height: 0;
+        opacity: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        border-bottom-color: transparent;
+        pointer-events: none;
     }
 
     .prompt-starters-title {
@@ -200,7 +333,7 @@
         letter-spacing: 0.05em;
         color: var(--text-secondary);
         font-weight: 600;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
         display: flex;
         align-items: center;
         gap: 6px;
@@ -209,15 +342,15 @@
     .prompt-starters-grid {
         display: flex;
         flex-wrap: wrap;
-        gap: 8px;
+        gap: 6px;
     }
 
     .btn-starter {
         background-color: var(--bg-card);
         border: 1px solid var(--border-color);
         color: #cbd5e1;
-        font-size: 12px;
-        padding: 6px 12px;
+        font-size: 11.5px;
+        padding: 5px 10px;
         border-radius: 4px;
         cursor: pointer;
         transition: all 0.15s ease;
@@ -634,12 +767,13 @@
         40% { transform: scale(1); opacity: 1; }
     }
 
-    /* Telemetry Cards */
+    /* Telemetry Cards - generous padding so this reads as a comfortable
+       settings-style panel rather than a dense, packed-in sidebar. */
     .telemetry-card {
         background-color: var(--bg-card);
         border: 1px solid var(--border-color);
         border-radius: 6px;
-        padding: 12px 14px;
+        padding: 18px 20px;
     }
 
     .telemetry-title {
@@ -648,7 +782,7 @@
         letter-spacing: 0.05em;
         color: var(--text-secondary);
         font-weight: 600;
-        margin-bottom: 10px;
+        margin-bottom: 14px;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -659,7 +793,7 @@
         justify-content: space-between;
         align-items: center;
         font-size: 12px;
-        padding: 6px 0;
+        padding: 8px 0;
         border-bottom: 1px solid #161922;
     }
 
@@ -740,17 +874,16 @@
             color: #0f172a !important;
             font-size: 12pt !important;
         }
-        .navbar-custom, 
-        .telemetry-sidebar, 
-        .copilot-header, 
+        .navbar-custom,
+        .telemetry-sidebar,
+        .telemetry-backdrop,
+        .copilot-header,
         .prompt-starters-section,
-        .chat-input-area, 
-        #ai-chat-widget-root, 
-        .btn-minimal, 
+        .chat-input-area,
+        #ai-chat-widget-root,
         .badge-restricted,
         .table-toolbar,
-        .chart-controls-bar,
-        .dropdown {
+        .chart-controls-bar {
             display: none !important;
         }
         .copilot-container {
@@ -810,78 +943,62 @@
 {% endblock %}
 
 {% block content %}
-<!-- Page Title & Header Bar -->
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div>
-        <h4 class="fw-bold mb-1 text-light d-flex align-items-center gap-2">
-            <i class="fa-solid fa-robot text-primary"></i> AI Analytics Assistant & Managerial AI Agent
-        </h4>
-        <p class="text-secondary mb-0" style="font-size: 12px;">
-            Executive AI Copilot & Business Intelligence connected to transactional sales and forecast models.
-        </p>
-    </div>
-    <div class="d-flex gap-2 align-items-center">
-        <!-- Export Report Dropdown -->
-        <div class="dropdown">
-            <button class="btn-minimal dropdown-toggle" type="button" id="exportDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false">
-                <i class="fa-solid fa-file-export me-1 text-primary"></i> Exportar Reporte
-            </button>
-            <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end" aria-labelledby="exportDropdownBtn">
-                <li>
-                    <a class="dropdown-item" href="#" id="exportMarkdownBtn">
-                        <i class="fa-brands fa-markdown text-info"></i> Descargar Markdown (.md)
-                    </a>
-                </li>
-                <li>
-                    <a class="dropdown-item" href="#" id="exportCsvBtn">
-                        <i class="fa-solid fa-file-csv text-success"></i> Descargar Tablas (.csv)
-                    </a>
-                </li>
-                <li>
-                    <a class="dropdown-item" href="#" id="exportJsonBtn">
-                        <i class="fa-solid fa-code text-warning"></i> Descargar Sesión (.json)
-                    </a>
-                </li>
-                <li><hr class="dropdown-divider"></li>
-                <li>
-                    <a class="dropdown-item" href="#" id="exportPdfBtn">
-                        <i class="fa-solid fa-print text-danger"></i> Guardar como PDF / Imprimir
-                    </a>
-                </li>
-            </ul>
-        </div>
-
-        <button type="button" class="btn-minimal" id="clearChatBtn" title="Reiniciar sesión de conversación">
-            <i class="fa-solid fa-rotate-left me-1"></i> Limpiar Conversación
-        </button>
-        <a href="{% url 'analytics:dashboard' %}" class="btn-minimal">
-            <i class="fa-solid fa-chart-line me-1"></i> Dashboard
-        </a>
-    </div>
-</div>
-
 <!-- Main Copilot Interface Container -->
 <div class="copilot-container">
 
     <!-- Top Status Header -->
     <div class="copilot-header">
-        <div class="d-flex align-items-center gap-3">
-            <div class="avatar-icon avatar-bot">
+        <div class="d-flex align-items-center gap-2">
+            <div class="avatar-icon avatar-bot" style="width: 28px; height: 28px; font-size: 13px;">
                 <i class="fa-solid fa-brain"></i>
             </div>
-            <div>
-                <div class="d-flex align-items-center gap-2">
-                    <span class="fw-semibold text-light" style="font-size: 13px;">AI Analytics Assistant</span>
-                    <span class="badge-restricted" style="font-size: 11px; padding: 2px 6px;">agent: analytics</span>
-                </div>
-                <div class="text-secondary" style="font-size: 12px;">Multi-turn Managerial AI Agent & Copilot</div>
-            </div>
+            <span class="fw-semibold text-light" style="font-size: 13px;">AI Analytics Assistant</span>
         </div>
-        <div class="d-flex align-items-center gap-3">
+        <div class="d-flex align-items-center gap-2">
             <div class="status-badge-online" id="gatewayStatusBadge">
                 <span class="status-dot" id="gatewayStatusDot"></span>
-                <span id="gatewayStatusText">Comprobando Gateway...</span>
+                <span id="gatewayStatusText">Checking Gateway...</span>
             </div>
+
+            <!-- Export Report Dropdown - relocated from the old page-title bar
+                 into this compact header toolbar, icon-only to match the
+                 30px-scale controls already here. -->
+            <div class="dropdown">
+                <button class="btn-diagnostics-toggle dropdown-toggle" type="button" id="exportDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false" title="Export report" aria-label="Export report">
+                    <i class="fa-solid fa-file-export"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end" aria-labelledby="exportDropdownBtn">
+                    <li>
+                        <a class="dropdown-item" href="#" id="exportMarkdownBtn">
+                            <i class="fa-brands fa-markdown" style="color: var(--accent-secondary);"></i> Download Markdown (.md)
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="#" id="exportCsvBtn">
+                            <i class="fa-solid fa-file-csv" style="color: var(--success);"></i> Download Tables (.csv)
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="#" id="exportJsonBtn">
+                            <i class="fa-solid fa-code" style="color: var(--warning);"></i> Download Session (.json)
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <a class="dropdown-item" href="#" id="exportPdfBtn">
+                            <i class="fa-solid fa-print" style="color: var(--danger);"></i> Save as PDF / Print
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <button type="button" class="btn-diagnostics-toggle" id="clearChatBtn" title="Reset conversation session" aria-label="Reset conversation session">
+                <i class="fa-solid fa-rotate-left"></i>
+            </button>
+
+            <button type="button" class="btn-diagnostics-toggle" id="telemetryToggleBtn" title="Toggle diagnostics panel" aria-expanded="false" aria-controls="telemetrySidebar">
+                <i class="fa-solid fa-gauge-high"></i>
+            </button>
         </div>
     </div>
 
@@ -891,24 +1008,28 @@
         <!-- Left Chat Column -->
         <div class="chat-main-column">
 
-            <!-- Prompt Starters / Preguntas Sugeridas Rápidas -->
-            <div class="prompt-starters-section">
-                <div class="prompt-starters-title">
-                    <i class="fa-regular fa-lightbulb text-primary"></i> Preguntas Sugeridas de Negocio
-                </div>
-                <div class="prompt-starters-grid">
-                    <button type="button" class="btn-starter" data-prompt="¿Cuáles son los KPIs del mes actual?">
-                        <i class="fa-solid fa-chart-pie"></i> ¿Cuáles son los KPIs del mes actual?
-                    </button>
-                    <button type="button" class="btn-starter" data-prompt="¿Cuáles son los 5 productos más vendidos?">
-                        <i class="fa-solid fa-ranking-star"></i> ¿Cuáles son los 5 productos más vendidos?
-                    </button>
-                    <button type="button" class="btn-starter" data-prompt="Muéstrame la distribución de ventas por categoría en una tabla">
-                        <i class="fa-solid fa-table"></i> Muéstrame la distribución de ventas por categoría en una tabla
-                    </button>
-                    <button type="button" class="btn-starter" data-prompt="¿Cuál es la proyección de demanda para el próximo trimestre?">
-                        <i class="fa-solid fa-arrow-trend-up"></i> ¿Cuál es la proyección de demanda para el próximo trimestre?
-                    </button>
+            <!-- Prompt Starters / Suggested Business Questions. Collapses via the
+                 .is-collapsed class (animated max-height/opacity, see CSS) as soon as
+                 the conversation has a real user turn - see updatePromptStartersVisibility(). -->
+            <div class="prompt-starters-section fade-in">
+                <div class="copilot-col-inner">
+                    <div class="prompt-starters-title">
+                        <i class="fa-regular fa-lightbulb" style="color: var(--accent);"></i> Suggested Business Questions
+                    </div>
+                    <div class="prompt-starters-grid">
+                        <button type="button" class="btn-starter" data-prompt="What are this month's KPIs?">
+                            <i class="fa-solid fa-chart-pie"></i> What are this month's KPIs?
+                        </button>
+                        <button type="button" class="btn-starter" data-prompt="What are the top 5 best-selling products?">
+                            <i class="fa-solid fa-ranking-star"></i> What are the top 5 best-selling products?
+                        </button>
+                        <button type="button" class="btn-starter" data-prompt="Show me the sales distribution by category in a table">
+                            <i class="fa-solid fa-table"></i> Show me the sales distribution by category in a table
+                        </button>
+                        <button type="button" class="btn-starter" data-prompt="What's the demand forecast for next quarter?">
+                            <i class="fa-solid fa-arrow-trend-up"></i> What's the demand forecast for next quarter?
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -919,76 +1040,93 @@
 
             <!-- Chat Input Area -->
             <div class="chat-input-area">
-                <div class="input-wrapper">
-                    <textarea
-                        class="chat-textarea"
-                        id="chatUserInput"
-                        rows="1"
-                        placeholder="Pregúntale al AI Copilot sobre ventas, proyecciones, productos o métricas..."
-                        autocomplete="off"
-                    ></textarea>
-                    <button type="button" class="btn-send" id="chatSendBtn" disabled>
-                        <span>Enviar</span>
-                        <i class="fa-solid fa-paper-plane"></i>
-                    </button>
-                </div>
-                <div class="d-flex justify-content-between align-items-center input-hint">
-                    <span><i class="fa-solid fa-keyboard me-1"></i> Presiona <strong>Enter</strong> para enviar, <strong>Shift + Enter</strong> para nueva línea</span>
-                    <span id="charCount">0 caracteres</span>
+                <div class="copilot-col-inner">
+                    <div class="input-wrapper">
+                        <textarea
+                            class="chat-textarea"
+                            id="chatUserInput"
+                            rows="1"
+                            placeholder="Ask the AI Copilot about sales, forecasts, products, or metrics..."
+                            autocomplete="off"
+                        ></textarea>
+                        <button type="button" class="btn-send" id="chatSendBtn" disabled>
+                            <span>Send</span>
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center input-hint">
+                        <span><i class="fa-solid fa-keyboard me-1"></i> Press <strong>Enter</strong> to send, <strong>Shift + Enter</strong> for a new line</span>
+                        <span id="charCount">0 characters</span>
+                    </div>
                 </div>
             </div>
 
         </div>
 
-        <!-- Right Telemetry & Metrics Panel -->
-        <div class="telemetry-sidebar">
-            
+        <!-- Diagnostics Backdrop (click to close the drawer) -->
+        <div class="telemetry-backdrop" id="telemetryBackdrop"></div>
+
+        <!-- Right Telemetry & Metrics Panel: collapsed by default, opened via the
+             header's diagnostics toggle. Stays in the DOM (never removed) so the
+             elements below keep receiving live updates while closed. -->
+        <div class="telemetry-sidebar" id="telemetrySidebar">
+
+            <div class="telemetry-drawer-header">
+                <div>
+                    <div class="fw-semibold text-light" style="font-size: 13px;">Diagnostics</div>
+                    <div class="text-secondary" style="font-size: 11px;">Multi-turn Managerial AI Agent &amp; Copilot &middot; agent: analytics</div>
+                </div>
+                <button type="button" class="btn-drawer-close" id="telemetryCloseBtn" aria-label="Close diagnostics panel">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
             <!-- Live Performance Metrics Card -->
-            <div class="telemetry-card">
+            <div class="telemetry-card fade-in">
                 <div class="telemetry-title">
-                    <span><i class="fa-solid fa-gauge-high text-primary me-1"></i> Rendimiento en Vivo</span>
+                    <span><i class="fa-solid fa-gauge-high me-1" style="color: var(--accent);"></i> Live Performance</span>
                     <span class="badge bg-dark border border-secondary text-secondary" style="font-size: 11px;">LIVE</span>
                 </div>
                 <div class="telemetry-item">
-                    <span class="telemetry-label">Latencia Última Consulta</span>
-                    <span class="telemetry-val text-primary" id="telemetryLatency">-- ms</span>
+                    <span class="telemetry-label">Last Query Latency</span>
+                    <span class="telemetry-val" style="color: var(--accent);" id="telemetryLatency">-- ms</span>
                 </div>
                 <div class="telemetry-item">
-                    <span class="telemetry-label">Modelo Activo</span>
+                    <span class="telemetry-label">Active Model</span>
                     <span class="telemetry-val" id="telemetryModel">gemini-3.7-flash</span>
                 </div>
                 <div class="telemetry-item">
-                    <span class="telemetry-label">Agente ID</span>
-                    <span class="telemetry-val text-info">analytics</span>
+                    <span class="telemetry-label">Agent ID</span>
+                    <span class="telemetry-val" style="color: var(--accent-secondary);">analytics</span>
                 </div>
                 <div class="telemetry-item">
-                    <span class="telemetry-label">Protocolo</span>
+                    <span class="telemetry-label">Protocol</span>
                     <span class="telemetry-val">SSE Stream (HTTP/2)</span>
                 </div>
                 <div class="telemetry-item">
-                    <span class="telemetry-label">Turnos en Sesión</span>
+                    <span class="telemetry-label">Session Turns</span>
                     <span class="telemetry-val" id="telemetryTurns">0</span>
                 </div>
                 <div class="telemetry-item">
-                    <span class="telemetry-label">Tokens Estimados</span>
+                    <span class="telemetry-label">Estimated Tokens</span>
                     <span class="telemetry-val" id="telemetryTokens">0</span>
                 </div>
             </div>
 
             <!-- Session Details Card -->
-            <div class="telemetry-card">
+            <div class="telemetry-card fade-in">
                 <div class="telemetry-title">
-                    <span><i class="fa-solid fa-fingerprint text-primary me-1"></i> Sesión y Contexto</span>
+                    <span><i class="fa-solid fa-fingerprint me-1" style="color: var(--accent);"></i> Session & Context</span>
                 </div>
                 <div class="telemetry-item">
-                    <span class="telemetry-label">ID de Sesión</span>
-                    <span class="telemetry-val" id="telemetrySessionId" style="font-size: 11px; cursor: pointer;" title="Haga clic para copiar">sess_...</span>
+                    <span class="telemetry-label">Session ID</span>
+                    <span class="telemetry-val" id="telemetrySessionId" style="font-size: 11px; cursor: pointer;" title="Click to copy">sess_...</span>
                 </div>
                 <div class="telemetry-item">
-                    <span class="telemetry-label">Estado Auth</span>
+                    <span class="telemetry-label">Auth Status</span>
                     <span class="telemetry-val">
                         {% if user_jwt_token %}
-                        <span class="text-success"><i class="fa-solid fa-shield-check me-1"></i> JWT Activo</span>
+                        <span style="color: var(--success);"><i class="fa-solid fa-shield-check me-1"></i> JWT Active</span>
                         {% else %}
                         <span class="text-secondary"><i class="fa-solid fa-user-secret me-1"></i> Staff Session</span>
                         {% endif %}
@@ -997,17 +1135,17 @@
             </div>
 
             <!-- Corporate Guidance Card -->
-            <div class="telemetry-card">
+            <div class="telemetry-card fade-in">
                 <div class="telemetry-title">
-                    <span><i class="fa-solid fa-chart-pie text-primary me-1"></i> Visualizaciones BI</span>
+                    <span><i class="fa-solid fa-chart-pie me-1" style="color: var(--accent);"></i> BI Visualizations</span>
                 </div>
                 <p class="text-secondary mb-2" style="font-size: 12px; line-height: 1.5;">
-                    Genera gráficos instantáneos con <strong>Chart.js</strong> a partir de cualquier tabla de datos o exporta reportes en múltiples formatos.
+                    Generate instant charts with <strong>Chart.js</strong> from any data table, or export reports in multiple formats.
                 </p>
                 <div style="font-size: 12px; color: #94a3b8; line-height: 1.6;">
-                    <div><i class="fa-solid fa-chart-column text-primary me-1"></i> Gráficos de barras, líneas, dona y pastel</div>
-                    <div><i class="fa-solid fa-file-csv text-success me-1"></i> Exportación directa a CSV y Markdown</div>
-                    <div><i class="fa-solid fa-bolt text-warning me-1"></i> Respuestas en streaming SSE en vivo</div>
+                    <div><i class="fa-solid fa-chart-column me-1" style="color: var(--accent);"></i> Bar, line, doughnut, and pie charts</div>
+                    <div><i class="fa-solid fa-file-csv me-1" style="color: var(--success);"></i> Direct export to CSV and Markdown</div>
+                    <div><i class="fa-solid fa-bolt me-1" style="color: var(--warning);"></i> Live SSE streaming responses</div>
                 </div>
             </div>
 
@@ -1043,10 +1181,10 @@
         '#a855f7'  // Purple
     ];
 
-    const DEFAULT_WELCOME_MSG = 
-        '¡Hola! 👋 Soy tu **AI Copilot Corporativo de Analytics & BI**.\n\n' +
-        'Tengo acceso en tiempo real a los datos de facturación, volumen de pedidos, ranking de productos y proyecciones de demanda.\n\n' +
-        'Puedes solicitarme análisis de métricas, comparativas mensuales o generar tablas ejecutivas con la información de tu negocio. Además, cada tabla generada cuenta con herramientas para **renderizar gráficos interactivos** y exportar datos a CSV.';
+    const DEFAULT_WELCOME_MSG =
+        'Hi there! 👋 I\'m your **Corporate Analytics & BI AI Copilot**.\n\n' +
+        'I have real-time access to revenue data, order volume, product rankings, and demand forecasts.\n\n' +
+        'Ask me for metric breakdowns, month-over-month comparisons, or executive-ready tables built from your business data. Every table I generate also comes with tools to **render interactive charts** and export data to CSV.';
 
     // 2. DOM Elements
     const chatFeed = document.getElementById('chatHistoryFeed');
@@ -1063,6 +1201,14 @@
     const telemetryTokens = document.getElementById('telemetryTokens');
     const telemetrySessionId = document.getElementById('telemetrySessionId');
     const starterButtons = document.querySelectorAll('.btn-starter');
+    const promptStartersSection = document.querySelector('.prompt-starters-section');
+
+    // Diagnostics / Telemetry drawer elements
+    const telemetrySidebarEl = document.getElementById('telemetrySidebar');
+    const telemetryToggleBtn = document.getElementById('telemetryToggleBtn');
+    const telemetryCloseBtn = document.getElementById('telemetryCloseBtn');
+    const telemetryBackdrop = document.getElementById('telemetryBackdrop');
+    const STORAGE_TELEMETRY_OPEN_KEY = 'analytics_chat_telemetry_open';
 
     // Export buttons
     const exportMarkdownBtn = document.getElementById('exportMarkdownBtn');
@@ -1218,16 +1364,16 @@
             const tableHtml = (
                 '<div class="table-container-card" id="card_' + tId + '">' +
                     '<div class="table-toolbar">' +
-                        '<span class="table-toolbar-title"><i class="fa-solid fa-table me-1"></i> Tabla de Datos</span>' +
+                        '<span class="table-toolbar-title"><i class="fa-solid fa-table me-1"></i> Data Table</span>' +
                         '<div class="table-toolbar-actions">' +
-                            '<button type="button" class="btn-table-action btn-table-chart" data-table-id="' + tId + '" title="Generar gráfico interactivo con Chart.js">' +
-                                '<i class="fa-solid fa-chart-column me-1"></i> Ver Gráfico' +
+                            '<button type="button" class="btn-table-action btn-table-chart" data-table-id="' + tId + '" title="Generate an interactive chart with Chart.js">' +
+                                '<i class="fa-solid fa-chart-column me-1"></i> View Chart' +
                             '</button>' +
-                            '<button type="button" class="btn-table-action btn-table-csv" data-table-id="' + tId + '" title="Exportar datos a CSV">' +
+                            '<button type="button" class="btn-table-action btn-table-csv" data-table-id="' + tId + '" title="Export data to CSV">' +
                                 '<i class="fa-solid fa-file-csv me-1"></i> CSV' +
                             '</button>' +
-                            '<button type="button" class="btn-table-action btn-table-copy" data-table-id="' + tId + '" title="Copiar tabla al portapapeles">' +
-                                '<i class="fa-regular fa-copy me-1"></i> Copiar' +
+                            '<button type="button" class="btn-table-action btn-table-copy" data-table-id="' + tId + '" title="Copy table to clipboard">' +
+                                '<i class="fa-regular fa-copy me-1"></i> Copy' +
                             '</button>' +
                         '</div>' +
                     '</div>' +
@@ -1242,20 +1388,20 @@
                         '<div class="chart-controls-bar">' +
                             '<div class="chart-type-selector btn-group btn-group-sm" role="group">' +
                                 '<button type="button" class="btn btn-outline-primary btn-sm active" data-chart-type="bar" data-table-id="' + tId + '">' +
-                                    '<i class="fa-solid fa-chart-column"></i> Barras' +
+                                    '<i class="fa-solid fa-chart-column"></i> Bar' +
                                 '</button>' +
                                 '<button type="button" class="btn btn-outline-primary btn-sm" data-chart-type="line" data-table-id="' + tId + '">' +
-                                    '<i class="fa-solid fa-chart-line"></i> Líneas' +
+                                    '<i class="fa-solid fa-chart-line"></i> Line' +
                                 '</button>' +
                                 '<button type="button" class="btn btn-outline-primary btn-sm" data-chart-type="doughnut" data-table-id="' + tId + '">' +
-                                    '<i class="fa-solid fa-circle-notch"></i> Dona' +
+                                    '<i class="fa-solid fa-circle-notch"></i> Doughnut' +
                                 '</button>' +
                                 '<button type="button" class="btn btn-outline-primary btn-sm" data-chart-type="pie" data-table-id="' + tId + '">' +
-                                    '<i class="fa-solid fa-chart-pie"></i> Pastel' +
+                                    '<i class="fa-solid fa-chart-pie"></i> Pie' +
                                 '</button>' +
                             '</div>' +
                             '<button type="button" class="btn btn-sm btn-switch-to-table" data-table-id="' + tId + '">' +
-                                '<i class="fa-solid fa-table me-1"></i> Ver Tabla' +
+                                '<i class="fa-solid fa-table me-1"></i> View Table' +
                             '</button>' +
                         '</div>' +
                         '<div class="chart-canvas-wrapper">' +
@@ -1317,7 +1463,7 @@
             return (
                 '<div class="direct-chart-box" id="box_' + directChartId + '">' +
                     '<div class="d-flex justify-content-between align-items-center mb-2">' +
-                        '<span class="fw-semibold text-primary" style="font-size: 12px;"><i class="fa-solid fa-chart-pie me-1"></i> Gráfico JSON Directo</span>' +
+                        '<span class="fw-semibold" style="font-size: 12px; color: var(--accent);"><i class="fa-solid fa-chart-pie me-1"></i> Direct JSON Chart</span>' +
                     '</div>' +
                     '<div class="chart-canvas-wrapper" style="height: 260px;">' +
                         '<canvas id="canvas_' + directChartId + '" data-direct-chart="' + encodeURIComponent(rawJson) + '"></canvas>' +
@@ -1332,7 +1478,7 @@
             return (
                 '<div class="direct-chart-box" id="box_' + directChartId + '">' +
                     '<div class="d-flex justify-content-between align-items-center mb-2">' +
-                        '<span class="fw-semibold text-primary" style="font-size: 12px;"><i class="fa-solid fa-chart-pie me-1"></i> Gráfico JSON Directo</span>' +
+                        '<span class="fw-semibold" style="font-size: 12px; color: var(--accent);"><i class="fa-solid fa-chart-pie me-1"></i> Direct JSON Chart</span>' +
                     '</div>' +
                     '<div class="chart-canvas-wrapper" style="height: 260px;">' +
                         '<canvas id="canvas_' + directChartId + '" data-direct-chart="' + encodeURIComponent(rawJson) + '"></canvas>' +
@@ -1350,7 +1496,7 @@
                 '<div class="code-block-wrapper">' +
                 '<div class="code-block-header">' +
                     '<span><i class="fa-solid fa-code me-1"></i>' + escapeHtml(block.lang) + '</span>' +
-                    '<button type="button" class="copy-code-btn" data-code="' + encodeURIComponent(block.code) + '"><i class="fa-regular fa-copy me-1"></i>Copiar</button>' +
+                    '<button type="button" class="copy-code-btn" data-code="' + encodeURIComponent(block.code) + '"><i class="fa-regular fa-copy me-1"></i>Copy</button>' +
                 '</div>' +
                 '<pre><code>' + safeCode + '</code></pre>' +
                 '</div>'
@@ -1364,7 +1510,7 @@
                 '<div class="code-block-wrapper">' +
                 '<div class="code-block-header">' +
                     '<span><i class="fa-solid fa-code me-1"></i>' + escapeHtml(block.lang) + '</span>' +
-                    '<button type="button" class="copy-code-btn" data-code="' + encodeURIComponent(block.code) + '"><i class="fa-regular fa-copy me-1"></i>Copiar</button>' +
+                    '<button type="button" class="copy-code-btn" data-code="' + encodeURIComponent(block.code) + '"><i class="fa-regular fa-copy me-1"></i>Copy</button>' +
                 '</div>' +
                 '<pre><code>' + safeCode + '</code></pre>' +
                 '</div>'
@@ -1431,7 +1577,7 @@
         const labels = rows.map(r => r[labelColIdx] || 'Item');
 
         const datasets = numColIndices.map((colIdx, dsIdx) => {
-            const label = ths[colIdx] || `Columna ${colIdx + 1}`;
+            const label = ths[colIdx] || `Column ${colIdx + 1}`;
             const data = rows.map(r => {
                 const raw = r[colIdx] || '0';
                 const clean = raw.replace(/[\$,€,%, ]/g, '');
@@ -1472,7 +1618,7 @@
 
         const tableData = extractDataFromTable(tableEl);
         if (!tableData || tableData.datasets.length === 0) {
-            alert('No se detectaron suficientes datos numéricos en la tabla para generar un gráfico.');
+            alert('Not enough numeric data was detected in the table to generate a chart.');
             return;
         }
 
@@ -1578,7 +1724,7 @@
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
         link.setAttribute('href', url);
-        link.setAttribute('download', `tabla_analytics_${new Date().toISOString().slice(0, 10)}.csv`);
+        link.setAttribute('download', `table_analytics_${new Date().toISOString().slice(0, 10)}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -1598,7 +1744,7 @@
 
         navigator.clipboard.writeText(tsv.join('\n')).then(() => {
             const original = btnEl.innerHTML;
-            btnEl.innerHTML = '<i class="fa-solid fa-check text-success me-1"></i> Copiado';
+            btnEl.innerHTML = '<i class="fa-solid fa-check me-1" style="color: var(--success);"></i> Copied';
             setTimeout(() => { btnEl.innerHTML = original; }, 2000);
         });
     }
@@ -1606,19 +1752,19 @@
     // 7. Full Session Export Handlers (Markdown, CSV, JSON, PDF)
     function exportSessionMarkdown() {
         if (!messageHistory || messageHistory.length === 0) {
-            alert('No hay mensajes en la sesión actual para exportar.');
+            alert('There are no messages in the current session to export.');
             return;
         }
 
-        let md = `# Reporte Ejecutivo de AI Copilot & Business Intelligence\n\n`;
-        md += `- **Fecha de Exportación:** ${new Date().toLocaleString()}\n`;
-        md += `- **ID de Sesión:** \`${sessionId}\`\n`;
-        md += `- **Agente:** \`${AGENT_ID}\`\n`;
-        md += `- **Total de Turnos:** ${messageHistory.filter(m => m.role === 'user').length}\n\n`;
+        let md = `# AI Copilot & Business Intelligence Executive Report\n\n`;
+        md += `- **Export Date:** ${new Date().toLocaleString()}\n`;
+        md += `- **Session ID:** \`${sessionId}\`\n`;
+        md += `- **Agent:** \`${AGENT_ID}\`\n`;
+        md += `- **Total Turns:** ${messageHistory.filter(m => m.role === 'user').length}\n\n`;
         md += `---\n\n`;
 
         messageHistory.forEach((msg, idx) => {
-            const roleName = msg.role === 'user' ? '👤 Usuario' : '🤖 AI Copilot (Analytics)';
+            const roleName = msg.role === 'user' ? '👤 User' : '🤖 AI Copilot (Analytics)';
             const timeStr = new Date(msg.timestamp || Date.now()).toLocaleTimeString();
             md += `### ${roleName} (${timeStr})\n\n`;
             md += `${msg.text}\n\n`;
@@ -1628,20 +1774,20 @@
         const blob = new Blob([md], { type: 'text/markdown;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = `reporte_ai_copilot_${sessionId.slice(0, 8)}_${new Date().toISOString().slice(0, 10)}.md`;
+        link.download = `report_ai_copilot_${sessionId.slice(0, 8)}_${new Date().toISOString().slice(0, 10)}.md`;
         link.click();
     }
 
     function exportSessionAllTablesCsv() {
         const tables = document.querySelectorAll('.chat-history table.table-custom');
         if (tables.length === 0) {
-            alert('No se encontraron tablas de datos en la conversación actual.');
+            alert('No data tables were found in the current conversation.');
             return;
         }
 
         let combinedCsv = [];
         tables.forEach((tbl, idx) => {
-            combinedCsv.push(`"=== TABLA ${idx + 1} ==="`);
+            combinedCsv.push(`"=== TABLE ${idx + 1} ==="`);
             const rows = tbl.querySelectorAll('tr');
             rows.forEach(r => {
                 const cols = r.querySelectorAll('th, td');
@@ -1654,7 +1800,7 @@
         const blob = new Blob(['\uFEFF' + combinedCsv.join('\n')], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = `tablas_consolidadas_copilot_${new Date().toISOString().slice(0, 10)}.csv`;
+        link.download = `tables_consolidated_copilot_${new Date().toISOString().slice(0, 10)}.csv`;
         link.click();
     }
 
@@ -1675,7 +1821,7 @@
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = `historial_ai_copilot_${sessionId.slice(0, 8)}.json`;
+        link.download = `history_ai_copilot_${sessionId.slice(0, 8)}.json`;
         link.click();
     }
 
@@ -1700,12 +1846,9 @@
 
         if (role === 'user') {
             row.innerHTML = `
-                <div class="avatar-icon avatar-user" title="Usuario">
-                    <i class="fa-solid fa-user"></i>
-                </div>
-                <div style="max-width: 80%;">
+                <div class="message-body">
                     <div class="message-content"></div>
-                    <div class="message-meta">${timeStr} · Tú</div>
+                    <div class="message-meta">${timeStr}</div>
                 </div>
             `;
             row.querySelector('.message-content').textContent = textContent;
@@ -1714,12 +1857,9 @@
                 <div class="avatar-icon avatar-bot" title="AI Analytics Assistant">
                     <i class="fa-solid fa-robot"></i>
                 </div>
-                <div style="max-width: 88%; flex: 1;">
+                <div class="message-body">
                     <div class="message-content"></div>
-                    <div class="message-meta">
-                        <span>${timeStr} · AI Analytics Assistant</span>
-                        <span class="badge bg-secondary text-dark" style="font-size: 11px; padding: 2px 6px;">analytics</span>
-                    </div>
+                    <div class="message-meta">${timeStr}</div>
                 </div>
             `;
             row.querySelector('.message-content').innerHTML = parseMarkdown(textContent);
@@ -1740,7 +1880,7 @@
             <div class="avatar-icon avatar-bot">
                 <i class="fa-solid fa-robot"></i>
             </div>
-            <div class="message-content" style="padding: 6px 12px;">
+            <div class="message-content typing-bubble">
                 <div class="typing-dots">
                     <span></span><span></span><span></span>
                 </div>
@@ -1755,10 +1895,24 @@
         if (row) row.remove();
     }
 
+    // Suggested prompts are only useful before the user has actually started
+    // the conversation - collapse them (animated, out of flow) as soon as there is
+    // a real user turn anywhere in messageHistory. Uses a dedicated .is-collapsed
+    // class (see CSS) instead of Bootstrap's .d-none so the collapse is visibly
+    // animated rather than an instant, easy-to-miss cut - and so it can never be
+    // masked by a specificity conflict with another display rule in this file.
+    // Called from initializeChat() (after messageHistory is populated from a
+    // restored session, or seeded fresh) and again after every sendMessage().
+    function updatePromptStartersVisibility() {
+        if (!promptStartersSection) return;
+        const hasUserTurn = messageHistory.some(function(m) { return m.role === 'user'; });
+        promptStartersSection.classList.toggle('is-collapsed', hasUserTurn);
+    }
+
     function updateTelemetry(latencyMs, modelName) {
         if (latencyMs !== undefined) {
             telemetryLatency.textContent = latencyMs + ' ms';
-            telemetryLatency.style.color = latencyMs < 800 ? '#4ade80' : latencyMs < 2000 ? '#facc15' : '#f87171';
+            telemetryLatency.style.color = latencyMs < 800 ? 'var(--success)' : latencyMs < 2000 ? 'var(--warning)' : 'var(--danger)';
         }
         if (modelName) {
             telemetryModel.textContent = modelName;
@@ -1798,7 +1952,7 @@
                 statusDot.className = 'status-dot';
                 statusDot.style.backgroundColor = '#ef4444';
                 statusDot.style.boxShadow = '0 0 8px #ef4444';
-                statusText.textContent = 'Desconectado';
+                statusText.textContent = 'Offline';
                 statusBadge.style.color = '#ef4444';
             }
         }
@@ -1806,7 +1960,7 @@
 
     function setStreamingStatus() {
         statusDot.className = 'status-dot streaming';
-        statusText.textContent = 'Transmitiendo SSE...';
+        statusText.textContent = 'Streaming SSE...';
         statusBadge.style.color = '#38bdf8';
     }
 
@@ -1832,6 +1986,7 @@
             appendMessageElement('bot', DEFAULT_WELCOME_MSG, false, Date.now());
         }
 
+        updatePromptStartersVisibility();
         updateTelemetry();
         checkGatewayHealth();
         // Check health every 30 seconds
@@ -1852,6 +2007,7 @@
         });
         saveHistory(sessionId, messageHistory);
         appendMessageElement('user', trimmed, false, userTs);
+        updatePromptStartersVisibility();
 
         // 2. Lock UI
         isStreaming = true;
@@ -1859,7 +2015,7 @@
         userInput.style.height = '40px';
         userInput.disabled = true;
         sendBtn.disabled = true;
-        charCount.textContent = '0 caracteres';
+        charCount.textContent = '0 characters';
         setStreamingStatus();
         showTypingIndicator();
 
@@ -1903,12 +2059,9 @@
                 botRow.className = 'message-row bot';
                 botRow.innerHTML = `
                     <div class="avatar-icon avatar-bot"><i class="fa-solid fa-robot"></i></div>
-                    <div style="max-width: 88%; flex: 1;">
+                    <div class="message-body">
                         <div class="message-content"><span class="streaming-cursor"></span></div>
-                        <div class="message-meta">
-                            <span>${formatTime(Date.now())} · AI Analytics Assistant</span>
-                            <span class="badge bg-secondary text-dark" style="font-size: 11px; padding: 2px 6px;">streaming</span>
-                        </div>
+                        <div class="message-meta">${formatTime(Date.now())}</div>
                     </div>
                 `;
                 botContentEl = botRow.querySelector('.message-content');
@@ -2009,19 +2162,16 @@
                 }
 
                 const data = await fallbackRes.json();
-                accumulatedText = data.reply || data.response || data.message || data.text || data.content || (typeof data === 'string' ? data : 'Análisis completado.');
+                accumulatedText = data.reply || data.response || data.message || data.text || data.content || (typeof data === 'string' ? data : 'Analysis complete.');
 
                 if (!botRow) {
                     botRow = document.createElement('div');
                     botRow.className = 'message-row bot';
                     botRow.innerHTML = `
                         <div class="avatar-icon avatar-bot"><i class="fa-solid fa-robot"></i></div>
-                        <div style="max-width: 88%; flex: 1;">
+                        <div class="message-body">
                             <div class="message-content"></div>
-                            <div class="message-meta">
-                                <span>${formatTime(Date.now())} · AI Analytics Assistant</span>
-                                <span class="badge bg-secondary text-dark" style="font-size: 11px; padding: 2px 6px;">analytics</span>
-                            </div>
+                            <div class="message-meta">${formatTime(Date.now())}</div>
                         </div>
                     `;
                     botContentEl = botRow.querySelector('.message-content');
@@ -2030,16 +2180,16 @@
             } catch (fallbackErr) {
                 removeTypingIndicator();
                 console.error('[AnalyticsChat] Fallback request also failed:', fallbackErr);
-                accumulatedText = '⚠️ **Error de conexión con el AI Gateway**: No se pudo procesar la consulta en este momento. Por favor verifica el estado del microservicio o intenta nuevamente.';
+                accumulatedText = '⚠️ **AI Gateway connection error**: Your request could not be processed at this time. Please check the service status or try again.';
 
                 if (!botRow) {
                     botRow = document.createElement('div');
                     botRow.className = 'message-row bot error';
                     botRow.innerHTML = `
-                        <div class="avatar-icon avatar-bot" style="background: rgba(239,68,68,0.2); color: #ef4444;"><i class="fa-solid fa-triangle-exclamation"></i></div>
-                        <div style="max-width: 88%; flex: 1;">
+                        <div class="avatar-icon avatar-bot avatar-error"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                        <div class="message-body">
                             <div class="message-content"></div>
-                            <div class="message-meta text-danger">Error de Conexión</div>
+                            <div class="message-meta" style="color: var(--danger);">${formatTime(Date.now())} &middot; Connection error</div>
                         </div>
                     `;
                     botContentEl = botRow.querySelector('.message-content');
@@ -2080,7 +2230,7 @@
     chatFeed.addEventListener('click', function(e) {
         const target = e.target;
 
-        // A: Click on "Ver Gráfico"
+        // A: Click on "View Chart"
         const chartBtn = target.closest ? target.closest('.btn-table-chart') : null;
         if (chartBtn) {
             const tableId = chartBtn.getAttribute('data-table-id');
@@ -2138,7 +2288,7 @@
             if (navigator.clipboard) {
                 navigator.clipboard.writeText(code).then(function() {
                     const originalHtml = copyCodeBtn.innerHTML;
-                    copyCodeBtn.innerHTML = '<i class="fa-solid fa-check text-success me-1"></i>Copiado';
+                    copyCodeBtn.innerHTML = '<i class="fa-solid fa-check me-1" style="color: var(--success);"></i>Copied';
                     setTimeout(function() { copyCodeBtn.innerHTML = originalHtml; }, 2000);
                 });
             }
@@ -2152,7 +2302,7 @@
         this.style.height = Math.min(this.scrollHeight, 120) + 'px';
         const len = this.value.trim().length;
         sendBtn.disabled = len === 0 || isStreaming;
-        charCount.textContent = len + ' caracteres';
+        charCount.textContent = len + ' characters';
     });
 
     userInput.addEventListener('keydown', function(e) {
@@ -2174,7 +2324,7 @@
 
     // Clear Conversation Handler
     clearBtn.addEventListener('click', function() {
-        if (confirm('¿Deseas reiniciar la conversación? Se vaciará el historial actual de la pantalla.')) {
+        if (confirm('Do you want to reset the conversation? This will clear the current chat history from the screen.')) {
             // Destroy all active charts
             Object.keys(activeCharts).forEach(k => {
                 if (activeCharts[k]) activeCharts[k].destroy();
@@ -2222,12 +2372,49 @@
         if (navigator.clipboard && sessionId) {
             navigator.clipboard.writeText(sessionId).then(function() {
                 const original = telemetrySessionId.textContent;
-                telemetrySessionId.textContent = '¡Copiado!';
+                telemetrySessionId.textContent = 'Copied!';
                 setTimeout(function() {
                     telemetrySessionId.textContent = original;
                 }, 1500);
             });
         }
+    });
+
+    // 13. Diagnostics / Telemetry Drawer Toggle
+    // The drawer stays permanently in the DOM (see .telemetry-sidebar CSS) so the
+    // telemetry* elements above keep receiving live updates whether it's open or not.
+    // Only the open/closed preference is persisted, in localStorage (distinct from the
+    // per-session chat data above, which intentionally lives in sessionStorage).
+    function setTelemetryOpen(open) {
+        telemetrySidebarEl.classList.toggle('open', open);
+        telemetryBackdrop.classList.toggle('open', open);
+        telemetryToggleBtn.classList.toggle('active', open);
+        telemetryToggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        try {
+            localStorage.setItem(STORAGE_TELEMETRY_OPEN_KEY, open ? '1' : '0');
+        } catch (e) {
+            console.warn('[AnalyticsChat] Error saving telemetry drawer preference:', e);
+        }
+    }
+
+    let telemetryOpenPref = false;
+    try {
+        telemetryOpenPref = localStorage.getItem(STORAGE_TELEMETRY_OPEN_KEY) === '1';
+    } catch (e) {
+        telemetryOpenPref = false;
+    }
+    setTelemetryOpen(telemetryOpenPref);
+
+    telemetryToggleBtn.addEventListener('click', function() {
+        setTelemetryOpen(!telemetrySidebarEl.classList.contains('open'));
+    });
+
+    telemetryCloseBtn.addEventListener('click', function() {
+        setTelemetryOpen(false);
+    });
+
+    telemetryBackdrop.addEventListener('click', function() {
+        setTelemetryOpen(false);
     });
 
     // Start Chat

@@ -95,7 +95,19 @@ def get_simulator_config() -> dict:
             "tier_3_slow_sellers": {"percentage_of_catalog": 0.30, "sales_weight": 0.15},
             "tier_4_long_tail": {"percentage_of_catalog": 0.60, "sales_weight": 0.05}
         },
-        "category_weights": {cat: 0.5 for cat in CATEGORIES_LIST}
+        # Flat 0.5 baseline for every category, with deliberate overrides for the
+        # 5 categories exposed as sliders on the Data Simulator UI — without these,
+        # every visible slider loads identically at 0.5 and the control grid reads
+        # as "none of this matters" even though the underlying defaults are meant
+        # to differ (see templates/analytics/simulator.html).
+        "category_weights": {
+            **{cat: 0.5 for cat in CATEGORIES_LIST},
+            "Electronics": 1.0,
+            "Clothing_Shoes_and_Jewelry": 0.9,
+            "Home_and_Kitchen": 1.0,
+            "Books": 1.0,
+            "Beauty_and_Personal_Care": 0.7,
+        }
     }
 
 

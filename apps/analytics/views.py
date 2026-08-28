@@ -14,6 +14,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 
 from apps.analytics.services import (
     get_dashboard_kpis,
+    get_product_performance_series,
     export_sales_to_excel,
     get_forecast_data,
     get_simulator_config,
@@ -27,7 +28,8 @@ from apps.analytics.services import (
 class DashboardView(View):
     """
     Main Managerial Dashboard view.
-    Renders real-time KPIs and Top products.
+    Renders real-time KPIs and Top products, including per-product cost/margin data
+    computed directly in the same query that produces the Top 8 list (see kpi_service.py).
     """
     template_name = 'analytics/dashboard.html'
 
@@ -37,6 +39,19 @@ class DashboardView(View):
 
 
 AnalyticsDashboardView = DashboardView
+
+
+@method_decorator(staff_member_required(login_url='login'), name='dispatch')
+class ProductPerformanceView(View):
+    """
+    API endpoint powering the Dashboard's Top 8 table row-click detail panel:
+    monthly revenue/units time series plus core product data for a single item.
+    """
+    def get(self, request, item_id):
+        data = get_product_performance_series(item_id)
+        if data is None:
+            return JsonResponse({'status': 'error', 'message': 'Product not found.'}, status=404)
+        return JsonResponse(data)
 
 
 @method_decorator(staff_member_required(login_url='login'), name='dispatch')

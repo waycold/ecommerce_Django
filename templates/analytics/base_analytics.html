@@ -12,14 +12,68 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
-            --bg-primary: #08090a;
-            --bg-secondary: #0d0f12;
-            --bg-card: #111317;
-            --border-color: #1e222b;
+            /* Background depth scale — deliberately spaced apart so cards visibly
+               lift off the page instead of blending into it (3-4% steps read as
+               one flat surface at typical monitor brightness). */
+            --bg-primary: #0a0b0d;
+            --bg-secondary: #14161b;
+            --bg-card: #1a1d24;
+            --bg-elevated: #20242c;
+            --border-color: #262b35;
             --text-primary: #f8fafc;
-            --text-secondary: #64748b;
+            --text-secondary: #8a97ab;
+            --text-tertiary: #5b6576;
+
+            /* Brand accent — reserved for actions, nav state and focus. Not to be
+               reused as a "neutral data" color; see semantic tokens below. */
             --accent: #3b82f6;
             --accent-dim: #1d4ed8;
+            /* Secondary cold accent for chart series that aren't the primary metric. */
+            --accent-secondary: #14b8a6;
+
+            /* Semantic signal colors — positive / caution / critical. Use these
+               instead of the brand accent whenever a value carries meaning. */
+            --success: #22c55e;
+            --success-dim: #16a34a;
+            --warning: #f59e0b;
+            --warning-dim: #d97706;
+            --danger: #ef4444;
+            --danger-dim: #dc2626;
+        }
+        .text-xs { font-size: 12px; }
+        .text-2xs { font-size: 11px; }
+        a:focus-visible, button:focus-visible, input:focus-visible,
+        textarea:focus-visible, select:focus-visible, [tabindex]:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+            border-radius: 2px;
+        }
+        .kpi-dot-positive { background-color: var(--success) !important; }
+        .kpi-dot-warning { background-color: var(--warning) !important; }
+        .kpi-dot-negative { background-color: var(--danger) !important; }
+        .kpi-dot-neutral { background-color: var(--text-tertiary) !important; }
+
+        /* Wider content well than Bootstrap's default .container breakpoints —
+           this is a data-dense analytics portal, not a marketing page, so the
+           extra horizontal room is worth more than the classic reading-width cap. */
+        .container-analytics {
+            width: 100%;
+            max-width: 1600px;
+            margin-left: auto;
+            margin-right: auto;
+            padding-left: 24px;
+            padding-right: 24px;
+        }
+
+        /* Shared, restrained motion — a fade/rise on mount for cards and panels,
+           and a subtle hover lift so the UI feels responsive without being showy. */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in { animation: fadeInUp 0.25s ease-out; }
+        .analytics-card {
+            transition: border-color 0.15s ease, transform 0.15s ease;
         }
         body {
             background-color: var(--bg-primary);
@@ -92,7 +146,7 @@
         .btn-minimal:hover {
             color: var(--text-primary);
             border-color: var(--accent);
-            background-color: var(--bg-secondary);
+            background-color: var(--bg-elevated);
         }
         .btn-accent {
             color: #ffffff;
@@ -173,13 +227,13 @@
             text-align: left;
         }
         .table-custom td {
-            border-bottom: 1px solid #161a22;
+            border-bottom: 1px solid var(--border-color);
             padding: 12px 12px;
             color: #cbd5e1;
             font-size: 13px;
         }
         .table-custom tr:hover td {
-            background-color: #151820;
+            background-color: var(--bg-elevated);
             color: var(--text-primary);
         }
         .rank-num {
@@ -289,7 +343,7 @@
 
     <!-- Header / Navbar -->
     <nav class="navbar navbar-expand-lg navbar-custom py-0 mb-4">
-        <div class="container d-flex justify-content-between align-items-center">
+        <div class="container-analytics d-flex justify-content-between align-items-center">
             <div class="d-flex align-items-center gap-4 py-2">
                 <span class="brand-text me-2">Analytics Portal</span>
                 
@@ -319,12 +373,33 @@
     </nav>
 
     <!-- Main Container -->
-    <div class="container mb-5">
+    <div class="container-analytics mb-5">
         {% block content %}{% endblock %}
     </div>
 
     <!-- Bootstrap 5 JS Bundle -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Shared theme palette for Chart.js configs — keep in sync with the CSS
+         custom properties above so charts never drift from the design tokens. -->
+    <script>
+        window.AnalyticsTheme = {
+            bgPrimary: '#0a0b0d',
+            bgSecondary: '#14161b',
+            bgCard: '#1a1d24',
+            bgElevated: '#20242c',
+            border: '#262b35',
+            textPrimary: '#f8fafc',
+            textSecondary: '#8a97ab',
+            textTertiary: '#5b6576',
+            accent: '#3b82f6',
+            accentDim: '#1d4ed8',
+            accentSecondary: '#14b8a6',
+            success: '#22c55e',
+            warning: '#f59e0b',
+            danger: '#ef4444'
+        };
+    </script>
 
     <!-- Export Excel Script Helper -->
     <script>

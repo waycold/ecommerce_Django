@@ -4,9 +4,24 @@ apps/analytics/services/kpi_service.py
 Real-time KPI calculations and formatted metrics for Managerial Dashboard and AI API contracts.
 """
 
-from django.db.models import Sum
+from datetime import date
+
+from django.db.models import Sum, Count, F, DecimalField, ExpressionWrapper
+from django.db.models.functions import TruncMonth
 from django.utils import timezone
 from apps.orders.models import Order, OrderItem, OrderStatus
+from apps.catalog.models import Item
+
+
+def _mom_delta_pct(current_val, prior_val):
+    """
+    Percentage change of current_val vs prior_val, rounded to 1 decimal.
+    Returns None when there is no prior-month baseline to compare against
+    (so the template can render a "New" state instead of a misleading arrow).
+    """
+    if not prior_val:
+        return None
+    return round(((float(current_val) - float(prior_val)) / float(prior_val)) * 100, 1)
 
 
 def get_dashboard_kpis() -> dict:
@@ -46,6 +61,46 @@ def get_dashboard_kpis() -> dict:
         status=OrderStatus.PENDING
     ).count()
 
+    # --- Month-over-Month comparison (vs. prior calendar month) ---
+    if current_month == 1:
+        prior_year, prior_month = current_year - 1, 12
+    else:
+        prior_year, prior_month = current_year, current_month - 1
+
+    prior_revenue_agg = Order.objects.filter(
+        status__in=paid_statuses,
+        ordered_date__year=prior_year,
+        ordered_date__month=prior_month
+    ).aggregate(total_revenue=Sum('total'))
+    prior_monthly_revenue = prior_revenue_agg['total_revenue'] or 0.0
+
+    prior_monthly_orders_count = Order.objects.filter(
+        status__in=paid_statuses,
+        ordered_date__year=prior_year,
+        ordered_date__month=prior_month
+    ).count()
+
+    prior_avg_order_value = (
+        float(prior_monthly_revenue) / float(prior_monthly_orders_count)
+        if prior_monthly_orders_count > 0 else 0.0
+    )
+
+    monthly_revenue_mom_pct = _mom_delta_pct(monthly_revenue, prior_monthly_revenue)
+    monthly_orders_mom_pct = _mom_delta_pct(monthly_orders_count, prior_monthly_orders_count)
+    avg_order_value_mom_pct = _mom_delta_pct(avg_order_value, prior_avg_order_value)
+
+    # Same cost/profit expression pattern used in margins_service.py, applied directly
+    # in this query so every one of the 8 selected rows carries its own guaranteed
+    # cost data (no separate lookup against a different top-N set, no coverage gap).
+    cost_expr = ExpressionWrapper(
+        F('unit_cost') * F('quantity'),
+        output_field=DecimalField(max_digits=12, decimal_places=2)
+    )
+    profit_expr = ExpressionWrapper(
+        F('subtotal') - (F('unit_cost') * F('quantity')),
+        output_field=DecimalField(max_digits=12, decimal_places=2)
+    )
+
     top_products_qs = OrderItem.objects.filter(
         order__status__in=paid_statuses
     ).values(
@@ -55,10 +110,21 @@ def get_dashboard_kpis() -> dict:
         'item__price'
     ).annotate(
         total_units_sold=Sum('quantity'),
-        total_revenue_generated=Sum('subtotal')
+        total_revenue_generated=Sum('subtotal'),
+        total_cost=Sum(cost_expr),
+        total_profit=Sum(profit_expr),
     ).order_by('-total_units_sold')[:8]
 
-    top_products = list(top_products_qs)
+    top_products = []
+    for row in top_products_qs:
+        row = dict(row)
+        revenue = float(row.get('total_revenue_generated') or 0.0)
+        cost = float(row.get('total_cost') or 0.0)
+        profit = float(row.get('total_profit') or 0.0)
+        row['cost'] = round(cost, 2)
+        row['gross_profit'] = round(profit, 2)
+        row['gross_margin_pct'] = round((profit / revenue) * 100, 1) if revenue else None
+        top_products.append(row)
 
     return {
         'current_month_name': now.strftime('%B %Y'),
@@ -69,6 +135,63 @@ def get_dashboard_kpis() -> dict:
         'abandoned_carts_count': abandoned_carts_count,
         'top_products': top_products,
         'top_product_star': top_products[0] if top_products else None,
+        # Month-over-Month deltas (additive keys only — existing contract above is unchanged)
+        'prior_month_name': date(prior_year, prior_month, 1).strftime('%B %Y'),
+        'monthly_revenue_mom_pct': monthly_revenue_mom_pct,
+        'monthly_orders_mom_pct': monthly_orders_mom_pct,
+        'avg_order_value_mom_pct': avg_order_value_mom_pct,
+    }
+
+
+def get_product_performance_series(item_id: int) -> dict:
+    """
+    Monthly revenue/units time series for a single product, for the Dashboard's
+    "Top 8 Best-Selling Products" row-click detail panel.
+
+    Returns None if the product doesn't exist.
+    """
+    item = Item.objects.filter(id=item_id).select_related('category', 'brand').first()
+    if not item:
+        return None
+
+    paid_statuses = [OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.DELIVERED]
+
+    monthly_qs = OrderItem.objects.filter(
+        item_id=item_id,
+        order__status__in=paid_statuses,
+        order__ordered_date__isnull=False,
+    ).annotate(
+        month=TruncMonth('order__ordered_date')
+    ).values('month').annotate(
+        revenue=Sum('subtotal'),
+        units=Sum('quantity'),
+        orders_count=Count('order', distinct=True),
+    ).order_by('month')
+
+    months = []
+    revenue = []
+    units = []
+    total_orders = 0
+
+    for row in monthly_qs:
+        if row['month']:
+            months.append(row['month'].strftime('%b %Y'))
+            revenue.append(round(float(row['revenue'] or 0.0), 2))
+            units.append(int(row['units'] or 0))
+            total_orders += row['orders_count'] or 0
+
+    return {
+        'item_id': item_id,
+        'title': item.title,
+        'category': item.category.name if item.category else 'Uncategorized',
+        'brand': item.brand.name if item.brand else 'Generic',
+        'price': float(item.price),
+        'months': months,
+        'revenue': revenue,
+        'units': units,
+        'total_revenue': round(sum(revenue), 2),
+        'total_units': sum(units),
+        'total_orders': total_orders,
     }
 
 

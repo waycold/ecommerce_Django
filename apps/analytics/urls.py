@@ -7,7 +7,8 @@ from apps.analytics.views import (
     ExportSalesExcelView,
     SimulatorConfigView,
     GenerateDatasetView,
-    GenerationProgressView
+    GenerationProgressView,
+    ProductPerformanceView
 )
 
 app_name = 'analytics'
@@ -21,4 +22,5 @@ urlpatterns = [
     path('api/simulator-config/', SimulatorConfigView.as_view(), name='simulator_config'),
     path('api/generate-dataset/', GenerateDatasetView.as_view(), name='generate_dataset'),
     path('api/generation-progress/', GenerationProgressView.as_view(), name='generation_progress'),
+    path('api/product-performance/<int:item_id>/', ProductPerformanceView.as_view(), name='product_performance'),
 ]

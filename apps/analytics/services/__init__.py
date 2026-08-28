@@ -7,6 +7,7 @@ Dynamic Sales Query Engine, Margins, Funnel & Promotions, and AI Internal Contra
 from .kpi_service import (
     get_dashboard_kpis,
     get_internal_metrics_service,
+    get_product_performance_series,
     _format_top_products,
     _format_top_product_star,
 )
@@ -32,6 +33,7 @@ from .funnel_service import calculate_funnel_and_promotions_service
 __all__ = [
     'get_dashboard_kpis',
     'get_internal_metrics_service',
+    'get_product_performance_series',
     '_format_top_products',
     '_format_top_product_star',
     'get_forecast_data',

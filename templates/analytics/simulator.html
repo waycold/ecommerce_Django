@@ -2,196 +2,866 @@
 
 {% block title %}Data Simulator | Analytics Portal{% endblock %}
 
+{% block extra_head %}
+<style>
+    /* ============================================================
+       ASYMMETRIC TWO-REGION LAYOUT
+       Left/center column = the three configuration sections (scrolls
+       normally). Right column = a narrower sticky rail holding the
+       "Live Mix Simulation" panel. `align-items: start` on the grid is
+       required so the sticky column's height is its own content height,
+       not stretched to match the (much taller) left column — a stretched
+       sticky item has nowhere left to "stick" and would also drag any
+       height:100% descendant (e.g. .analytics-card) up to that same
+       runaway size. This is the single source of truth for both
+       columns' block sizing; nothing else in this file sets height on
+       the grid item itself. */
+    .sim-layout {
+        display: grid;
+        grid-template-columns: 1.65fr 1fr;
+        gap: 32px;
+        align-items: start;
+    }
+    .sim-main-col {
+        min-width: 0;
+    }
+    .sim-sticky-col {
+        position: sticky;
+        top: 20px;
+        min-width: 0;
+    }
+    @media (max-width: 991px) {
+        .sim-layout {
+            grid-template-columns: 1fr;
+        }
+        .sim-sticky-col {
+            position: static;
+            order: -1;
+        }
+    }
+
+    .sim-section {
+        margin-bottom: 28px;
+    }
+    .sim-section:last-child {
+        margin-bottom: 0;
+    }
+    .sim-section-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 14px;
+    }
+    .sim-section-head .section-title {
+        margin-bottom: 0;
+    }
+
+    /* ---- Section 1: Catalog Product Tiers — modular per-tier cards ---- */
+    .tier-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+        margin-bottom: 14px;
+    }
+    @media (max-width: 640px) {
+        .tier-grid { grid-template-columns: 1fr; }
+    }
+    .tier-card {
+        padding: 16px;
+    }
+    .tier-card-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .tier-num {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
+        background-color: var(--bg-elevated);
+        color: var(--text-secondary);
+        font-size: 10px;
+        font-weight: 700;
+        flex-shrink: 0;
+    }
+
+    /* Dual control: range slider linked live to a numeric input. */
+    .dual-control {
+        margin-bottom: 14px;
+    }
+    .dual-control:last-child {
+        margin-bottom: 0;
+    }
+    .dual-control-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 6px;
+        gap: 8px;
+    }
+    .dual-control-head label {
+        font-size: 12px;
+        color: var(--text-secondary);
+        font-weight: 500;
+    }
+    .dual-control-io {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-shrink: 0;
+    }
+    .num-input {
+        width: 58px;
+        background-color: var(--bg-elevated);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 12px;
+        font-weight: 600;
+        text-align: right;
+        border-radius: 4px;
+        padding: 3px 6px;
+    }
+    .num-input:focus {
+        outline: none;
+        border-color: var(--accent);
+    }
+    .dual-control-suffix {
+        font-size: 11px;
+        color: var(--text-tertiary);
+        width: 12px;
+    }
+    .form-range { margin: 0; }
+
+    /* Tier 4 catalog % — read-only, computed residual. Styled visibly
+       distinct from an editable field (dashed border, lock glyph, no
+       slider) so it reads as derived state, not an oversight. */
+    .computed-caption {
+        font-size: 10px;
+        font-weight: 400;
+        color: var(--text-tertiary);
+        margin-left: 6px;
+    }
+    .computed-display {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 7px 10px;
+        background-color: var(--bg-secondary);
+        border: 1px dashed var(--border-color);
+        border-radius: 4px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text-secondary);
+    }
+    .computed-display i {
+        font-size: 10px;
+        color: var(--text-tertiary);
+    }
+
+    /* Balance-total card: accumulated Sales Weight across Tiers 1-4,
+       shown as a number and a capacity bar. Same tolerance thresholds
+       as round 2 (exact 100 = ok, +/-4 = warning, beyond = danger). */
+    .balance-card {
+        padding: 16px 18px;
+    }
+    .balance-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 10px;
+        gap: 12px;
+    }
+    .balance-label {
+        font-size: 12px;
+        color: var(--text-secondary);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .balance-value {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-weight: 700;
+        font-size: 20px;
+        color: var(--text-secondary);
+        transition: color 0.15s ease;
+    }
+    .balance-track {
+        height: 7px;
+        background-color: var(--bg-elevated);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    .balance-fill {
+        height: 100%;
+        width: 100%;
+        border-radius: 4px;
+        background-color: var(--success);
+        transition: width 0.2s ease, background-color 0.2s ease;
+    }
+    .balance-card.state-ok .balance-value,
+    .balance-card.state-ok .balance-label i { color: var(--success); }
+    .balance-card.state-ok .balance-fill { background-color: var(--success); }
+    .balance-card.state-warning .balance-value,
+    .balance-card.state-warning .balance-label i { color: var(--warning); }
+    .balance-card.state-warning .balance-fill { background-color: var(--warning); }
+    .balance-card.state-danger .balance-value,
+    .balance-card.state-danger .balance-label i { color: var(--danger); }
+    .balance-card.state-danger .balance-fill { background-color: var(--danger); }
+
+    /* ---- Section 2: Simulation Engine Attributes — plain numeric grid ---- */
+    .param-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+    }
+    @media (max-width: 560px) {
+        .param-grid { grid-template-columns: 1fr; }
+    }
+    .param-field label {
+        display: block;
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin-bottom: 6px;
+        font-weight: 500;
+    }
+    .param-input-wrap {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background-color: var(--bg-elevated);
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        padding: 0 10px;
+        transition: border-color 0.15s ease;
+    }
+    .param-input-wrap:focus-within {
+        border-color: var(--accent);
+    }
+    .param-input-wrap input[type="number"] {
+        flex: 1;
+        min-width: 0;
+        background: transparent;
+        border: none;
+        color: var(--text-primary);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-weight: 600;
+        font-size: 13px;
+        padding: 8px 0;
+    }
+    .param-input-wrap input[type="number"]:focus {
+        outline: none;
+    }
+    .param-unit {
+        font-size: 11px;
+        color: var(--text-tertiary);
+        flex-shrink: 0;
+    }
+    .seed-field {
+        margin-top: 16px;
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+    }
+    .seed-field .param-field {
+        flex: 1;
+    }
+
+    /* ---- Section 3: Category Weights — vertical rows w/ micro-bar ---- */
+    .cat-row-list {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+    .cat-row {
+        display: grid;
+        grid-template-columns: 172px 1fr 64px;
+        align-items: center;
+        gap: 14px;
+    }
+    @media (max-width: 480px) {
+        .cat-row {
+            grid-template-columns: 1fr;
+            gap: 6px;
+        }
+    }
+    .cat-row-label {
+        font-size: 12px;
+        color: var(--text-primary);
+        font-weight: 500;
+    }
+    .cat-row-slider-col {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        min-width: 0;
+    }
+    .cat-microbar {
+        height: 4px;
+        background-color: var(--bg-elevated);
+        border-radius: 2px;
+        overflow: hidden;
+    }
+    .cat-microbar-fill {
+        height: 100%;
+        width: 0%;
+        background-color: var(--accent);
+        border-radius: 2px;
+        transition: width 0.1s ease;
+    }
+
+    /* ============================================================
+       SIGNATURE ELEMENT: sticky "Live Mix Simulation" panel.
+       Deliberately NOT sharing `.analytics-card` — that class carries
+       `height: 100%`, which under a `align-items:start` grid resolves
+       harmlessly, but combining two height-bearing classes on the same
+       sticky element is exactly the ambiguity that caused the
+       Chart.js resize-loop bug on forecast.html. This element's
+       height is entirely auto/content-driven, declared once, here. */
+    .sim-sticky-panel {
+        max-width: 400px;
+        margin-left: auto;
+        margin-right: 0;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        background-color: var(--bg-card);
+        padding: 20px;
+        position: relative;
+        overflow: hidden;
+    }
+    @media (max-width: 991px) {
+        .sim-sticky-panel { max-width: none; margin: 0; }
+    }
+    .sim-sticky-panel::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, var(--accent), var(--accent-secondary));
+    }
+    .sim-panel-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+    .sim-panel-header i {
+        color: var(--accent);
+        font-size: 12px;
+    }
+    .sim-panel-title {
+        font-size: 13px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-primary);
+    }
+
+    .sim-stat-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 18px;
+    }
+    .sim-stat-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 10px;
+        background-color: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        transition: border-color 0.15s ease;
+    }
+    .sim-stat-label {
+        font-size: 11px;
+        color: var(--text-secondary);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .sim-stat-value {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-weight: 700;
+        font-size: 13px;
+        color: var(--text-primary);
+    }
+    .sim-stat-row.state-ok { border-color: var(--success); }
+    .sim-stat-row.state-ok .sim-stat-value,
+    .sim-stat-row.state-ok .sim-stat-label i { color: var(--success); }
+    .sim-stat-row.state-warning { border-color: var(--warning); }
+    .sim-stat-row.state-warning .sim-stat-value,
+    .sim-stat-row.state-warning .sim-stat-label i { color: var(--warning); }
+    .sim-stat-row.state-danger { border-color: var(--danger); }
+    .sim-stat-row.state-danger .sim-stat-value,
+    .sim-stat-row.state-danger .sim-stat-label i { color: var(--danger); }
+
+    /* Donut — the one place in this page that spends visual craft.
+       `.donut-wrap` is the SOLE class carrying height on this box (a
+       fixed px value, not a %), and the canvas is positioned absolute
+       within it so Chart.js's ResizeObserver measures a box whose size
+       can never depend on the canvas it's sizing — no feedback loop. */
+    .donut-wrap {
+        position: relative;
+        height: 190px;
+        margin: 4px auto 16px;
+    }
+    .donut-wrap canvas {
+        position: absolute;
+        inset: 0;
+        min-height: 0;
+        min-width: 0;
+    }
+    .donut-center {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        pointer-events: none;
+        max-width: 108px;
+    }
+    .donut-center-value {
+        font-size: 20px;
+        font-weight: 700;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        color: var(--text-primary);
+        line-height: 1.1;
+    }
+    .donut-center-caption {
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--text-tertiary);
+        margin-top: 3px;
+        line-height: 1.3;
+    }
+    .donut-legend {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        margin-bottom: 18px;
+    }
+    .donut-legend-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 11px;
+        color: var(--text-secondary);
+    }
+    .donut-legend-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+        flex-shrink: 0;
+    }
+    .donut-legend-name {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .donut-legend-pct {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-weight: 600;
+        color: var(--text-primary);
+        flex-shrink: 0;
+    }
+
+    .sim-panel-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding-top: 4px;
+        border-top: 1px solid var(--border-color);
+        margin-top: 2px;
+    }
+    .sim-panel-actions form,
+    .sim-panel-actions .btn-accent,
+    .sim-panel-actions .btn-minimal {
+        width: 100%;
+        justify-content: center;
+    }
+    .sim-panel-actions .btn-accent,
+    .sim-panel-actions .btn-minimal {
+        margin-top: 8px;
+    }
+    .sim-panel-actions .btn-accent:first-child,
+    .sim-panel-actions .btn-minimal:first-child {
+        margin-top: 0;
+    }
+
+    /* Server Resource Guardrail — condensed to a single-line note,
+       relocated into the sticky panel near the action buttons. */
+    .guardrail-note {
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        background-color: var(--bg-secondary);
+        padding: 6px 10px;
+        margin-top: 12px;
+    }
+    .guardrail-summary {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        font-size: 11px;
+        color: var(--text-secondary);
+        cursor: pointer;
+        list-style: none;
+        line-height: 1.4;
+    }
+    .guardrail-summary::-webkit-details-marker { display: none; }
+    .guardrail-summary::marker { content: ''; }
+    .guardrail-summary i.fa-server {
+        color: var(--warning);
+        flex-shrink: 0;
+        margin-top: 2px;
+    }
+    .guardrail-summary code {
+        color: var(--text-primary);
+        background-color: var(--bg-elevated);
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-size: 10px;
+    }
+    .guardrail-chevron {
+        margin-left: auto;
+        font-size: 10px;
+        color: var(--text-tertiary);
+        transition: transform 0.15s ease;
+        flex-shrink: 0;
+        margin-top: 2px;
+    }
+    .guardrail-note[open] .guardrail-chevron { transform: rotate(180deg); }
+    .guardrail-expand-text {
+        margin: 8px 0 2px;
+        padding-top: 8px;
+        border-top: 1px solid var(--border-color);
+        font-size: 11px;
+        color: var(--text-secondary);
+        line-height: 1.5;
+    }
+
+    /* Muted token-based replacements for raw Bootstrap semantic colors,
+       used in the progress panel's badge and log feed lines. */
+    .badge-accent {
+        background-color: var(--accent);
+        color: #ffffff;
+    }
+    .log-text-warning { color: var(--warning); }
+    .log-text-danger { color: var(--danger); }
+    .log-text-accent { color: var(--accent); }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h4 class="fw-bold mb-1 text-light">Synthetic Data Simulator</h4>
-        <p class="text-secondary mb-0" style="font-size: 12px;">Modify catalog tier distribution weights and engine generation attributes stored in JSON configuration files.</p>
-    </div>
-    <div class="d-flex gap-2">
-        <button class="btn-minimal" id="reset-config-btn">
-            <i class="fa-solid fa-rotate-left me-1"></i> Reset Defaults
-        </button>
-        <button class="btn-accent" id="generate-dataset-btn">
-            <i class="fa-solid fa-play me-2"></i> Generate Dataset
-        </button>
-    </div>
+<div class="mb-3">
+    <h4 class="fw-bold mb-1 text-light">Synthetic Data Simulator</h4>
+    <p class="text-secondary mb-0" style="font-size: 12px;">Modify catalog tier distribution weights and engine generation attributes stored in JSON configuration files.</p>
 </div>
 
-<!-- Server Guardrail Banner -->
-<div class="alert alert-dark border-secondary d-flex align-items-center gap-3 mb-4" style="background-color: var(--bg-secondary); border-color: var(--border-color) !important;">
-    <i class="fa-solid fa-server text-warning fs-5"></i>
-    <div style="font-size: 12px; line-height: 1.5;">
-        <span class="fw-bold text-light">Server Resource Guardrail (Render Free Tier):</span>
-        <span class="text-secondary">
-            Web-based generation is heavily optimized with <strong>Memory Chunking</strong> and batch insertions. However, in production environments (Cloud/Render), web generation is automatically capped at a maximum of <strong>1,000 users</strong> to ensure RAM consumption remains &lt; 120 MB. 
-            For massive-scale simulation (10,000+ users and 30,000+ orders), run this locally in your terminal:
-        </span>
-        <code class="text-info ms-1 font-monospace" style="font-size: 12px;">python manage.py generate_data --seed 42</code>
-    </div>
-</div>
+<div class="sim-layout">
+    <!-- ============ LEFT/CENTER: configuration sections ============ -->
+    <div class="sim-main-col">
 
-<!-- Progress Feedback Panel (Hidden initially) -->
-<div id="generation-progress-panel" class="progress-box mb-4" style="display: none;">
-    <div class="d-flex justify-content-between align-items-center mb-2">
-        <span class="fw-bold text-light" style="font-size: 13px;" id="gen-step-title">Generating synthetic dataset...</span>
-        <span class="badge bg-primary text-light" id="gen-pct-badge" style="font-size: 11px;">0%</span>
-    </div>
-    <div class="progress-bar-inner mb-3">
-        <div class="progress-bar-fill" id="gen-bar-fill"></div>
-    </div>
-    <div class="log-feed" id="gen-log-feed">
-        [System] Engine initialized. Waiting for task feedback...
-    </div>
-</div>
-
-<div class="row g-3">
-    <!-- Column 1: Catalog Tiers -->
-    <div class="col-lg-4">
-        <div class="analytics-card">
-            <div class="section-title">
-                Catalog Product Tiers
-            </div>
-            
-            <div class="slider-group">
-                <div class="slider-label">
-                    <span>Tier 1: Best Sellers (Catalog %)</span>
-                    <span class="range-val" id="val_t1_pct">1.0%</span>
-                </div>
-                <input type="range" class="form-range" id="slider_t1_pct" min="0.5" max="5.0" step="0.5" value="1.0">
-                <div class="slider-label mt-2">
-                    <span>Tier 1: Sales Weight</span>
-                    <span class="range-val" id="val_t1_w">50%</span>
-                </div>
-                <input type="range" class="form-range" id="slider_t1_w" min="10" max="80" step="5" value="50">
+        <!-- Section 1: Catalog Product Tiers -->
+        <div class="sim-section">
+            <div class="sim-section-head">
+                <div class="section-title">Catalog Product Tiers</div>
             </div>
 
-            <div class="slider-group">
-                <div class="slider-label">
-                    <span>Tier 2: Steady Sellers (Catalog %)</span>
-                    <span class="range-val" id="val_t2_pct">9.0%</span>
+            <div class="tier-grid">
+                <!-- Tier 1 -->
+                <div class="analytics-card tier-card">
+                    <div class="tier-card-title"><span class="tier-num">1</span> Best Sellers</div>
+                    <div class="dual-control">
+                        <div class="dual-control-head">
+                            <label for="slider_t1_pct">Catalog %</label>
+                            <div class="dual-control-io">
+                                <input type="number" class="num-input" id="input_t1_pct" min="0.5" max="5.0" step="0.5" value="1.0">
+                                <span class="dual-control-suffix">%</span>
+                            </div>
+                        </div>
+                        <input type="range" class="form-range" id="slider_t1_pct" min="0.5" max="5.0" step="0.5" value="1.0">
+                    </div>
+                    <div class="dual-control">
+                        <div class="dual-control-head">
+                            <label for="slider_t1_w">Sales Weight</label>
+                            <div class="dual-control-io">
+                                <input type="number" class="num-input" id="input_t1_w" min="10" max="80" step="5" value="50">
+                                <span class="dual-control-suffix">%</span>
+                            </div>
+                        </div>
+                        <input type="range" class="form-range" id="slider_t1_w" min="10" max="80" step="5" value="50">
+                    </div>
                 </div>
-                <input type="range" class="form-range" id="slider_t2_pct" min="5" max="25" step="1" value="9">
-                <div class="slider-label mt-2">
-                    <span>Tier 2: Sales Weight</span>
-                    <span class="range-val" id="val_t2_w">30%</span>
+
+                <!-- Tier 2 -->
+                <div class="analytics-card tier-card">
+                    <div class="tier-card-title"><span class="tier-num">2</span> Steady Sellers</div>
+                    <div class="dual-control">
+                        <div class="dual-control-head">
+                            <label for="slider_t2_pct">Catalog %</label>
+                            <div class="dual-control-io">
+                                <input type="number" class="num-input" id="input_t2_pct" min="5" max="25" step="1" value="9">
+                                <span class="dual-control-suffix">%</span>
+                            </div>
+                        </div>
+                        <input type="range" class="form-range" id="slider_t2_pct" min="5" max="25" step="1" value="9">
+                    </div>
+                    <div class="dual-control">
+                        <div class="dual-control-head">
+                            <label for="slider_t2_w">Sales Weight</label>
+                            <div class="dual-control-io">
+                                <input type="number" class="num-input" id="input_t2_w" min="10" max="60" step="5" value="30">
+                                <span class="dual-control-suffix">%</span>
+                            </div>
+                        </div>
+                        <input type="range" class="form-range" id="slider_t2_w" min="10" max="60" step="5" value="30">
+                    </div>
                 </div>
-                <input type="range" class="form-range" id="slider_t2_w" min="10" max="60" step="5" value="30">
+
+                <!-- Tier 3 -->
+                <div class="analytics-card tier-card">
+                    <div class="tier-card-title"><span class="tier-num">3</span> Slow Sellers</div>
+                    <div class="dual-control">
+                        <div class="dual-control-head">
+                            <label for="slider_t3_pct">Catalog %</label>
+                            <div class="dual-control-io">
+                                <input type="number" class="num-input" id="input_t3_pct" min="10" max="50" step="5" value="30">
+                                <span class="dual-control-suffix">%</span>
+                            </div>
+                        </div>
+                        <input type="range" class="form-range" id="slider_t3_pct" min="10" max="50" step="5" value="30">
+                    </div>
+                    <div class="dual-control">
+                        <div class="dual-control-head">
+                            <label for="slider_t3_w">Sales Weight</label>
+                            <div class="dual-control-io">
+                                <input type="number" class="num-input" id="input_t3_w" min="5" max="40" step="5" value="15">
+                                <span class="dual-control-suffix">%</span>
+                            </div>
+                        </div>
+                        <input type="range" class="form-range" id="slider_t3_w" min="5" max="40" step="5" value="15">
+                    </div>
+                </div>
+
+                <!-- Tier 4 -->
+                <div class="analytics-card tier-card">
+                    <div class="tier-card-title"><span class="tier-num">4</span> Long Tail</div>
+                    <div class="dual-control computed-field">
+                        <div class="dual-control-head">
+                            <label>Catalog % <span class="computed-caption">100% &minus; (T1+T2+T3)</span></label>
+                        </div>
+                        <div class="computed-display">
+                            <i class="fa-solid fa-lock" aria-hidden="true"></i>
+                            <span id="t4_pct_value">60.0%</span>
+                        </div>
+                    </div>
+                    <div class="dual-control">
+                        <div class="dual-control-head">
+                            <label for="slider_t4_w">Sales Weight</label>
+                            <div class="dual-control-io">
+                                <input type="number" class="num-input" id="input_t4_w" min="1" max="20" step="1" value="5">
+                                <span class="dual-control-suffix">%</span>
+                            </div>
+                        </div>
+                        <input type="range" class="form-range" id="slider_t4_w" min="1" max="20" step="1" value="5">
+                    </div>
+                </div>
             </div>
 
-            <div class="slider-group">
-                <div class="slider-label">
-                    <span>Tier 3: Slow Sellers (Catalog %)</span>
-                    <span class="range-val" id="val_t3_pct">30.0%</span>
+            <!-- Balance total: accumulated Sales Weight (Tiers 1-4) -->
+            <div class="analytics-card balance-card" id="weight-total-card" role="status" aria-live="polite">
+                <div class="balance-row">
+                    <span class="balance-label">
+                        <i class="fa-solid fa-circle-check" id="weight-total-icon" aria-hidden="true"></i>
+                        Sales Weight Total (Tiers 1&ndash;4)
+                    </span>
+                    <span class="balance-value" id="weight-total-value">100%</span>
                 </div>
-                <input type="range" class="form-range" id="slider_t3_pct" min="10" max="50" step="5" value="30">
-                <div class="slider-label mt-2">
-                    <span>Tier 3: Sales Weight</span>
-                    <span class="range-val" id="val_t3_w">15%</span>
+                <div class="balance-track">
+                    <div class="balance-fill" id="weight-total-fill"></div>
                 </div>
-                <input type="range" class="form-range" id="slider_t3_w" min="5" max="40" step="5" value="15">
-            </div>
-
-            <div class="slider-group mb-0">
-                <div class="slider-label">
-                    <span>Tier 4: Long Tail (Sales Weight)</span>
-                    <span class="range-val" id="val_t4_w">5%</span>
-                </div>
-                <input type="range" class="form-range" id="slider_t4_w" min="1" max="20" step="1" value="5">
             </div>
         </div>
-    </div>
 
-    <!-- Column 2: Simulation Parameters -->
-    <div class="col-lg-4">
-        <div class="analytics-card">
-            <div class="section-title">
-                Simulation Engine Attributes
+        <!-- Section 2: Simulation Engine Attributes -->
+        <div class="sim-section">
+            <div class="sim-section-head">
+                <div class="section-title">Simulation Engine Attributes</div>
             </div>
-
-            <div class="slider-group">
-                <div class="slider-label">
-                    <span>Target User Base</span>
-                    <span class="range-val" id="val_num_users">5,000</span>
+            <div class="analytics-card">
+                <div class="param-grid">
+                    <div class="param-field">
+                        <label for="input_num_users">Target User Base</label>
+                        <div class="param-input-wrap">
+                            <input type="number" id="input_num_users" min="500" max="10000" step="500" value="5000">
+                            <span class="param-unit">users</span>
+                        </div>
+                    </div>
+                    <div class="param-field">
+                        <label for="input_inflation">Monthly Inflation Rate</label>
+                        <div class="param-input-wrap">
+                            <input type="number" id="input_inflation" min="0" max="10" step="0.5" value="4.0">
+                            <span class="param-unit">%</span>
+                        </div>
+                    </div>
+                    <div class="param-field">
+                        <label for="input_foreign">International Customer Ratio</label>
+                        <div class="param-input-wrap">
+                            <input type="number" id="input_foreign" min="0" max="50" step="5" value="20">
+                            <span class="param-unit">%</span>
+                        </div>
+                    </div>
                 </div>
-                <input type="range" class="form-range" id="slider_num_users" min="500" max="5000" step="500" value="5000">
-            </div>
-
-            <div class="slider-group">
-                <div class="slider-label">
-                    <span>Monthly Inflation Rate</span>
-                    <span class="range-val" id="val_inflation">4.0%</span>
-                </div>
-                <input type="range" class="form-range" id="slider_inflation" min="0.0" max="10.0" step="0.5" value="4.0">
-            </div>
-
-            <div class="slider-group">
-                <div class="slider-label">
-                    <span>International Customer Ratio</span>
-                    <span class="range-val" id="val_foreign">20%</span>
-                </div>
-                <input type="range" class="form-range" id="slider_foreign" min="0" max="50" step="5" value="20">
-            </div>
-
-            <div class="slider-group mb-0">
-                <div class="slider-label mb-2">
-                    <span>Generation Seed</span>
-                    <button class="btn-minimal py-0 px-2" style="font-size: 11px;" id="random-seed-btn">
+                <div class="seed-field">
+                    <div class="param-field">
+                        <label for="input_seed">Generation Seed</label>
+                        <div class="param-input-wrap">
+                            <input type="number" id="input_seed" value="42">
+                            <span class="param-unit">seed</span>
+                        </div>
+                    </div>
+                    <button class="btn-minimal" id="random-seed-btn" type="button">
                         <i class="fa-solid fa-shuffle me-1"></i> Randomize
                     </button>
                 </div>
-                <input type="number" class="form-control form-control-sm bg-dark text-light border-secondary" id="input_seed" value="42" style="font-size: 12px;">
+            </div>
+        </div>
+
+        <!-- Section 3: Category Weights -->
+        <div class="sim-section">
+            <div class="sim-section-head">
+                <div class="section-title">Category Weights</div>
+                <button class="btn-minimal" id="balance-equally-btn" type="button">
+                    <i class="fa-solid fa-scale-balanced me-1"></i> Balance Equally
+                </button>
+            </div>
+            <div class="analytics-card">
+                <div class="cat-row-list">
+                    <div class="cat-row">
+                        <span class="cat-row-label">Electronics</span>
+                        <div class="cat-row-slider-col">
+                            <input type="range" class="form-range cat-slider" data-cat="Electronics" id="slider_cat_electronics" min="0.1" max="2.0" step="0.1" value="1.0">
+                            <div class="cat-microbar"><div class="cat-microbar-fill" id="fill_cat_electronics"></div></div>
+                        </div>
+                        <input type="number" class="num-input" id="input_cat_electronics" min="0.1" max="2.0" step="0.1" value="1.0">
+                    </div>
+                    <div class="cat-row">
+                        <span class="cat-row-label">Clothing, Shoes &amp; Jewelry</span>
+                        <div class="cat-row-slider-col">
+                            <input type="range" class="form-range cat-slider" data-cat="Clothing_Shoes_and_Jewelry" id="slider_cat_clothing" min="0.1" max="2.0" step="0.1" value="0.9">
+                            <div class="cat-microbar"><div class="cat-microbar-fill" id="fill_cat_clothing"></div></div>
+                        </div>
+                        <input type="number" class="num-input" id="input_cat_clothing" min="0.1" max="2.0" step="0.1" value="0.9">
+                    </div>
+                    <div class="cat-row">
+                        <span class="cat-row-label">Home &amp; Kitchen</span>
+                        <div class="cat-row-slider-col">
+                            <input type="range" class="form-range cat-slider" data-cat="Home_and_Kitchen" id="slider_cat_home" min="0.1" max="2.0" step="0.1" value="1.0">
+                            <div class="cat-microbar"><div class="cat-microbar-fill" id="fill_cat_home"></div></div>
+                        </div>
+                        <input type="number" class="num-input" id="input_cat_home" min="0.1" max="2.0" step="0.1" value="1.0">
+                    </div>
+                    <div class="cat-row">
+                        <span class="cat-row-label">Books</span>
+                        <div class="cat-row-slider-col">
+                            <input type="range" class="form-range cat-slider" data-cat="Books" id="slider_cat_books" min="0.1" max="2.0" step="0.1" value="1.0">
+                            <div class="cat-microbar"><div class="cat-microbar-fill" id="fill_cat_books"></div></div>
+                        </div>
+                        <input type="number" class="num-input" id="input_cat_books" min="0.1" max="2.0" step="0.1" value="1.0">
+                    </div>
+                    <div class="cat-row">
+                        <span class="cat-row-label">Beauty &amp; Personal Care</span>
+                        <div class="cat-row-slider-col">
+                            <input type="range" class="form-range cat-slider" data-cat="Beauty_and_Personal_Care" id="slider_cat_beauty" min="0.1" max="2.0" step="0.1" value="0.7">
+                            <div class="cat-microbar"><div class="cat-microbar-fill" id="fill_cat_beauty"></div></div>
+                        </div>
+                        <input type="number" class="num-input" id="input_cat_beauty" min="0.1" max="2.0" step="0.1" value="0.7">
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Column 3: Key Category Weights -->
-    <div class="col-lg-4">
-        <div class="analytics-card">
-            <div class="section-title">
-                Category Weights
+    <!-- ============ RIGHT: sticky Live Mix Simulation panel ============ -->
+    <div class="sim-sticky-col">
+        <div class="sim-sticky-panel fade-in">
+            <div class="sim-panel-header">
+                <i class="fa-solid fa-chart-pie" aria-hidden="true"></i>
+                <span class="sim-panel-title">Live Mix Simulation</span>
             </div>
 
-            <div class="slider-group">
-                <div class="slider-label">
-                    <span>Electronics</span>
-                    <span class="range-val" id="val_cat_electronics">1.0</span>
+            <div class="sim-stat-list">
+                <div class="sim-stat-row" id="sticky-weight-row" role="status" aria-live="polite">
+                    <span class="sim-stat-label">
+                        <i class="fa-solid fa-circle-check" id="sticky-weight-icon" aria-hidden="true"></i>
+                        Sales Weight Total
+                    </span>
+                    <span class="sim-stat-value" id="sticky-weight-value">100%</span>
                 </div>
-                <input type="range" class="form-range cat-slider" data-cat="Electronics" id="slider_cat_electronics" min="0.1" max="2.0" step="0.1" value="1.0">
-            </div>
-
-            <div class="slider-group">
-                <div class="slider-label">
-                    <span>Clothing, Shoes & Jewelry</span>
-                    <span class="range-val" id="val_cat_clothing">0.9</span>
+                <div class="sim-stat-row">
+                    <span class="sim-stat-label"><i class="fa-solid fa-users" aria-hidden="true"></i> Target User Base</span>
+                    <span class="sim-stat-value" id="sticky-users-value">5,000</span>
                 </div>
-                <input type="range" class="form-range cat-slider" data-cat="Clothing_Shoes_and_Jewelry" id="slider_cat_clothing" min="0.1" max="2.0" step="0.1" value="0.9">
-            </div>
-
-            <div class="slider-group">
-                <div class="slider-label">
-                    <span>Home & Kitchen</span>
-                    <span class="range-val" id="val_cat_home">1.0</span>
+                <div class="sim-stat-row">
+                    <span class="sim-stat-label"><i class="fa-solid fa-dice" aria-hidden="true"></i> Generation Seed</span>
+                    <span class="sim-stat-value" id="sticky-seed-value">42</span>
                 </div>
-                <input type="range" class="form-range cat-slider" data-cat="Home_and_Kitchen" id="slider_cat_home" min="0.1" max="2.0" step="0.1" value="1.0">
             </div>
 
-            <div class="slider-group">
-                <div class="slider-label">
-                    <span>Books</span>
-                    <span class="range-val" id="val_cat_books">1.0</span>
+            <div class="donut-wrap">
+                <canvas id="donutChart" role="img" aria-label="Category weight distribution"></canvas>
+                <div class="donut-center">
+                    <div class="donut-center-value" id="donut-center-value">20%</div>
+                    <div class="donut-center-caption" id="donut-center-caption">Electronics</div>
                 </div>
-                <input type="range" class="form-range cat-slider" data-cat="Books" id="slider_cat_books" min="0.1" max="2.0" step="0.1" value="1.0">
+            </div>
+            <div class="donut-legend" id="donut-legend"></div>
+
+            <div class="sim-panel-actions">
+                <button class="btn-minimal" id="reset-config-btn" type="button">
+                    <i class="fa-solid fa-rotate-left me-1"></i> Reset Defaults
+                </button>
+                <button class="btn-accent" id="generate-dataset-btn" type="button">
+                    <i class="fa-solid fa-play me-2"></i> Generate Dataset
+                </button>
             </div>
 
-            <div class="slider-group mb-0">
-                <div class="slider-label">
-                    <span>Beauty & Personal Care</span>
-                    <span class="range-val" id="val_cat_beauty">0.7</span>
+            <details class="guardrail-note">
+                <summary class="guardrail-summary">
+                    <i class="fa-solid fa-server" aria-hidden="true"></i>
+                    <span>Capped at <strong>1,000 users</strong> on this server &mdash; for larger runs: <code>python manage.py generate_data --seed 42</code></span>
+                    <i class="fa-solid fa-chevron-down guardrail-chevron" aria-hidden="true"></i>
+                </summary>
+                <p class="guardrail-expand-text">
+                    Web-based generation is optimized with Memory Chunking and batch insertions, but on the Render free tier it's capped at 1,000 users to keep RAM usage under ~120&nbsp;MB. For massive-scale simulation (10,000+ users, 30,000+ orders), run the command above locally instead.
+                </p>
+            </details>
+
+            <!-- Progress Feedback Panel (hidden initially) -->
+            <div id="generation-progress-panel" class="progress-box fade-in mt-3" style="display: none;">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="fw-bold text-light" style="font-size: 12px;" id="gen-step-title">Generating synthetic dataset...</span>
+                    <span class="badge badge-accent" id="gen-pct-badge" style="font-size: 10px;">0%</span>
                 </div>
-                <input type="range" class="form-range cat-slider" data-cat="Beauty_and_Personal_Care" id="slider_cat_beauty" min="0.1" max="2.0" step="0.1" value="0.7">
+                <div class="progress-bar-inner mb-3">
+                    <div class="progress-bar-fill" id="gen-bar-fill"></div>
+                </div>
+                <div class="log-feed" id="gen-log-feed" style="max-height: 120px;">
+                    [System] Engine initialized. Waiting for task feedback...
+                </div>
             </div>
-
         </div>
     </div>
 </div>
@@ -206,21 +876,242 @@
     });
 
     function bindSimulatorEvents(config) {
-        const s_t1_pct = document.getElementById('slider_t1_pct');
-        const s_t1_w = document.getElementById('slider_t1_w');
-        const s_t2_pct = document.getElementById('slider_t2_pct');
-        const s_t2_w = document.getElementById('slider_t2_w');
-        const s_t3_pct = document.getElementById('slider_t3_pct');
-        const s_t3_w = document.getElementById('slider_t3_w');
-        const s_t4_w = document.getElementById('slider_t4_w');
+        // ---- Element lookups ----
+        const s_t1_pct = document.getElementById('slider_t1_pct'), i_t1_pct = document.getElementById('input_t1_pct');
+        const s_t1_w = document.getElementById('slider_t1_w'), i_t1_w = document.getElementById('input_t1_w');
+        const s_t2_pct = document.getElementById('slider_t2_pct'), i_t2_pct = document.getElementById('input_t2_pct');
+        const s_t2_w = document.getElementById('slider_t2_w'), i_t2_w = document.getElementById('input_t2_w');
+        const s_t3_pct = document.getElementById('slider_t3_pct'), i_t3_pct = document.getElementById('input_t3_pct');
+        const s_t3_w = document.getElementById('slider_t3_w'), i_t3_w = document.getElementById('input_t3_w');
+        const s_t4_w = document.getElementById('slider_t4_w'), i_t4_w = document.getElementById('input_t4_w');
+        const t4PctValueEl = document.getElementById('t4_pct_value');
 
-        const s_num_users = document.getElementById('slider_num_users');
-        const s_inflation = document.getElementById('slider_inflation');
-        const s_foreign = document.getElementById('slider_foreign');
+        const input_num_users = document.getElementById('input_num_users');
+        const input_inflation = document.getElementById('input_inflation');
+        const input_foreign = document.getElementById('input_foreign');
         const input_seed = document.getElementById('input_seed');
 
-        if (config) {
-            const pt = config.product_tiers || {};
+        const catDefs = [
+            { suffix: 'electronics', dataCat: 'Electronics', label: 'Electronics', color: window.AnalyticsTheme.accent },
+            { suffix: 'clothing', dataCat: 'Clothing_Shoes_and_Jewelry', label: 'Clothing, Shoes & Jewelry', color: window.AnalyticsTheme.accentSecondary },
+            { suffix: 'home', dataCat: 'Home_and_Kitchen', label: 'Home & Kitchen', color: window.AnalyticsTheme.success },
+            { suffix: 'books', dataCat: 'Books', label: 'Books', color: window.AnalyticsTheme.warning },
+            { suffix: 'beauty', dataCat: 'Beauty_and_Personal_Care', label: 'Beauty & Personal Care', color: window.AnalyticsTheme.danger }
+        ];
+        catDefs.forEach(c => {
+            c.slider = document.getElementById('slider_cat_' + c.suffix);
+            c.input = document.getElementById('input_cat_' + c.suffix);
+            c.fill = document.getElementById('fill_cat_' + c.suffix);
+        });
+
+        // ---- Generic slider <-> numeric input two-way binding ----
+        // Slider drag updates the input live. Typing in the input clamps
+        // the slider live on every keystroke (so the donut/totals stay in
+        // sync as you type), but the textbox itself is only reformatted
+        // on blur, so we never fight the caret while the user is mid-type.
+        function bindDual(slider, input, decimals, onChange) {
+            function fmt(v) {
+                return decimals > 0 ? parseFloat(v).toFixed(decimals) : String(Math.round(parseFloat(v)));
+            }
+            function fromSlider() {
+                input.value = fmt(slider.value);
+                if (onChange) onChange(parseFloat(slider.value));
+            }
+            function fromInput() {
+                const raw = parseFloat(input.value);
+                if (!isNaN(raw)) {
+                    const min = parseFloat(slider.min), max = parseFloat(slider.max);
+                    const clamped = Math.min(max, Math.max(min, raw));
+                    slider.value = clamped;
+                    if (onChange) onChange(clamped);
+                }
+            }
+            function normalize() {
+                input.value = fmt(slider.value);
+            }
+            slider.addEventListener('input', fromSlider);
+            input.addEventListener('input', fromInput);
+            input.addEventListener('blur', normalize);
+            return { refresh: fromSlider };
+        }
+
+        // ---- Section 1: Tier 4 residual + Sales Weight total ----
+        function computeTier4Pct() {
+            const t1 = parseFloat(s_t1_pct.value) || 0;
+            const t2 = parseFloat(s_t2_pct.value) || 0;
+            const t3 = parseFloat(s_t3_pct.value) || 0;
+            const t4 = Math.max(0, 100 - (t1 + t2 + t3));
+            t4PctValueEl.innerText = t4.toFixed(1) + '%';
+            return t4;
+        }
+
+        function getWeightsSum() {
+            return (parseFloat(s_t1_w.value) || 0) + (parseFloat(s_t2_w.value) || 0) +
+                   (parseFloat(s_t3_w.value) || 0) + (parseFloat(s_t4_w.value) || 0);
+        }
+
+        function applyWeightState(sum) {
+            const diff = Math.abs(sum - 100);
+            let state = 'state-ok', icon = 'fa-solid fa-circle-check';
+            if (diff > 4) { state = 'state-danger'; icon = 'fa-solid fa-circle-xmark'; }
+            else if (diff > 0) { state = 'state-warning'; icon = 'fa-solid fa-triangle-exclamation'; }
+
+            const card = document.getElementById('weight-total-card');
+            const cardValue = document.getElementById('weight-total-value');
+            const cardIcon = document.getElementById('weight-total-icon');
+            const cardFill = document.getElementById('weight-total-fill');
+            card.classList.remove('state-ok', 'state-warning', 'state-danger');
+            card.classList.add(state);
+            cardValue.innerText = sum + '%';
+            cardIcon.className = icon;
+            cardFill.style.width = Math.max(0, Math.min(100, sum)) + '%';
+
+            const stickyRow = document.getElementById('sticky-weight-row');
+            const stickyValue = document.getElementById('sticky-weight-value');
+            const stickyIcon = document.getElementById('sticky-weight-icon');
+            stickyRow.classList.remove('state-ok', 'state-warning', 'state-danger');
+            stickyRow.classList.add(state);
+            stickyValue.innerText = sum + '%';
+            stickyIcon.className = icon;
+        }
+
+        function updateWeightTotal() {
+            applyWeightState(getWeightsSum());
+        }
+
+        function onTier1To3PctChange() { computeTier4Pct(); }
+
+        // ---- Category micro-bars ----
+        function updateMicrobar(catDef) {
+            const min = parseFloat(catDef.slider.min), max = parseFloat(catDef.slider.max);
+            const pct = ((parseFloat(catDef.slider.value) - min) / (max - min)) * 100;
+            catDef.fill.style.width = Math.max(0, Math.min(100, pct)) + '%';
+        }
+
+        // ---- Donut chart (Chart.js) ----
+        let donutChart = null;
+        function initDonut() {
+            const ctx = document.getElementById('donutChart').getContext('2d');
+            donutChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: catDefs.map(c => c.label),
+                    datasets: [{
+                        data: catDefs.map(c => parseFloat(c.slider.value)),
+                        backgroundColor: catDefs.map(c => c.color),
+                        borderColor: window.AnalyticsTheme.bgCard,
+                        borderWidth: 2,
+                        hoverOffset: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: window.AnalyticsTheme.bgElevated,
+                            borderColor: window.AnalyticsTheme.border,
+                            borderWidth: 1,
+                            titleColor: window.AnalyticsTheme.textPrimary,
+                            bodyColor: window.AnalyticsTheme.textSecondary,
+                            callbacks: {
+                                label: function(ctx) {
+                                    const total = ctx.dataset.data.reduce((a, b) => a + b, 0) || 1;
+                                    const pct = (ctx.parsed / total * 100).toFixed(1);
+                                    return ctx.label + ': ' + pct + '%';
+                                }
+                            }
+                        }
+                    },
+                    animation: { duration: 250 }
+                }
+            });
+        }
+
+        function updateDonut() {
+            const values = catDefs.map(c => parseFloat(c.slider.value) || 0);
+            const total = values.reduce((a, b) => a + b, 0) || 1;
+
+            donutChart.data.datasets[0].data = values;
+            donutChart.update('none');
+
+            const legendEl = document.getElementById('donut-legend');
+            legendEl.innerHTML = catDefs.map((c, idx) => {
+                const pct = (values[idx] / total * 100).toFixed(0);
+                return '<div class="donut-legend-row">' +
+                    '<span class="donut-legend-dot" style="background-color:' + c.color + '"></span>' +
+                    '<span class="donut-legend-name">' + c.label + '</span>' +
+                    '<span class="donut-legend-pct">' + pct + '%</span>' +
+                    '</div>';
+            }).join('');
+
+            let topIdx = 0;
+            for (let i = 1; i < values.length; i++) {
+                if (values[i] > values[topIdx]) topIdx = i;
+            }
+            const topPct = (values[topIdx] / total * 100).toFixed(0);
+            document.getElementById('donut-center-value').innerText = topPct + '%';
+            document.getElementById('donut-center-caption').innerText = catDefs[topIdx].label;
+        }
+
+        // ---- Sticky panel stat readouts (Target User Base / Seed) ----
+        function updateStickyUsers() {
+            const v = parseInt(input_num_users.value) || 0;
+            document.getElementById('sticky-users-value').innerText = v.toLocaleString();
+        }
+        function updateStickySeed() {
+            document.getElementById('sticky-seed-value').innerText = input_seed.value || '—';
+        }
+
+        function clampNumberInput(el) {
+            let v = parseFloat(el.value);
+            const min = parseFloat(el.min), max = parseFloat(el.max);
+            if (isNaN(v)) v = min;
+            v = Math.min(max, Math.max(min, v));
+            el.value = v;
+            return v;
+        }
+
+        // ---- Wire up all dual controls ----
+        bindDual(s_t1_pct, i_t1_pct, 1, onTier1To3PctChange);
+        bindDual(s_t1_w, i_t1_w, 0, updateWeightTotal);
+        bindDual(s_t2_pct, i_t2_pct, 0, onTier1To3PctChange);
+        bindDual(s_t2_w, i_t2_w, 0, updateWeightTotal);
+        bindDual(s_t3_pct, i_t3_pct, 0, onTier1To3PctChange);
+        bindDual(s_t3_w, i_t3_w, 0, updateWeightTotal);
+        bindDual(s_t4_w, i_t4_w, 0, updateWeightTotal);
+
+        catDefs.forEach(c => {
+            bindDual(c.slider, c.input, 1, () => {
+                updateMicrobar(c);
+                updateDonut();
+            });
+        });
+
+        input_num_users.addEventListener('input', updateStickyUsers);
+        input_num_users.addEventListener('blur', function() { clampNumberInput(this); updateStickyUsers(); });
+        input_inflation.addEventListener('blur', function() { clampNumberInput(this); });
+        input_foreign.addEventListener('blur', function() { clampNumberInput(this); });
+        input_seed.addEventListener('input', updateStickySeed);
+
+        document.getElementById('random-seed-btn').addEventListener('click', function() {
+            input_seed.value = Math.floor(Math.random() * 900000) + 100000;
+            updateStickySeed();
+        });
+
+        document.getElementById('balance-equally-btn').addEventListener('click', function() {
+            catDefs.forEach(c => {
+                c.slider.value = 1.0;
+                c.slider.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+        });
+
+        // ---- Apply a config object (initial load or Reset Defaults) ----
+        function applyConfig(cfg) {
+            if (!cfg) return;
+            const pt = cfg.product_tiers || {};
             if (pt.tier_1_best_sellers) {
                 s_t1_pct.value = (pt.tier_1_best_sellers.percentage_of_catalog * 100).toFixed(1);
                 s_t1_w.value = (pt.tier_1_best_sellers.sales_weight * 100).toFixed(0);
@@ -237,48 +1128,49 @@
                 s_t4_w.value = (pt.tier_4_long_tail.sales_weight * 100).toFixed(0);
             }
 
-            const sp = config.simulation_params || {};
-            if (sp.num_users) s_num_users.value = sp.num_users;
-            if (sp.monthly_inflation !== undefined) s_inflation.value = (sp.monthly_inflation * 100).toFixed(1);
-            if (sp.foreign_ratio !== undefined) s_foreign.value = (sp.foreign_ratio * 100).toFixed(0);
+            const sp = cfg.simulation_params || {};
+            if (sp.num_users) input_num_users.value = sp.num_users;
+            if (sp.monthly_inflation !== undefined) input_inflation.value = (sp.monthly_inflation * 100).toFixed(1);
+            if (sp.foreign_ratio !== undefined) input_foreign.value = (sp.foreign_ratio * 100).toFixed(0);
             if (sp.seed) input_seed.value = sp.seed;
 
-            const cw = config.category_weights || {};
-            document.querySelectorAll('.cat-slider').forEach(sl => {
-                const catName = sl.getAttribute('data-cat');
-                if (cw[catName] !== undefined) {
-                    sl.value = cw[catName];
-                }
+            const cw = cfg.category_weights || {};
+            catDefs.forEach(c => {
+                if (cw[c.dataCat] !== undefined) c.slider.value = cw[c.dataCat];
             });
+
+            refreshAll();
         }
 
-        function syncLabels() {
-            document.getElementById('val_t1_pct').innerText = parseFloat(s_t1_pct.value).toFixed(1) + '%';
-            document.getElementById('val_t1_w').innerText = parseInt(s_t1_w.value) + '%';
-            document.getElementById('val_t2_pct').innerText = parseInt(s_t2_pct.value) + '%';
-            document.getElementById('val_t2_w').innerText = parseInt(s_t2_w.value) + '%';
-            document.getElementById('val_t3_pct').innerText = parseInt(s_t3_pct.value) + '%';
-            document.getElementById('val_t3_w').innerText = parseInt(s_t3_w.value) + '%';
-            document.getElementById('val_t4_w').innerText = parseInt(s_t4_w.value) + '%';
-
-            document.getElementById('val_num_users').innerText = parseInt(s_num_users.value).toLocaleString();
-            document.getElementById('val_inflation').innerText = parseFloat(s_inflation.value).toFixed(1) + '%';
-            document.getElementById('val_foreign').innerText = parseInt(s_foreign.value) + '%';
-
-            document.querySelectorAll('.cat-slider').forEach(sl => {
-                const valSpan = sl.previousElementSibling.querySelector('.range-val');
-                if (valSpan) valSpan.innerText = parseFloat(sl.value).toFixed(1);
+        function refreshAll() {
+            [
+                [s_t1_pct, i_t1_pct], [s_t1_w, i_t1_w],
+                [s_t2_pct, i_t2_pct], [s_t2_w, i_t2_w],
+                [s_t3_pct, i_t3_pct], [s_t3_w, i_t3_w],
+                [s_t4_w, i_t4_w]
+            ].forEach(([sl, inp]) => {
+                inp.value = sl.step && parseFloat(sl.step) < 1 ? parseFloat(sl.value).toFixed(1) : String(Math.round(parseFloat(sl.value)));
             });
+            catDefs.forEach(c => {
+                c.input.value = parseFloat(c.slider.value).toFixed(1);
+                updateMicrobar(c);
+            });
+            computeTier4Pct();
+            updateWeightTotal();
+            updateDonut();
+            updateStickyUsers();
+            updateStickySeed();
         }
 
-        const allSliders = document.querySelectorAll('.form-range');
-        allSliders.forEach(sl => sl.addEventListener('input', syncLabels));
-        syncLabels();
+        // ---- Initial paint ----
+        initDonut();
+        applyConfig(config);
 
-        document.getElementById('random-seed-btn').addEventListener('click', function() {
-            input_seed.value = Math.floor(Math.random() * 900000) + 100000;
+        document.getElementById('reset-config-btn').addEventListener('click', function() {
+            applyConfig(initialConfig);
         });
 
+        // ---- Generate Dataset + progress polling (unchanged contract) ----
         const genBtn = document.getElementById('generate-dataset-btn');
         const progressPanel = document.getElementById('generation-progress-panel');
         const genStepTitle = document.getElementById('gen-step-title');
@@ -289,11 +1181,20 @@
         let pollInterval = null;
 
         genBtn.addEventListener('click', function() {
+            clampNumberInput(input_num_users);
+            clampNumberInput(input_inflation);
+            clampNumberInput(input_foreign);
+            updateStickyUsers();
+
+            const weightSum = getWeightsSum();
+            const weightDiff = Math.abs(weightSum - 100);
+            const t4Pct = computeTier4Pct();
+
             const configPayload = {
                 simulation_params: {
-                    num_users: parseInt(s_num_users.value),
-                    monthly_inflation: parseFloat(s_inflation.value) / 100.0,
-                    foreign_ratio: parseFloat(s_foreign.value) / 100.0,
+                    num_users: parseInt(input_num_users.value),
+                    monthly_inflation: parseFloat(input_inflation.value) / 100.0,
+                    foreign_ratio: parseFloat(input_foreign.value) / 100.0,
                     seed: parseInt(input_seed.value) || 42
                 },
                 product_tiers: {
@@ -310,15 +1211,15 @@
                         sales_weight: parseFloat(s_t3_w.value) / 100.0
                     },
                     tier_4_long_tail: {
-                        percentage_of_catalog: 0.60,
+                        percentage_of_catalog: t4Pct / 100.0,
                         sales_weight: parseFloat(s_t4_w.value) / 100.0
                     }
                 },
                 category_weights: {}
             };
 
-            document.querySelectorAll('.cat-slider').forEach(sl => {
-                configPayload.category_weights[sl.getAttribute('data-cat')] = parseFloat(sl.value);
+            catDefs.forEach(c => {
+                configPayload.category_weights[c.dataCat] = parseFloat(c.slider.value);
             });
 
             genBtn.disabled = true;
@@ -329,7 +1230,13 @@
             genStepTitle.innerText = 'Initiating dataset generation engine...';
             genPctBadge.innerText = '0%';
             genBarFill.style.width = '0%';
-            genLogFeed.innerHTML = '[System] Sending configuration payload...';
+
+            if (weightDiff !== 0) {
+                genLogFeed.innerHTML = '[System] Sending configuration payload...' +
+                    '<br><span class="log-text-warning">[Warning] Sales Weight tiers sum to ' + weightSum + '% (expected 100%). Generation will proceed, but tier sampling ratios may not reflect the intended distribution.</span>';
+            } else {
+                genLogFeed.innerHTML = '[System] Sending configuration payload...';
+            }
 
             fetch('/analytics/api/generate-dataset/', {
                 method: 'POST',
@@ -353,7 +1260,7 @@
             .catch(err => {
                 console.error('Generation trigger error:', err);
                 genStepTitle.innerText = 'Generation Failed';
-                genLogFeed.innerHTML += `<br><span class="text-danger">[Error] ${err.message}</span>`;
+                genLogFeed.innerHTML += '<br><span class="log-text-danger">[Error] ' + err.message + '</span>';
                 genBtn.disabled = false;
                 genBtn.classList.remove('disabled');
                 genBtn.innerHTML = '<i class="fa-solid fa-play me-2"></i> Generate Dataset';
@@ -367,13 +1274,13 @@
                 const pct = data.progress_pct || 0;
                 genPctBadge.innerText = pct + '%';
                 genBarFill.style.width = pct + '%';
-                
+
                 if (data.current_step) {
                     genStepTitle.innerText = data.current_step;
                 }
 
                 if (data.logs && data.logs.length > 0) {
-                    genLogFeed.innerHTML = data.logs.map(l => `<div><i class="fa-solid fa-angle-right me-1 text-primary"></i> ${l}</div>`).join('');
+                    genLogFeed.innerHTML = data.logs.map(l => '<div><i class="fa-solid fa-angle-right me-1 log-text-accent"></i> ' + l + '</div>').join('');
                     genLogFeed.scrollTop = genLogFeed.scrollHeight;
                 }
 
@@ -383,14 +1290,14 @@
                     genBtn.disabled = false;
                     genBtn.classList.remove('disabled');
                     genBtn.innerHTML = '<i class="fa-solid fa-check me-2"></i> Dataset Ready';
-                    
+
                     setTimeout(() => {
                         genBtn.innerHTML = '<i class="fa-solid fa-play me-2"></i> Generate Dataset';
                     }, 4000);
                 } else if (data.error) {
                     clearInterval(pollInterval);
                     genStepTitle.innerText = 'Generation Error';
-                    genLogFeed.innerHTML += `<div class="text-danger mt-1">[Error] ${data.error}</div>`;
+                    genLogFeed.innerHTML += '<div class="log-text-danger mt-1">[Error] ' + data.error + '</div>';
                     genBtn.disabled = false;
                     genBtn.classList.remove('disabled');
                     genBtn.innerHTML = '<i class="fa-solid fa-play me-2"></i> Generate Dataset';
