@@ -8,6 +8,7 @@ Secured by InternalSecretMiddleware and consumed by the AI orchestrator microser
 
 import json
 from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 from apps.catalog.services import (
     search_catalog_service,
     get_inventory_health_service,
@@ -402,6 +403,7 @@ def catalog_embeddings_mark_error_view(request):
     return JsonResponse(result, status=status_code)
 
 
+@csrf_exempt
 def catalog_items_verify_view(request):
     """
     POST /api/v1/internal/catalog/items/verify/

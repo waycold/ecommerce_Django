@@ -7,9 +7,11 @@ Secured by InternalSecretMiddleware.
 
 import json
 from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 from apps.core.authentication.services import validate_staff_jwt_token
 
 
+@csrf_exempt
 def validate_token_view(request):
     """
     POST /api/v1/internal/auth/validate-token/
