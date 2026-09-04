@@ -11,14 +11,24 @@
     <form action="" method="post" enctype="multipart/form-data" class="custom-form">
       {% csrf_token %}
 
+      {% if form.non_field_errors %}
+      <div class="alert alert-danger" role="alert">{{ form.non_field_errors|join:", " }}</div>
+      {% endif %}
+
       <div class="row">
         <div class="col-md-6 form-group">
           <label for="{{ form.title.id_for_label }}">Product Title *</label>
           {{ form.title }}
+          {% if form.title.errors %}
+          <div class="invalid-feedback d-block">{{ form.title.errors|join:", " }}</div>
+          {% endif %}
         </div>
         <div class="col-md-6 form-group">
           <label for="{{ form.category.id_for_label }}">Category</label>
           {{ form.category }}
+          {% if form.category.errors %}
+          <div class="invalid-feedback d-block">{{ form.category.errors|join:", " }}</div>
+          {% endif %}
         </div>
       </div>
 
@@ -26,10 +36,16 @@
         <div class="col-md-6 form-group">
           <label for="{{ form.brand.id_for_label }}">Brand</label>
           {{ form.brand }}
+          {% if form.brand.errors %}
+          <div class="invalid-feedback d-block">{{ form.brand.errors|join:", " }}</div>
+          {% endif %}
         </div>
         <div class="col-md-6 form-group">
           <label for="{{ form.supplier.id_for_label }}">Supplier</label>
           {{ form.supplier }}
+          {% if form.supplier.errors %}
+          <div class="invalid-feedback d-block">{{ form.supplier.errors|join:", " }}</div>
+          {% endif %}
         </div>
       </div>
 
@@ -37,10 +53,16 @@
         <div class="col-md-6 form-group">
           <label for="{{ form.price.id_for_label }}">Selling Price ($) *</label>
           {{ form.price }}
+          {% if form.price.errors %}
+          <div class="invalid-feedback d-block">{{ form.price.errors|join:", " }}</div>
+          {% endif %}
         </div>
         <div class="col-md-6 form-group">
           <label for="{{ form.cost.id_for_label }}">Purchase Cost ($)</label>
           {{ form.cost }}
+          {% if form.cost.errors %}
+          <div class="invalid-feedback d-block">{{ form.cost.errors|join:", " }}</div>
+          {% endif %}
         </div>
       </div>
 
@@ -48,26 +70,41 @@
         <div class="col-md-6 form-group">
           <label for="{{ form.stock.id_for_label }}">Current Stock</label>
           {{ form.stock }}
+          {% if form.stock.errors %}
+          <div class="invalid-feedback d-block">{{ form.stock.errors|join:", " }}</div>
+          {% endif %}
         </div>
         <div class="col-md-6 form-group">
           <label for="{{ form.minimum_stock.id_for_label }}">Minimum Stock</label>
           {{ form.minimum_stock }}
+          {% if form.minimum_stock.errors %}
+          <div class="invalid-feedback d-block">{{ form.minimum_stock.errors|join:", " }}</div>
+          {% endif %}
         </div>
       </div>
 
       <div class="form-group">
         <label for="{{ form.description.id_for_label }}">Description</label>
         {{ form.description }}
+        {% if form.description.errors %}
+        <div class="invalid-feedback d-block">{{ form.description.errors|join:", " }}</div>
+        {% endif %}
       </div>
 
       <div class="form-group">
         <label for="{{ form.img.id_for_label }}">Product Image</label>
         {{ form.img }}
+        {% if form.img.errors %}
+        <div class="invalid-feedback d-block">{{ form.img.errors|join:", " }}</div>
+        {% endif %}
       </div>
 
       <div class="form-group form-check pl-4">
         {{ form.is_active }}
         <label class="form-check-label ml-2" for="{{ form.is_active.id_for_label }}">Active Product (Visible in store)</label>
+        {% if form.is_active.errors %}
+        <div class="invalid-feedback d-block">{{ form.is_active.errors|join:", " }}</div>
+        {% endif %}
       </div>
 
       <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">

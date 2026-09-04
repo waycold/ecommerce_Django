@@ -39,6 +39,13 @@
           </div>
         </div>
 
+        {% if image_form.non_field_errors %}
+        <div class="alert alert-danger" role="alert">{{ image_form.non_field_errors|join:", " }}</div>
+        {% endif %}
+        {% if image_form.image.errors %}
+        <div class="invalid-feedback d-block text-right mb-3">{{ image_form.image.errors|join:", " }}</div>
+        {% endif %}
+
         <!-- Personal Information -->
         <div class="form-section-title text-uppercase font-weight-bold mb-3" style="font-size: 13px; color: var(--primary-blue); letter-spacing: 0.5px;">
           Personal Information
