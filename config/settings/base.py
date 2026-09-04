@@ -37,7 +37,13 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    # cloudinary_storage must be registered before django.contrib.staticfiles
+    # (library requirement); cloudinary must load before our own apps below.
+    # See config/settings/production.py for where this actually gets wired
+    # into STORAGES['default'] -- local/testing keep FileSystemStorage.
+    'cloudinary_storage',
     'django.contrib.staticfiles',
+    'cloudinary',
     'django.contrib.humanize',
 
     # Modular Domains
@@ -100,6 +106,19 @@ else:
         )
     }
 
+# Dedicated read-only connection for apps.core.services.sql_sandbox_service
+# (the LLM-facing raw-SQL sandbox), bound to Postgres's least-privilege
+# `chatbot_readonly_role` -- see docs/sql/create_chatbot_readonly_role.sql.
+# Only defined when CHATBOT_READONLY_DATABASE_URL is actually set: local dev
+# and config/settings/testing.py run on SQLite (no concept of Postgres
+# roles) and must keep using 'default' for the sandbox -- see
+# apps.core.services.sql_sandbox_service.get_sandbox_db_alias(). Production
+# requires this env var and fails fast if it's missing (config/settings/
+# production.py) -- it never falls back to the unrestricted 'default' role.
+_chatbot_readonly_url = os.environ.get('CHATBOT_READONLY_DATABASE_URL')
+if _chatbot_readonly_url:
+    DATABASES['chatbot_readonly'] = dj_database_url.parse(_chatbot_readonly_url, conn_max_age=600)
+
 # --- Password validation ---
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -135,6 +154,22 @@ WHITENOISE_MANIFEST_STRICT = False
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 MEDIA_URL = '/uploads/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'uploads')
+
+# Cloudinary credentials for persistent media storage (Item.img,
+# Profile.image). Read here unconditionally so the dict always exists, but
+# only config/settings/production.py actually switches STORAGES['default']
+# to cloudinary_storage.storage.MediaCloudinaryStorage -- and it fails fast
+# at boot if any of these three is missing, since a silent fallback to
+# FileSystemStorage in production would reintroduce the exact ephemeral-disk
+# data-loss bug this setting exists to close (see docs/sql pattern precedent:
+# INTERNAL_API_SECRET/JWT_SECRET_KEY/CHATBOT_READONLY_DATABASE_URL above).
+# local.py and testing.py never read this dict, so they keep FileSystemStorage
+# regardless of whether these env vars happen to be set on a dev machine.
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
+    'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
+}
 
 # --- Internal Microservice Security & JWT ---
 INTERNAL_API_SECRET = os.environ.get(

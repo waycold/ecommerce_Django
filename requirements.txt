@@ -27,6 +27,13 @@ openpyxl==3.1.2
 # --- Media & File Handling ---
 Pillow==10.4.0
 
+# --- Persistent Media Storage (Cloudinary, production only) ---
+# Render's web dyno disk is ephemeral -- product/profile images stored on it
+# are lost on every redeploy. config/settings/production.py switches
+# STORAGES['default'] to cloudinary_storage.storage.MediaCloudinaryStorage.
+django-cloudinary-storage==0.3.0
+cloudinary==1.45.0
+
 # --- Testing & Mock Data ---
 Faker==22.5.1
 datasets==2.21.0
