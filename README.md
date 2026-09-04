@@ -756,6 +756,16 @@ python manage.py generate_data
 python manage.py createsuperuser
 ```
 
+> **`generate_data` is destructive and dev/demo-only.** Before generating anything it
+> **purges the entire product catalog, every order, and every non-superuser user
+> account** in whatever database it's pointed at. Never run it against an environment
+> that holds real data. By default it asks for interactive confirmation (type `yes`
+> to proceed) before touching the database; pass `--noinput` (alias `--force`) to skip
+> the prompt, which is intended only for CI/staging automation against a database
+> already known to be disposable, never for routine use. If stdin isn't a TTY (e.g.
+> piped/non-interactive shells) and `--noinput` isn't passed, the command aborts
+> instead of hanging on an `input()` call that can never be answered.
+
 ### 4. Run Development Server & Test Suite
 ```bash
 # Execute 196+ Pytest suite
