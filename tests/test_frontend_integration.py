@@ -233,8 +233,9 @@ class TestJWTContextProcessorInjection:
         token = token_match.group(1)
         assert len(token) > 20, "Injected JWT token must be a non-trivial string"
 
-        # Decode token using settings.SECRET_KEY
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        # Decode using settings.JWT_SECRET_KEY -- generate_user_jwt_token signs
+        # with it, not SECRET_KEY (they only coincided by default pre-Fase 0).
+        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=["HS256"])
         assert payload.get("user_id") == regular_customer.id
         assert payload.get("username") == regular_customer.username
         assert payload.get("email") == regular_customer.email

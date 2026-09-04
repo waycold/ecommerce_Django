@@ -36,4 +36,17 @@ class InternalSecretMiddleware:
                     status=401
                 )
 
+            # The Gateway is a server-to-server client: it authenticates with
+            # this shared secret, never with a browser session/CSRF cookie,
+            # so CsrfViewMiddleware's cookie-based check doesn't apply to it.
+            # `csrf_processing_done` is the exact flag
+            # django.middleware.csrf.CsrfViewMiddleware.process_view checks
+            # first ("if getattr(request, 'csrf_processing_done', False):
+            # return None") to skip its own check. Setting it here -- once
+            # the secret has already validated -- exempts every current and
+            # future /api/v1/internal/* view centrally, instead of requiring
+            # a @csrf_exempt decorator on each one (a fix that already
+            # regressed twice when new POST views were added without it).
+            request.csrf_processing_done = True
+
         return self.get_response(request)

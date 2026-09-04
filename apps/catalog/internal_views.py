@@ -181,6 +181,7 @@ def catalog_reviews_summary_view(request):
     return JsonResponse(result, status=200)
 
 
+@csrf_exempt
 def catalog_semantic_search_view(request):
     """
     POST (or GET) /api/v1/internal/catalog/semantic-search/
@@ -239,6 +240,7 @@ def catalog_semantic_search_view(request):
 # all business logic -- these views are thin parse-and-delegate wrappers.
 # ---------------------------------------------------------------------------
 
+@csrf_exempt
 def catalog_vector_search_view(request):
     """
     POST /api/v1/internal/catalog/vector-search/
@@ -277,6 +279,7 @@ def catalog_vector_search_view(request):
     return JsonResponse(result, status=status_code)
 
 
+@csrf_exempt
 def catalog_embeddings_similar_view(request):
     """
     POST /api/v1/internal/catalog/embeddings/similar/
@@ -339,6 +342,7 @@ def catalog_embeddings_pending_view(request):
     return JsonResponse(result, status=status_code)
 
 
+@csrf_exempt
 def catalog_embeddings_upsert_view(request):
     """
     POST /api/v1/internal/catalog/embeddings/upsert/
@@ -374,6 +378,7 @@ def catalog_embeddings_upsert_view(request):
     return JsonResponse(result, status=status_code)
 
 
+@csrf_exempt
 def catalog_embeddings_mark_error_view(request):
     """
     POST /api/v1/internal/catalog/embeddings/mark-error/

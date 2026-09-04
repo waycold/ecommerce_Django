@@ -11,7 +11,8 @@ import time
 from decimal import Decimal
 from datetime import datetime, date
 from typing import Tuple, Dict, Any, List
-from django.db import connection, DatabaseError
+from django.conf import settings
+from django.db import connections, transaction, DatabaseError
 
 
 FORBIDDEN_SQL_KEYWORDS = [
@@ -46,14 +47,48 @@ FORBIDDEN_TABLE_PATTERNS = [
     r'\bdjango_session\b',
     r'\bauth_permission\b',
     r'\bauth_group\b',
+    r'\bauth_user\b',
+    r'\bauth_user_groups\b',
+    r'\bauth_user_user_permissions\b',
+    r'\bdjango_admin_log\b',
     r'\bpg_shadow\b',
     r'\bpg_authid\b',
 ]
+
+# Django DATABASES alias for the dedicated least-privilege Postgres role
+# (chatbot_readonly_role -- see docs/sql/create_chatbot_readonly_role.sql).
+SANDBOX_DB_ALIAS = 'chatbot_readonly'
+
+
+def get_sandbox_db_alias() -> str:
+    """
+    Picks the DATABASES alias the sandbox should run queries against.
+
+    Returns 'chatbot_readonly' when that alias is configured in
+    settings.DATABASES (production, via CHATBOT_READONLY_DATABASE_URL --
+    see config/settings/base.py and config/settings/production.py), so the
+    sandbox is bounded by chatbot_readonly_role's GRANTs at the database
+    engine level, not only by FORBIDDEN_TABLE_PATTERNS above.
+
+    Falls back to 'default' when the alias isn't configured: local dev and
+    the pytest suite run on SQLite, which has no concept of Postgres roles,
+    so they never define 'chatbot_readonly' and must keep working against
+    the single SQLite database they already have.
+    """
+    return SANDBOX_DB_ALIAS if SANDBOX_DB_ALIAS in settings.DATABASES else 'default'
 
 
 def execute_safe_sql_sandbox(raw_query: str) -> Tuple[Dict[str, Any], int]:
     """
     Validates and securely executes a read-only SELECT SQL query.
+
+    Runs against the connection alias returned by get_sandbox_db_alias() --
+    the dedicated 'chatbot_readonly' role in production, 'default' otherwise
+    -- inside a single transaction.atomic() block so that the per-query
+    `SET LOCAL statement_timeout` (Postgres only) actually applies to the
+    query that follows it instead of leaking into a separate autocommit
+    transaction (see apps/catalog/rag_service.py for the same pattern
+    applied to `SET LOCAL hnsw.ef_search`).
 
     Args:
         raw_query (str): SQL query statement to validate and execute.
@@ -115,19 +150,26 @@ def execute_safe_sql_sandbox(raw_query: str) -> Tuple[Dict[str, Any], int]:
     sandboxed_query = f"SELECT * FROM ({query_str}) AS _sandbox_result LIMIT 50"
 
     # 7. Execute query with timing
+    alias = get_sandbox_db_alias()
+    conn = connections[alias]
     start_time = time.perf_counter()
     try:
-        with connection.cursor() as cursor:
-            # Set statement timeout for postgres if supported
-            if connection.vendor == 'postgresql':
-                cursor.execute("SET LOCAL statement_timeout = '2000ms';")
-            
-            cursor.execute(sandboxed_query)
-            description = cursor.description or []
-            columns = [col[0] for col in description]
-            
-            raw_rows = cursor.fetchmany(50)
-            
+        # SET LOCAL only affects the transaction it runs in: both statements
+        # MUST share one transaction.atomic() block, otherwise (as before this
+        # fix) each cursor.execute() is its own autocommit transaction and the
+        # 2s statement_timeout never applies to the real query.
+        with transaction.atomic(using=alias):
+            with conn.cursor() as cursor:
+                # Set statement timeout for postgres if supported
+                if conn.vendor == 'postgresql':
+                    cursor.execute("SET LOCAL statement_timeout = '2000ms';")
+
+                cursor.execute(sandboxed_query)
+                description = cursor.description or []
+                columns = [col[0] for col in description]
+
+                raw_rows = cursor.fetchmany(50)
+
             # Format row data for JSON serialization
             rows_data: List[Dict[str, Any]] = []
             for row in raw_rows:

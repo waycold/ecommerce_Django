@@ -32,10 +32,39 @@ import pytest
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.test import Client
+from django.urls import reverse
 
+from apps.core import internal_urls
 from apps.core.authentication.services import generate_user_jwt_token
 from apps.core.authentication.views import validate_token_view
 from apps.catalog.internal_views import catalog_items_verify_view
+from apps.catalog.models import EMBEDDING_DIM
+
+
+# Expected HTTP method per apps.core.internal_urls route `name` -- duplicated
+# from tests/test_database_ai_endpoints.py's INTERNAL_ENDPOINT_METHODS on
+# purpose so the two regression suites stay independent of each other.
+ALL_INTERNAL_ENDPOINT_METHODS = {
+    'internal_health': 'GET',
+    'internal_auth_validate_token': 'POST',
+    'internal_catalog_search': 'GET',
+    'internal_catalog_semantic_search': 'POST',
+    'internal_catalog_reviews_summary': 'GET',
+    'internal_inventory_health': 'GET',
+    'internal_analytics_metrics': 'GET',
+    'internal_analytics_query': 'GET',
+    'internal_analytics_margins': 'GET',
+    'internal_analytics_funnel': 'GET',
+    'internal_customers_insights': 'GET',
+    'internal_raw_sql_sandbox': 'POST',
+    'internal_catalog_vector_search': 'POST',
+    'internal_catalog_embeddings_similar': 'POST',
+    'internal_catalog_embeddings_pending': 'GET',
+    'internal_catalog_embeddings_upsert': 'POST',
+    'internal_catalog_embeddings_mark_error': 'POST',
+    'internal_catalog_items_verify': 'POST',
+    'internal_catalog_facets': 'GET',
+}
 
 
 @pytest.fixture
@@ -166,3 +195,76 @@ class TestCatalogItemsVerifySurvivesStrictCsrf:
             HTTP_X_INTERNAL_SECRET='wrong-secret',
         )
         assert response.status_code == 401
+
+
+@pytest.mark.django_db
+class TestAllInternalEndpointsSurviveStrictCsrf:
+    """
+    Fase 0, Tarea 4 acceptance criterion: walk every one of the 19 routes in
+    apps.core.internal_urls.urlpatterns (not a hand-picked subset) with
+    Client(enforce_csrf_checks=True) and the correct X-Internal-Secret, and
+    confirm none of them ever returns 403. Before the InternalSecretMiddleware
+    fix (setting request.csrf_processing_done = True once the secret is
+    valid), 6 of the 8 POST routes failed this -- only
+    auth/validate-token and catalog/items/verify had a per-view @csrf_exempt.
+
+    A 403 here is the only unacceptable outcome. A GET-only route rejecting
+    a payload-less GET with 400, or a POST route responding 404/400 to a
+    dummy item_id/task_id that doesn't exist, are legitimate business
+    responses proving the request reached the view at all.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _staff_token(self, db):
+        user = User.objects.create_user(
+            username='csrf_sweep_staff',
+            email='csrf_sweep_staff@example.com',
+            password='securepassword123',
+            is_staff=True,
+            is_active=True,
+        )
+        self.token = generate_user_jwt_token(user)
+
+    def _payload_for(self, name: str) -> dict:
+        """Minimal, shape-valid JSON body per POST route -- just enough to
+        clear the view's own input validation so the response reflects real
+        business logic (200/400/404) instead of a generic malformed-body 400,
+        without needing a fully wired catalog/embedding fixture per route."""
+        return {
+            'internal_auth_validate_token': {'token': self.token},
+            'internal_catalog_semantic_search': {'query_text': 'gaming laptop', 'limit': 5},
+            'internal_raw_sql_sandbox': {'query': 'SELECT 1 AS n'},
+            'internal_catalog_vector_search': {'query_vector': [0.0] * EMBEDDING_DIM, 'top_k': 3},
+            'internal_catalog_embeddings_similar': {'item_id': 999999, 'top_k': 3},
+            'internal_catalog_embeddings_upsert': {'item_id': 999999, 'vector': [0.0] * EMBEDDING_DIM},
+            'internal_catalog_embeddings_mark_error': {'task_id': 999999, 'error': 'csrf sweep test'},
+            'internal_catalog_items_verify': {'item_ids': [999999]},
+        }.get(name, {})
+
+    @pytest.mark.parametrize('url_pattern', internal_urls.urlpatterns, ids=lambda p: p.name)
+    def test_endpoint_never_returns_403_under_strict_csrf(self, url_pattern):
+        name = url_pattern.name
+        method = ALL_INTERNAL_ENDPOINT_METHODS[name]
+        path = reverse(f'internal:{name}')
+        strict_client = Client(enforce_csrf_checks=True)
+        auth_header = {'HTTP_X_INTERNAL_SECRET': settings.INTERNAL_API_SECRET}
+
+        if method == 'GET':
+            response = strict_client.get(path, **auth_header)
+        else:
+            response = strict_client.post(
+                path,
+                data=json.dumps(self._payload_for(name)),
+                content_type='application/json',
+                **auth_header,
+            )
+
+        assert response.status_code != 403, (
+            f"{name} ({method} {path}) returned 403 under strict CSRF "
+            f"enforcement -- missing InternalSecretMiddleware's "
+            f"csrf_processing_done fix (or a per-view @csrf_exempt)."
+        )
+
+    def test_endpoints_cover_all_19_internal_routes(self):
+        assert len(internal_urls.urlpatterns) == 19
+        assert set(p.name for p in internal_urls.urlpatterns) == set(ALL_INTERNAL_ENDPOINT_METHODS)

@@ -29,7 +29,7 @@ def validate_staff_jwt_token(token: str) -> Tuple[Dict[str, Any], int]:
     try:
         payload = jwt.decode(
             token,
-            settings.SECRET_KEY,
+            getattr(settings, 'JWT_SECRET_KEY', settings.SECRET_KEY),
             algorithms=['HS256'],
         )
     except jwt.ExpiredSignatureError:

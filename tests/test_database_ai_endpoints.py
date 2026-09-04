@@ -41,10 +41,59 @@ import json
 import pytest
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.urls import reverse
 from django.utils import timezone
 
 from apps.catalog.models import Category, Brand, Supplier, Item, Comments
+from apps.core import internal_urls
 from apps.orders.models import Order, OrderItem, OrderStatus, PaymentMethod, Profile
+
+
+# Expected HTTP method per apps.core.internal_urls route `name`, keyed off
+# each view's own `if request.method != '...'` guard. Declared once here so
+# _build_internal_endpoints() below can walk internal_urls.urlpatterns
+# (rather than a hardcoded path list) and fail loudly -- instead of silently
+# skipping -- if a newly added internal route has no known method.
+INTERNAL_ENDPOINT_METHODS = {
+    'internal_health': 'GET',
+    'internal_auth_validate_token': 'POST',
+    'internal_catalog_search': 'GET',
+    'internal_catalog_semantic_search': 'POST',
+    'internal_catalog_reviews_summary': 'GET',
+    'internal_inventory_health': 'GET',
+    'internal_analytics_metrics': 'GET',
+    'internal_analytics_query': 'GET',
+    'internal_analytics_margins': 'GET',
+    'internal_analytics_funnel': 'GET',
+    'internal_customers_insights': 'GET',
+    'internal_raw_sql_sandbox': 'POST',
+    'internal_catalog_vector_search': 'POST',
+    'internal_catalog_embeddings_similar': 'POST',
+    'internal_catalog_embeddings_pending': 'GET',
+    'internal_catalog_embeddings_upsert': 'POST',
+    'internal_catalog_embeddings_mark_error': 'POST',
+    'internal_catalog_items_verify': 'POST',
+    'internal_catalog_facets': 'GET',
+}
+
+
+def _build_internal_endpoints():
+    """
+    Walks apps.core.internal_urls.urlpatterns -- the single source of truth
+    for what's actually routed under /api/v1/internal/* -- instead of a
+    hand-maintained path list, so a newly added internal endpoint is picked
+    up automatically rather than shipping untested.
+    """
+    endpoints = []
+    for url_pattern in internal_urls.urlpatterns:
+        name = url_pattern.name
+        assert name in INTERNAL_ENDPOINT_METHODS, (
+            f"internal_urls route '{name}' has no entry in "
+            f"INTERNAL_ENDPOINT_METHODS -- add its expected HTTP method so "
+            f"it gets covered by TestDatabaseAIEndpointsSecurity."
+        )
+        endpoints.append((reverse(f'internal:{name}'), INTERNAL_ENDPOINT_METHODS[name]))
+    return endpoints
 
 
 @pytest.fixture
@@ -302,19 +351,18 @@ def ai_endpoints_dataset(db):
 @pytest.mark.django_db
 class TestDatabaseAIEndpointsSecurity:
     """
-    Validates X-Internal-Secret enforcement and HTTP method restrictions across all 8 internal routes.
+    Validates X-Internal-Secret enforcement and HTTP method restrictions
+    across all 19 internal routes (apps.core.internal_urls.urlpatterns).
     """
 
-    ENDPOINTS = [
-        ('/api/v1/internal/analytics/query/', 'GET'),
-        ('/api/v1/internal/inventory/health/', 'GET'),
-        ('/api/v1/internal/analytics/margins/', 'GET'),
-        ('/api/v1/internal/analytics/funnel/', 'GET'),
-        ('/api/v1/internal/catalog/reviews-summary/', 'GET'),
-        ('/api/v1/internal/customers/insights/', 'GET'),
-        ('/api/v1/internal/catalog/semantic-search/', 'POST'),
-        ('/api/v1/internal/query/raw-read/', 'POST'),
-    ]
+    ENDPOINTS = _build_internal_endpoints()
+
+    def test_endpoints_list_covers_all_internal_urls(self):
+        """
+        Guards against ENDPOINTS silently shrinking back to a stale subset:
+        every route in apps.core.internal_urls.urlpatterns must appear here.
+        """
+        assert len(self.ENDPOINTS) == len(internal_urls.urlpatterns) == 19
 
     def test_all_endpoints_reject_missing_secret_header(self, client):
         """Requests without X-Internal-Secret must return 401 Unauthorized."""
@@ -708,6 +756,31 @@ class TestModule7SQLSandbox:
         assert response.status_code == 400
         assert response.json().get('error') == 'Forbidden Table Access'
 
+    def test_auth_user_table_blocked(self, client, ai_endpoints_dataset):
+        """
+        Fase 0, Tarea 1: auth_user holds every user's password hash --
+        FORBIDDEN_TABLE_PATTERNS must reject it exactly like the other
+        sensitive auth/session tables, never return 200 with real rows.
+        """
+        auth_header = {'HTTP_X_INTERNAL_SECRET': settings.INTERNAL_API_SECRET}
+        payload = {"query": "SELECT username, password FROM auth_user;"}
+        response = client.post(self.ENDPOINT, data=json.dumps(payload), content_type='application/json', **auth_header)
+        assert response.status_code == 400
+        assert response.json().get('error') == 'Forbidden Table Access'
+
+    def test_auth_user_related_tables_blocked(self, client, ai_endpoints_dataset):
+        """Companion tables that also expose user identity/permissions must be blocked too."""
+        auth_header = {'HTTP_X_INTERNAL_SECRET': settings.INTERNAL_API_SECRET}
+        for query in (
+            "SELECT * FROM auth_user_groups;",
+            "SELECT * FROM auth_user_user_permissions;",
+            "SELECT * FROM django_admin_log;",
+        ):
+            payload = {"query": query}
+            response = client.post(self.ENDPOINT, data=json.dumps(payload), content_type='application/json', **auth_header)
+            assert response.status_code == 400, f"Query was not blocked: {query}"
+            assert response.json().get('error') == 'Forbidden Table Access'
+
     def test_empty_sql_query_rejected(self, client):
         auth_header = {'HTTP_X_INTERNAL_SECRET': settings.INTERNAL_API_SECRET}
         payload = {"query": "   "}
@@ -725,3 +798,149 @@ class TestModule7SQLSandbox:
         data = response.json()
         assert data['status'] == 'success'
         assert len(data['rows']) >= 1
+
+
+# ==============================================================================
+# 10. FASE 0, TAREA 2: DEDICATED READ-ONLY SANDBOX CONNECTION
+# ==============================================================================
+
+class _TrackingConnections:
+    """Thin wrapper around django.db.connections that records which alias
+    was subscripted, while still delegating to the real ConnectionHandler --
+    used to prove execute_safe_sql_sandbox() asks for the right alias
+    without needing a real second Postgres server."""
+
+    def __init__(self, real_connections):
+        self._real = real_connections
+        self.accessed_aliases = []
+
+    def __getitem__(self, alias):
+        self.accessed_aliases.append(alias)
+        return self._real[alias]
+
+
+@pytest.mark.django_db
+class TestSandboxDatabaseAlias:
+    """
+    Validates apps.core.services.sql_sandbox_service.get_sandbox_db_alias()
+    and that execute_safe_sql_sandbox() actually connects through it, per
+    Fase 0 Tarea 2(c): the sandbox must run against the dedicated
+    'chatbot_readonly' alias when it's configured, and fall back to
+    'default' (SQLite in dev/tests) when it isn't -- it must never silently
+    keep using the full Django connection once the alias exists.
+    """
+
+    def test_alias_is_default_when_chatbot_readonly_not_configured(self):
+        from apps.core.services.sql_sandbox_service import get_sandbox_db_alias
+        assert 'chatbot_readonly' not in settings.DATABASES  # guaranteed by config/settings/testing.py
+        assert get_sandbox_db_alias() == 'default'
+
+    def test_alias_is_chatbot_readonly_when_configured(self, settings):
+        from apps.core.services.sql_sandbox_service import get_sandbox_db_alias
+        settings.DATABASES = {
+            **settings.DATABASES,
+            'chatbot_readonly': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': ':memory:'},
+        }
+        assert get_sandbox_db_alias() == 'chatbot_readonly'
+
+    def test_execute_safe_sql_sandbox_uses_default_alias_when_not_configured(self, monkeypatch):
+        import apps.core.services.sql_sandbox_service as sandbox_module
+        from django.db import connections as real_connections
+
+        tracker = _TrackingConnections(real_connections)
+        monkeypatch.setattr(sandbox_module, 'connections', tracker)
+
+        result, status_code = sandbox_module.execute_safe_sql_sandbox("SELECT 1 AS n")
+
+        assert status_code == 200
+        assert tracker.accessed_aliases == ['default']
+
+    def test_execute_safe_sql_sandbox_delegates_alias_choice_to_get_sandbox_db_alias(self, monkeypatch):
+        """
+        Proves execute_safe_sql_sandbox() picks its connection by *calling*
+        get_sandbox_db_alias() and using exactly what it returns, rather
+        than a literal 'default' baked into the function. Combined with
+        test_alias_is_chatbot_readonly_when_configured above (which proves
+        get_sandbox_db_alias() itself returns 'chatbot_readonly' once that
+        key exists in settings.DATABASES), this establishes the full chain
+        the acceptance criteria ask for.
+
+        This intentionally spies on the real get_sandbox_db_alias() instead
+        of wiring up a live second 'chatbot_readonly' connection: Django's
+        TestCase machinery only allows connections to aliases a test
+        declares upfront (`databases = {...}`), computed from
+        settings.DATABASES at session start -- long before a alias could be
+        injected mid-test -- so a genuine second connection would require
+        permanently adding 'chatbot_readonly' to config/settings/testing.py,
+        which Tarea 2(c) explicitly says local/testing must never do.
+        """
+        import apps.core.services.sql_sandbox_service as sandbox_module
+        from django.db import connections as real_connections
+
+        real_get_alias = sandbox_module.get_sandbox_db_alias
+        expected_alias = real_get_alias()  # 'default' here (chatbot_readonly not configured)
+        alias_calls = []
+
+        def _spy_get_alias():
+            value = real_get_alias()
+            alias_calls.append(value)
+            return value
+
+        monkeypatch.setattr(sandbox_module, 'get_sandbox_db_alias', _spy_get_alias)
+        tracker = _TrackingConnections(real_connections)
+        monkeypatch.setattr(sandbox_module, 'connections', tracker)
+
+        result, status_code = sandbox_module.execute_safe_sql_sandbox("SELECT 1 AS n")
+
+        assert status_code == 200, result
+        assert alias_calls == [expected_alias]
+        assert tracker.accessed_aliases == [expected_alias]
+
+
+# ==============================================================================
+# 11. FASE 0, TAREA 3: SANDBOX TIMEOUT MUST RUN IN A SINGLE TRANSACTION
+# ==============================================================================
+
+@pytest.mark.django_db
+class TestSandboxAtomicTransaction:
+    """
+    Before the fix, `SET LOCAL statement_timeout` and the sandboxed query
+    ran as two separate autocommit statements, so the timeout never applied
+    to the query that followed it. SQLite has no statement_timeout to
+    actually time out (execute_safe_sql_sandbox only issues SET LOCAL when
+    connection.vendor == 'postgresql'), so this verifies the mechanic the
+    fix relies on instead: both statements now run inside the exact same
+    transaction.atomic() block, which on Postgres is what makes SET LOCAL
+    apply to the query at all.
+    """
+
+    def test_query_runs_inside_a_savepoint_of_the_sandbox_alias(self):
+        from django.test.utils import CaptureQueriesContext
+        from django.db import connections
+        from apps.core.services.sql_sandbox_service import execute_safe_sql_sandbox, get_sandbox_db_alias
+
+        conn = connections[get_sandbox_db_alias()]
+        with CaptureQueriesContext(conn) as ctx:
+            result, status_code = execute_safe_sql_sandbox("SELECT 1 AS n")
+
+        assert status_code == 200
+        sqls = [q['sql'].upper() for q in ctx.captured_queries]
+        # transaction.atomic() nested inside the pytest-django test
+        # transaction opens a SAVEPOINT before the real query and
+        # releases it after -- proof the two statements share one
+        # transaction instead of being two independent autocommits.
+        assert any('SAVEPOINT' in sql for sql in sqls), sqls
+        assert any('SELECT 1 AS N' in sql for sql in sqls), sqls
+
+    def test_atomic_block_rolls_back_savepoint_on_query_failure(self):
+        """
+        A DatabaseError inside the atomic block (e.g. a malformed sandboxed
+        query) must not leave a dangling transaction/savepoint open on the
+        sandbox connection -- execute_safe_sql_sandbox must still return its
+        normal 400 error shape, not raise.
+        """
+        from apps.core.services.sql_sandbox_service import execute_safe_sql_sandbox
+
+        result, status_code = execute_safe_sql_sandbox("SELECT * FROM this_table_does_not_exist")
+        assert status_code == 400
+        assert result['error'] == 'Database Query Error'

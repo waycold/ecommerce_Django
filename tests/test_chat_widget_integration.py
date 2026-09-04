@@ -42,8 +42,11 @@ class TestChatWidgetContextProcessor(TestCase):
         self.assertIsNotNone(token)
         self.assertIsInstance(token, str)
 
-        # Decode token and verify payload
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        # Decode token and verify payload -- generate_user_jwt_token signs with
+        # JWT_SECRET_KEY (apps/core/authentication/services.py), not SECRET_KEY;
+        # they only coincided by default before Fase 0 gave JWT_SECRET_KEY its
+        # own real value.
+        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=["HS256"])
         self.assertEqual(payload["user_id"], self.user.id)
         self.assertEqual(payload["username"], self.user.username)
         self.assertEqual(payload["email"], self.user.email)

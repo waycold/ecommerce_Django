@@ -7,9 +7,11 @@ Secured by InternalSecretMiddleware and consumed by AI Agents for dynamic ad-hoc
 
 import json
 from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 from apps.core.services.sql_sandbox_service import execute_safe_sql_sandbox
 
 
+@csrf_exempt
 def raw_sql_sandbox_view(request):
     """
     POST /api/v1/internal/query/raw-read/
