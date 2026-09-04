@@ -1,0 +1,15 @@
+.git
+.gitignore
+venv/
+__pycache__/
+*.pyc
+db.sqlite3
+uploads/
+staticfiles/
+.env
+.env.*
+!.env.example
+*.md
+scratch/
+apps/analytics/scratch/
+apps/analytics/data/
