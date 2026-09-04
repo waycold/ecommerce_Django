@@ -353,9 +353,11 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
         t4_w = float(tier_configs.get("tier_4_long_tail", {}).get("sales_weight", 0.05)) / max(1, t4_count)
 
         items_sales_weights = []
+        tier1_item_ids = set()
         for idx, item in enumerate(items_db):
             if idx < t1_count:
                 base_w = t1_w
+                tier1_item_ids.add(item.id)
             elif idx < t1_count + t2_count:
                 base_w = t2_w
             elif idx < t1_count + t2_count + t3_count:
@@ -365,6 +367,35 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
 
             cat_multiplier = float(cat_weights.get(item.category.name if item.category else "Unknown", 1.0))
             items_sales_weights.append(base_w * max(0.01, cat_multiplier))
+
+        # Initial stock (random.randint(0, 500) above) was assigned before any
+        # notion of sales tier existed. Tier-1 "best sellers" are, by
+        # construction, weighted to sell far more units than the rest of the
+        # catalog, so that random stock is routinely smaller than what the
+        # simulated sales below will consume, and every tier-1 item ends up
+        # decremented to 0. Now that each item's expected share of sales
+        # volume (its normalized items_sales_weights entry) is known, scale
+        # stock up to comfortably cover it, with a safety buffer for variance.
+        #
+        # avg_orders_per_user / avg_items_per_order / avg_qty_per_line mirror
+        # the distributions the order simulation below actually draws from
+        # (paretovariate(2.2) with a 25% chance of 0 orders, randint(1, 5),
+        # randint(1, 3)); using the continuous Pareto mean instead of the
+        # int()-truncated one is a deliberate overestimate, on top of the
+        # explicit buffer, since this only needs to be a representative
+        # proxy of expected demand, not an exact forecast.
+        avg_orders_per_user = 0.75 * (2.2 / (2.2 - 1))
+        avg_items_per_order = 3.0
+        avg_qty_per_line = 2.0
+        expected_total_units_sold = num_users * avg_orders_per_user * avg_items_per_order * avg_qty_per_line
+        total_sales_weight = sum(items_sales_weights) or 1.0
+        STOCK_SAFETY_BUFFER = 1.5
+
+        for idx, item in enumerate(items_db):
+            expected_units_for_item = expected_total_units_sold * (items_sales_weights[idx] / total_sales_weight)
+            tier_based_stock = math.ceil(expected_units_for_item * STOCK_SAFETY_BUFFER)
+            item.stock = max(item.stock, tier_based_stock)
+        Item.objects.bulk_update(items_db, ['stock'], batch_size=1000)
 
         update_progress(50, f"Generating {num_users} Users & Profiles...", f"Creating user base with {foreign_ratio*100:.0f}% international ratio...")
         log(f"4. Generating Users & Profiles...")
@@ -567,6 +598,21 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
             itm.stock = max(0, itm.stock - sold_qty)
         Item.objects.bulk_update(items_db, ['stock'], batch_size=1000)
 
+        # Explicit consistency check on the derived attribute (stock) against
+        # the real one it depends on (sales tier): a best-seller ending the
+        # simulated history with stock=0 means the tier-based scaling above
+        # under-shot actual demand for this seed/config.
+        tier1_final_stocks = [itm.stock for itm in items_db if itm.id in tier1_item_ids]
+        zero_stock_best_sellers = [itm.id for itm in items_db if itm.id in tier1_item_ids and itm.stock == 0]
+        if zero_stock_best_sellers:
+            log(f"[Warning] {len(zero_stock_best_sellers)}/{len(tier1_item_ids)} tier-1 best-seller item(s) ended the simulation with stock=0: {zero_stock_best_sellers}")
+        elif tier1_final_stocks:
+            log(
+                f"   -> Stock/tier consistency check passed: all {len(tier1_item_ids)} tier-1 best-sellers ended "
+                f"with stock > 0 (min={min(tier1_final_stocks)}, avg={sum(tier1_final_stocks)/len(tier1_final_stocks):.0f}, "
+                f"max={max(tier1_final_stocks)})."
+            )
+
         update_progress(92, "Generating Reviews & Comments...", f"Ensuring rating coverage across all categories...")
         log(f"6. Generating Reviews & Comments...")
         comment_objs = []
@@ -599,19 +645,30 @@ def generate_dataset_pipeline(config_override: dict = None, seed: int = None, co
             count_to_create = max(2, min(5, len(cat_reviews) if cat_reviews else 3))
 
             for i in range(count_to_create):
-                target_item = random.choice(cat_items)
                 usr = random.choice(users_db)
-                pair = (usr.id, target_item.id)
 
+                # A real review's text belongs to one specific product (its
+                # parent_asin) -- never paste it onto a random item from the
+                # category. If that product wasn't imported into the catalog,
+                # this real review has no valid target here: fall back to a
+                # synthetic body on a random category item instead, which is
+                # always a safe (non-misattributed) placeholder.
+                real_item = None
+                if i < len(cat_reviews) and cat_reviews[i].get("text"):
+                    real_item = asin_to_item.get(cat_reviews[i].get("parent_asin"))
+
+                if real_item is not None:
+                    target_item = real_item
+                    body_text = cat_reviews[i]["text"][:1000]
+                    rating_val = int(cat_reviews[i].get("rating", random.randint(4, 5)))
+                else:
+                    target_item = random.choice(cat_items)
+                    body_text = random.choice(sample_bodies)
+                    rating_val = random.randint(3, 5)
+
+                pair = (usr.id, target_item.id)
                 if pair not in used_pairs:
                     used_pairs.add(pair)
-                    if i < len(cat_reviews) and cat_reviews[i].get("text"):
-                        body_text = cat_reviews[i]["text"][:1000]
-                        rating_val = int(cat_reviews[i].get("rating", random.randint(4, 5)))
-                    else:
-                        body_text = random.choice(sample_bodies)
-                        rating_val = random.randint(3, 5)
-
                     comment_objs.append(Comments(
                         user=usr,
                         item=target_item,

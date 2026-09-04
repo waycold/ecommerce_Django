@@ -112,7 +112,24 @@ def fetch_category_data(category_name, limit_meta=65, limit_reviews=100):
     except Exception as e:
         print(f"[Warning] Failed to fetch metadata for {category_name}: {e}")
 
-    # 2. Fetch reviews
+    # 2. Fetch reviews, correlated against the metadata sampled above.
+    #
+    # Metadata and reviews are independently streamed samples of the
+    # underlying HF dataset -- `.take(n)` just grabs the first n records of
+    # each stream in isolation, so a review's parent_asin landing inside the
+    # `limit_meta`-sized metadata sample by chance is rare for any
+    # category with more than a few hundred distinct products. Scanning a
+    # much wider (but still bounded) review window and keeping every review
+    # that actually matches one of the sampled products gives later
+    # attribution (generator_service.py) real reviews to work with instead
+    # of only the ~1-in-a-hundred coincidental overlap `limit_reviews` alone
+    # would produce; unmatched reviews are still collected as a fallback, up
+    # to the original `limit_reviews` baseline, so categories with little or
+    # no real overlap (large catalogs like Books/Electronics) keep the same
+    # review volume as before for the synthetic-body coverage fallback.
+    meta_asins = {m["parent_asin"] for m in meta_items if m.get("parent_asin")}
+    review_scan_limit = max(limit_reviews * 20, 2000)
+    max_matched_reviews = max(limit_reviews * 3, 300)
     try:
         review_ds = load_dataset(
             HF_DATASET_NAME,
@@ -121,8 +138,10 @@ def fetch_category_data(category_name, limit_meta=65, limit_reviews=100):
             streaming=True,
             trust_remote_code=True
         )
-        for rev in review_ds.take(limit_reviews):
-            reviews.append({
+        matched_reviews = []
+        fallback_reviews = []
+        for rev in review_ds.take(review_scan_limit):
+            entry = {
                 "parent_asin": rev.get("parent_asin"),
                 "rating": float(rev.get("rating", 5.0)),
                 "title": rev.get("title", ""),
@@ -130,7 +149,13 @@ def fetch_category_data(category_name, limit_meta=65, limit_reviews=100):
                 "user_id": rev.get("user_id", "anonymous_user"),
                 "timestamp": rev.get("timestamp"),
                 "category": category_name
-            })
+            }
+            if entry["parent_asin"] in meta_asins:
+                if len(matched_reviews) < max_matched_reviews:
+                    matched_reviews.append(entry)
+            elif len(fallback_reviews) < limit_reviews:
+                fallback_reviews.append(entry)
+        reviews = matched_reviews + fallback_reviews[:max(0, limit_reviews - len(matched_reviews))]
     except Exception as e:
         print(f"[Warning] Failed to fetch reviews for {category_name}: {e}")
 
