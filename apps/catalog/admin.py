@@ -1,5 +1,5 @@
 from django.contrib import admin
-from apps.catalog.models import Brand, Category, Supplier, Item, Comments
+from apps.catalog.models import Brand, Category, Supplier, Item, Comments, EmbeddingSyncTask
 
 
 @admin.register(Brand)
@@ -32,3 +32,10 @@ class ItemAdmin(admin.ModelAdmin):
 class CommentsAdmin(admin.ModelAdmin):
     list_display = ('id', 'user', 'item', 'date_added', 'likes')
     search_fields = ('user__username', 'body', 'item__title')
+
+
+@admin.register(EmbeddingSyncTask)
+class EmbeddingSyncTaskAdmin(admin.ModelAdmin):
+    list_display = ('id', 'item', 'status', 'content_hash', 'created_at', 'updated_at')
+    list_filter = ('status',)
+    search_fields = ('item__title', 'error_message')
